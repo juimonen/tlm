@@ -1,4 +1,5 @@
 #include "tlm-seat.h"
+#include "tlm-session.h"
 #include "tlm-log.h"
 
 G_DEFINE_TYPE (TlmSeat, tlm_seat, G_TYPE_OBJECT);
@@ -18,12 +19,17 @@ struct _TlmSeatPrivate
 {
     gchar *id;
     gchar *path;
+    TlmSession *session;
 };
 
 static void
 tlm_seat_dispose (GObject *self)
 {
-    DBG("disposing seat: %s", TLM_SEAT(self)->priv->id);
+    TlmSeat *seat = TLM_SEAT(self);
+
+    DBG("disposing seat: %s", seat->priv->id);
+
+    g_clear_object (&seat->priv->session);
 
     G_OBJECT_CLASS (tlm_seat_parent_class)->dispose (self);
 }
@@ -122,10 +128,34 @@ tlm_seat_init (TlmSeat *seat)
     seat->priv = priv;
 }
 
+const gchar *
+tlm_seat_get_id (TlmSeat *seat)
+{
+    g_return_val_if_fail (seat && TLM_IS_SEAT (seat), NULL);
+
+    return (const gchar*) seat->priv->id;
+}
+
+
+gboolean
+tlm_seat_creat_session (
+    TlmSeat *seat,
+    const gchar *service, 
+    const gchar *username)
+{
+    g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
+    g_return_val_if_fail (seat->priv->session == NULL, FALSE);
+    g_return_val_if_fail (service, FALSE);
+
+    seat->priv->session = tlm_session_new (service);
+    tlm_session_putenv (seat->priv->session, "XDG_SEAT", seat->priv->id);
+
+    return tlm_session_start(seat->priv->session, username);
+}
+
 TlmSeat *
 tlm_seat_new (const gchar *id, const gchar *path)
 {
     return g_object_new (TLM_TYPE_SEAT, "id", id, "path", path, NULL);
 }
-
 

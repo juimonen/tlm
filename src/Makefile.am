@@ -2,8 +2,14 @@ NULL=
 bin_PROGRAMS=tlm
 
 tlm_SOURCES = \
+	tlm-utils.h \
+	tlm-utils.c \
    	tlm-log.h \
     tlm-log.c \
+	tlm-auth-session.h \
+	tlm-auth-session.c \
+    tlm-session.h \
+    tlm-session.c \
 	tlm-seat.h \
 	tlm-seat.c \
 	tlm-manager.h \
@@ -21,4 +27,5 @@ tlm_CFLAGS = \
 
 tlm_LDADD = \
 	$(TLM_LIBS) \
+	-lpam \
 	$(NULL)

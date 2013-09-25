@@ -36,6 +36,15 @@ GType tlm_seat_get_type(void);
 TlmSeat *
 tlm_seat_new (const gchar *id, const gchar *path);
 
+const gchar *
+tlm_seat_get_id (TlmSeat *seat);
+
+gboolean
+tlm_seat_creat_session (TlmSeat *seat,
+                        const gchar *service, 
+                        const gchar *username);
+
+
 G_END_DECLS
 
 #endif /* _TLM_SEAT_H */

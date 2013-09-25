@@ -34,6 +34,12 @@ GType tlm_manager_get_type (void);
 
 TlmManager * tlm_manager_new ();
 
+gboolean
+tlm_manager_start();
+
+gboolean 
+tlm_manager_stop();
+
 G_END_DECLS
 
 #endif /* _TLM_MANAGER_H */

@@ -13,10 +13,11 @@ AM_INIT_AUTOMAKE([1.11 silent-rules subdir-objects tar-pax -Wno-portability])
 AC_PROG_CC
 
 # Checks for libraries.
-PKG_CHECK_MODULES([TLM], [glib-2.0 gio-2.0])
+PKG_CHECK_MODULES([TLM], [glib-2.0 gio-2.0 gio-unix-2.0])
 AC_SUBST(TLM_CFLAGS)
 AC_SUBST(TLM_LIBS)
 
+TLM_CFLAGS="$TLM_CFLAGS -Wall -Werror"
 
 # Checks for header files.
 

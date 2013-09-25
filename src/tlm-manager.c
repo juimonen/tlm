@@ -18,10 +18,19 @@ struct _TlmManagerPrivate
 {
     GDBusConnection *connection;
     GHashTable *seats; /* { gchar*:TlmSeat* } */
+    gboolean is_started;
 
     guint seat_added_id;
     guint seat_removed_id;
 };
+
+enum {
+    SIG_SEAT_ADDED,
+    SIG_SEAT_REMOVED,
+    SIG_MAX,
+};
+
+static guint signals[SIG_MAX];
 
 static void
 tlm_manager_dispose (GObject *self)
@@ -29,6 +38,10 @@ tlm_manager_dispose (GObject *self)
     TlmManager *manager = TLM_MANAGER(self);
 
     DBG("disposing manager");
+
+    if (manager->priv->is_started) {
+        tlm_manager_stop (manager);
+    }
 
     if (manager->priv->seats) {
         g_hash_table_unref (manager->priv->seats);
@@ -68,6 +81,28 @@ tlm_manager_class_init (TlmManagerClass *klass)
     g_klass->constructor = tlm_manager_constructor;    
     g_klass->dispose = tlm_manager_dispose ;
     g_klass->finalize = tlm_manager_finalize;
+
+    signals[SIG_SEAT_ADDED] =  g_signal_new ("seat-added",
+                TLM_TYPE_MANAGER,
+                G_SIGNAL_RUN_LAST,
+                0,
+                NULL,
+                NULL,
+                NULL,
+                G_TYPE_NONE,
+                1,
+                TLM_TYPE_SEAT);
+
+    signals[SIG_SEAT_REMOVED] =  g_signal_new ("seat-removed",
+                TLM_TYPE_MANAGER,
+                G_SIGNAL_RUN_LAST,
+                0,
+                NULL,
+                NULL,
+                NULL,
+                G_TYPE_NONE,
+                1,
+                G_TYPE_STRING);
 }
 
 static void
@@ -90,33 +125,39 @@ tlm_manager_init (TlmManager *manager)
 }
 
 static void
-_manager_hashify_seats (TlmManagerPrivate *priv, GVariant *hash_map)
+_manager_hashify_seats (TlmManager *manager, GVariant *hash_map)
 {
     GVariantIter iter;
     gchar *id = 0, *path = 0;
-    GHashTable *table = 0;
+    TlmManagerPrivate *priv = NULL;
 
-    g_return_if_fail (priv);
+    g_return_if_fail (manager);
     g_return_if_fail (hash_map);
+
+    priv = manager->priv;
 
     g_variant_iter_init (&iter, hash_map);
     while (g_variant_iter_next (&iter, "(so)", &id, &path)) {
         DBG("found seat %s:%s", id, path);
-        g_hash_table_insert (priv->seats, id, tlm_seat_new (id, path));
+        TlmSeat *seat = tlm_seat_new (id, path);
+
+        g_hash_table_insert (priv->seats, id, seat);
+
+        g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);
         g_free (path);
     }
 }
 
 static void
-_manager_sync_seats (TlmManagerPrivate *priv)
+_manager_sync_seats (TlmManager *manager)
 {
     GError *error = NULL;
     GVariant *reply = NULL;
     GVariant *hash_map = NULL;
 
-    g_return_if_fail (priv && priv->connection);
+    g_return_if_fail (manager && manager->priv->connection);
 
-    reply = g_dbus_connection_call_sync (priv->connection,
+    reply = g_dbus_connection_call_sync (manager->priv->connection,
 		LOGIND_BUS_NAME,
 		LOGIND_OBJECT_PATH,
 		LOGIND_MANAGER_IFACE,
@@ -136,7 +177,7 @@ _manager_sync_seats (TlmManagerPrivate *priv)
     g_variant_get (reply, "(@a(so))", &hash_map);
     g_variant_unref (reply);
 
-    _manager_hashify_seats (priv, hash_map);
+    _manager_hashify_seats (manager, hash_map);
 
     g_variant_unref (hash_map);
 }
@@ -162,8 +203,10 @@ _manager_on_seat_added (GDBusConnection *connection,
     DBG("Seat added: %s:%s", id, path);
 
     if (!g_hash_table_contains (manager->priv->seats, id)) {
-        g_hash_table_insert (manager->priv->seats, (gpointer)id,
-                     (gpointer)tlm_seat_new (id, path));
+        TlmSeat *seat = tlm_seat_new (id, path);
+
+        g_hash_table_insert (manager->priv->seats,(gpointer)id, (gpointer)seat);
+        g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);
         g_free (path);
     } 
     else {
@@ -194,6 +237,8 @@ _manager_on_seat_removed (GDBusConnection *connection,
 
     if (!g_hash_table_contains (manager->priv->seats, id)) {
         g_hash_table_remove (manager->priv->seats, id);
+        g_signal_emit (manager, signals[SIG_SEAT_REMOVED], 0, id, NULL);
+
     } 
     g_free (id);
     g_free (path);
@@ -242,21 +287,29 @@ _manager_unsubsribe_seat_changes (TlmManager *manager)
     }
 }
 
-void
+gboolean
 tlm_manager_start (TlmManager *manager)
 {
-    g_return_if_fail (manager && TLM_IS_MANAGER (manager));
+    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
 
-    _manager_sync_seats (manager->priv);
+    _manager_sync_seats (manager);
     _manager_subscribe_seat_changes (manager);
+
+    manager->priv->is_started = TRUE;
+
+    return TRUE;
 }
 
-void
+gboolean
 tlm_manager_stop (TlmManager *manager)
 {
-    g_return_if_fail (manager && TLM_IS_MANAGER (manager));
+    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
 
     _manager_unsubsribe_seat_changes (manager);
+    
+    manager->priv->is_started = FALSE;
+
+    return TRUE;
 }
 
 TlmManager *
