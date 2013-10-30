@@ -1,3 +1,29 @@
+/* vi: set et sw=4 ts=4 cino=t0,(0: */
+/* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/*
+ * This file is part of tlm (Tizen Login Manager)
+ *
+ * Copyright (C) 2013 Intel Corporation.
+ *
+ * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
+ *          Jussi Laako <jussi.laako@linux.intel.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA
+ */
+
 #include "tlm-auth-session.h"
 #include "tlm-log.h"
 #include "tlm-utils.h"
@@ -42,7 +68,7 @@ struct _TlmAuthSessionPrivate
 static void
 tlm_auth_session_dispose (GObject *self)
 {
-    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION(self)->priv;
+    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION (self)->priv;
     DBG("disposing auth_session: %s:%s", priv->service, priv->username);
 
     if (priv->pam_handle) {
@@ -56,7 +82,7 @@ tlm_auth_session_dispose (GObject *self)
 static void
 tlm_auth_session_finalize (GObject *self)
 {
-    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION(self)->priv;
+    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION (self)->priv;
 
     g_clear_string (&priv->service);
     g_clear_string (&priv->username);
@@ -66,45 +92,45 @@ tlm_auth_session_finalize (GObject *self)
 
 static void
 _auth_session_set_property (GObject *obj,
-                    guint property_id,
-                    const GValue *value,
-                    GParamSpec *pspec)
+                            guint property_id,
+                            const GValue *value,
+                            GParamSpec *pspec)
 {
     TlmAuthSession *auth_session = TLM_AUTH_SESSION(obj);
 
     switch (property_id) {
         case PROP_SERVICE: 
-        auth_session->priv->service = g_value_dup_string (value);
-        break;
+            auth_session->priv->service = g_value_dup_string (value);
+            break;
 
         case PROP_USERNAME:
-        auth_session->priv->username = g_value_dup_string (value);
-        break;
+            auth_session->priv->username = g_value_dup_string (value);
+            break;
 
         default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
     }
 }
 
 static void
 _auth_session_get_property (GObject *obj,
-                    guint property_id,
-                    GValue *value,
-                    GParamSpec *pspec)
+                            guint property_id,
+                            GValue *value,
+                            GParamSpec *pspec)
 {
     TlmAuthSession *auth_session = TLM_AUTH_SESSION(obj);
 
     switch (property_id) {
         case PROP_SERVICE: 
-        g_value_set_string (value, auth_session->priv->service);
-        break;
+            g_value_set_string (value, auth_session->priv->service);
+            break;
 
         case PROP_USERNAME:
-        g_value_set_string (value, auth_session->priv->username);
-        break;
+            g_value_set_string (value, auth_session->priv->username);
+            break;
 
         default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
     }
 }
 
@@ -171,9 +197,8 @@ _auth_session_get_logind_session_id (GError **error)
     gchar *session_id;
 
     bus = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, error);
-    if (!bus) {
+    if (!bus)
         return NULL;
-    }
 
     result = g_dbus_connection_call_sync (bus,
                                           "org.freedesktop.login1",
@@ -187,24 +212,22 @@ _auth_session_get_logind_session_id (GError **error)
                                           NULL,
                                           error);
     g_object_unref (bus);
-    if (error) {
+    if (error)
         return NULL;
-    }
 
     g_variant_get (result, "(o)", &session_id);
     g_object_unref (result);
 
-    DBG ("Logind session : %s", session_id);
+    DBG ("logind session : %s", session_id);
 
     return session_id;
 }
 
 static int
-_auth_session_pam_conversation_cb (
-    int n_msgs,
-    const struct pam_message **msgs,
-    struct pam_response **resps,
-    void *appdata_ptr)
+_auth_session_pam_conversation_cb (int n_msgs,
+                                   const struct pam_message **msgs,
+                                   struct pam_response **resps,
+                                   void *appdata_ptr)
 {
     int i;
     TlmAuthSession *auth_session = TLM_AUTH_SESSION (appdata_ptr);
@@ -215,7 +238,7 @@ _auth_session_pam_conversation_cb (
     *resps = calloc (n_msgs, sizeof(struct pam_response));
     for (i=0; i < n_msgs; i++) {
         const struct pam_message *msg = msgs[i];
-        struct pam_response *resp = resps[i];
+        struct pam_response *resp = *resps + i;
 
         DBG ("Message string : %s", msg->msg);
         if (msg->msg_style  == PAM_PROMPT_ECHO_OFF) {
