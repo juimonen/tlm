@@ -66,9 +66,9 @@ const gchar *
 tlm_seat_get_id (TlmSeat *seat);
 
 gboolean
-tlm_seat_creat_session (TlmSeat *seat,
-                        const gchar *service, 
-                        const gchar *username);
+tlm_seat_create_session (TlmSeat *seat,
+                         const gchar *service, 
+                         const gchar *username);
 
 
 G_END_DECLS

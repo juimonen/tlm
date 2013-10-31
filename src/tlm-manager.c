@@ -144,8 +144,8 @@ tlm_manager_init (TlmManager *manager)
         return;
     }
 
-    priv->seats = g_hash_table_new_full (g_str_hash, g_str_equal, 
-                            g_free, (GDestroyNotify)g_object_unref);
+    priv->seats = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+                                         (GDestroyNotify)g_object_unref);
 
     manager->priv = priv;
 }
@@ -184,16 +184,16 @@ _manager_sync_seats (TlmManager *manager)
     g_return_if_fail (manager && manager->priv->connection);
 
     reply = g_dbus_connection_call_sync (manager->priv->connection,
-		LOGIND_BUS_NAME,
-		LOGIND_OBJECT_PATH,
-		LOGIND_MANAGER_IFACE,
-		"ListSeats",
-		g_variant_new("()"),
-		G_VARIANT_TYPE_TUPLE,
-        G_DBUS_CALL_FLAGS_NONE,
-        -1,
-        NULL,
-        &error);
+                                         LOGIND_BUS_NAME,
+                                         LOGIND_OBJECT_PATH,
+                                         LOGIND_MANAGER_IFACE,
+                                         "ListSeats",
+                                         g_variant_new("()"),
+                                         G_VARIANT_TYPE_TUPLE,
+                                         G_DBUS_CALL_FLAGS_NONE,
+                                         -1,
+                                         NULL,
+                                         &error);
     if (!reply) {
         WARN ("failed to get attached seats: %s", error->message);
         g_error_free (error);
@@ -275,15 +275,16 @@ _manager_subscribe_seat_changes (TlmManager *manager)
 {
     TlmManagerPrivate *priv = manager->priv;
 
-    priv->seat_added_id = g_dbus_connection_signal_subscribe (priv->connection,
-                                LOGIND_BUS_NAME,
-                                LOGIND_MANAGER_IFACE,
-                                "SeatNew",
-                                LOGIND_OBJECT_PATH,
-                                NULL,
-                                G_DBUS_SIGNAL_FLAGS_NONE,
-                                _manager_on_seat_added,
-                                manager, NULL);
+    priv->seat_added_id = g_dbus_connection_signal_subscribe (
+                              priv->connection,
+                              LOGIND_BUS_NAME,
+                              LOGIND_MANAGER_IFACE,
+                              "SeatNew",
+                              LOGIND_OBJECT_PATH,
+                              NULL,
+                              G_DBUS_SIGNAL_FLAGS_NONE,
+                              _manager_on_seat_added,
+                              manager, NULL);
 
     priv->seat_removed_id = g_dbus_connection_signal_subscribe (
                                 priv->connection,
@@ -343,5 +344,4 @@ tlm_manager_new ()
 {
     return g_object_new (TLM_TYPE_MANAGER, NULL);
 }
-
 

@@ -262,13 +262,14 @@ tlm_auth_session_putenv (
     const gchar *value)
 {
     int res;
-    char env_item[1024];
+    gchar *env_item;
     g_return_val_if_fail (
         auth_session && TLM_IS_AUTH_SESSION (auth_session), FALSE);
     g_return_val_if_fail (var, FALSE);
 
-    snprintf (env_item, 1023, "%s=%s", var, value ? value : "");
+    env_item = g_strdup_printf ("%s=%s", var, value ? value : "");
     res = pam_putenv (auth_session->priv->pam_handle, env_item);
+    g_free (env_item);
     if (res != PAM_SUCCESS) {
         WARN ("pam putenv ('%s=%s') failed", var, value);
         return FALSE;
@@ -311,13 +312,13 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
                                  auth_session };
         DBG ("Loading pam for service '%s'", priv->service);
         res = pam_start (priv->service, priv->username,
-                             &conv, &priv->pam_handle);
+                         &conv, &priv->pam_handle);
         if (res != PAM_SUCCESS) {
             WARN ("pam initialization failed: %s", pam_strerror (NULL, res));
             GError *error = g_error_new (TLM_AUTH_SESSION_ERROR,
-                                 TLM_AUTH_SESSION_PAM_ERROR,
-                                "pam inititalization failed : %s",
-                                 pam_strerror (NULL, res));
+                                         TLM_AUTH_SESSION_PAM_ERROR,
+                                         "pam inititalization failed : %s",
+                                         pam_strerror (NULL, res));
             g_signal_emit (auth_session, signals[SIG_AUTH_ERROR], 0, error);
             g_error_free (error);
             return FALSE;
@@ -336,11 +337,11 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
     res = pam_authenticate (priv->pam_handle, PAM_SILENT);
     if (res != PAM_SUCCESS) {
         WARN ("pam authentication failure: %s", 
-            pam_strerror (priv->pam_handle, res));
+              pam_strerror (priv->pam_handle, res));
         GError *error = g_error_new (TLM_AUTH_SESSION_ERROR,
-                                 TLM_AUTH_SESSION_PAM_ERROR,
-                                "pam authenticaton failed : %s",
-                                 pam_strerror (priv->pam_handle, res));
+                                     TLM_AUTH_SESSION_PAM_ERROR,
+                                     "pam authenticaton failed : %s",
+                                     pam_strerror (priv->pam_handle, res));
         g_signal_emit (auth_session, signals[SIG_AUTH_ERROR], 0, error);
         g_error_free (error); 
         return FALSE;
@@ -349,13 +350,13 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
     g_signal_emit (auth_session, signals[SIG_AUTH_SUCCESS], 0);
 
     tlm_auth_session_putenv (auth_session, "PATH", 
-                        "/usr/local/bin:/usr/bin:/bin");
+                             "/usr/local/bin:/usr/bin:/bin");
     tlm_auth_session_putenv (auth_session, "USER", priv->username);
     tlm_auth_session_putenv (auth_session, "LOGNAME", priv->username);
     tlm_auth_session_putenv (auth_session, "HOME", 
-                        tlm_user_get_home_dir (priv->username));
+                             tlm_user_get_home_dir (priv->username));
     tlm_auth_session_putenv (auth_session, "SHELL",
-                        tlm_user_get_shell (priv->username));
+                             tlm_user_get_shell (priv->username));
     tlm_auth_session_putenv (auth_session, "XDG_SESSION_CLASS", "greeter");
     tlm_auth_session_putenv (auth_session, "XDG_VTNR", "1");
 
@@ -380,7 +381,7 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
         return FALSE;
     }
     g_signal_emit (auth_session, signals[SIG_SESSION_OPEND],
-                         0, priv->session_id);
+                   0, priv->session_id);
     return TRUE;
 }
 
@@ -414,7 +415,8 @@ tlm_auth_session_new (const gchar *service, const gchar *username)
                             auth_session };
     int res;
 
-    res = pam_start (service, username, &conv, &auth_session->priv->pam_handle);
+    res = pam_start (service, username,
+                     &conv, &auth_session->priv->pam_handle);
     if (res != PAM_SUCCESS) {
         WARN ("Failed to start pam for service '%s' with user '%s'",
                 service, username);

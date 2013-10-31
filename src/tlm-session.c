@@ -83,11 +83,11 @@ _session_set_property (GObject *obj,
 
     switch (property_id) {
         case PROP_SERVICE: 
-        session->priv->service = g_value_dup_string (value);
-        break;
+          session->priv->service = g_value_dup_string (value);
+            break;
 
         default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
     }
 }
 
@@ -101,11 +101,11 @@ _session_get_property (GObject *obj,
 
     switch (property_id) {
         case PROP_SERVICE: 
-        g_value_set_string (value, session->priv->service);
-        break;
+            g_value_set_string (value, session->priv->service);
+            break;
 
         default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
     }
 }
 

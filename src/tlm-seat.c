@@ -164,7 +164,7 @@ tlm_seat_get_id (TlmSeat *seat)
 
 
 gboolean
-tlm_seat_creat_session (
+tlm_seat_create_session (
     TlmSeat *seat,
     const gchar *service, 
     const gchar *username)
