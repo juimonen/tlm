@@ -30,6 +30,7 @@
 
 #include <security/pam_appl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <malloc.h> /* calloc() */
 #include <string.h> /* strlen() */
 #include <gio/gio.h>
@@ -240,7 +241,7 @@ _auth_session_pam_conversation_cb (int n_msgs,
         const struct pam_message *msg = msgs[i];
         struct pam_response *resp = *resps + i;
 
-        DBG ("Message string : %s", msg->msg);
+        DBG (" message string : %s", msg->msg);
         if (msg->msg_style  == PAM_PROMPT_ECHO_OFF) {
             resp->resp = strndup ("", PAM_MAX_RESP_SIZE - 1);
             resp->resp[PAM_MAX_RESP_SIZE-1]='\0';
@@ -300,7 +301,8 @@ gboolean
 tlm_auth_session_start (TlmAuthSession *auth_session)
 {
     TlmAuthSessionPrivate *priv = NULL;
-    int res ;
+    int res;
+    const char *env;
     GError *error = 0;
     g_return_val_if_fail (auth_session && 
                 TLM_IS_AUTH_SESSION(auth_session), FALSE);
@@ -310,7 +312,7 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
     if (!priv->pam_handle) {
         struct pam_conv conv = { _auth_session_pam_conversation_cb,
                                  auth_session };
-        DBG ("Loading pam for service '%s'", priv->service);
+        DBG ("loading pam for service '%s'", priv->service);
         res = pam_start (priv->service, priv->username,
                          &conv, &priv->pam_handle);
         if (res != PAM_SUCCESS) {
@@ -324,16 +326,30 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
             return FALSE;
         }
     }
+
+    env = getenv("DISPLAY");
+    if (!env) {
+        env = ctermid(NULL);
+    }
+    DBG ("terminal '%s', setting PAM_TTY", env);
+    if (pam_set_item (priv->pam_handle, PAM_TTY, env) != PAM_SUCCESS) {
+            WARN ("pam_set_item(PAM_TTY)");
+    }
+    if (pam_set_item (priv->pam_handle,
+                      PAM_RUSER,
+                      tlm_user_get_name (geteuid())) != PAM_SUCCESS) {
+        WARN ("pam_set_item(PAM_RUSER)");
+    }
+    if (pam_set_item (priv->pam_handle, PAM_RHOST, "localhost") !=
+        PAM_SUCCESS) {
+        WARN ("pam_set_item(PAM_RHOST)");
+    }
+
     char *p_service = 0, *p_uname = 0;
     pam_get_item (priv->pam_handle, PAM_SERVICE, (const void **)&p_service);
     pam_get_item (priv->pam_handle, PAM_USER, (const void **)&p_uname);
-    DBG ("PAM Service : '%s', PAM username : '%s'", p_service, p_uname);
-    //res = pam_set_item (priv->pam_handle, PAM_RUSER, "root");
-    //if (res != PAM_SUCCESS) {
-    //    WARN ("Failed to set PAM_RUSER: %s", 
-    //        pam_strerror (priv->pam_handle, res));
-    //}
-    DBG ("Starting pam authentication for user '%s'", priv->username); 
+    DBG ("PAM service : '%s', PAM username : '%s'", p_service, p_uname);
+    DBG ("starting pam authentication for user '%s'", priv->username); 
     res = pam_authenticate (priv->pam_handle, PAM_SILENT);
     if (res != PAM_SUCCESS) {
         WARN ("pam authentication failure: %s", 
@@ -407,9 +423,11 @@ tlm_auth_session_stop (TlmAuthSession *auth_session)
 TlmAuthSession *
 tlm_auth_session_new (const gchar *service, const gchar *username)
 {
-    TlmAuthSession *auth_session = TLM_AUTH_SESSION(g_object_new 
-                (TLM_TYPE_AUTH_SESSION,
-                 "service", service, "username", username, NULL));
+    TlmAuthSession *auth_session = TLM_AUTH_SESSION (
+        g_object_new (TLM_TYPE_AUTH_SESSION,
+                      "service", service,
+                      "username", username,
+                      NULL));
 
     struct pam_conv conv = { _auth_session_pam_conversation_cb,
                             auth_session };

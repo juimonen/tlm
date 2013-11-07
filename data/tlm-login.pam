@@ -1,5 +1,5 @@
 #%PAM-1.0
-auth     required       pam_permit.so
+auth     include        common-auth
 account  include        common-account
 password include        common-password
 session  required       pam_loginuid.so

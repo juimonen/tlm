@@ -33,6 +33,8 @@ G_BEGIN_DECLS
 
 void g_clear_string (gchar **);
 
+const gchar * tlm_user_get_name (uid_t user_id);
+
 const gchar * tlm_user_get_home_dir (const gchar *username);
 
 const gchar * tlm_user_get_shell (const gchar *username);

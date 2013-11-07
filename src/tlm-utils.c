@@ -39,6 +39,18 @@ g_clear_string (gchar **str)
 }
 
 const gchar *
+tlm_user_get_name (uid_t user_id)
+{
+    struct passwd *pwent;
+
+    pwent = getpwuid (user_id);
+    if (!pwent)
+        return NULL;
+
+    return pwent->pw_name;
+}
+
+const gchar *
 tlm_user_get_home_dir (const gchar *username)
 {
     struct passwd *pwent;
