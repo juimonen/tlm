@@ -173,12 +173,15 @@ _session_on_auth_error (
 }
 
 static void
-_session_on_session_error(
+_session_on_session_error (
     TlmAuthSession *session, 
     GError *error, 
     gpointer userdata)
 {
-    WARN ("ERROR : %s", error->message);
+    if (!error)
+        WARN ("ERROR but error is NULL");
+    else
+        WARN ("ERROR : %s", error->message);
 }
 
 static void
@@ -189,6 +192,7 @@ _session_on_session_opened(
 {
     DBG ("Session ID : %s", id);
 }
+
 gboolean
 tlm_session_start (TlmSession *session, const gchar *username)
 {

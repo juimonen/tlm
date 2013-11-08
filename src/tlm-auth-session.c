@@ -201,10 +201,11 @@ _auth_session_get_logind_session_id (GError **error)
     if (!bus)
         return NULL;
 
+    DBG ("trying to get session id");
     result = g_dbus_connection_call_sync (bus,
                                           "org.freedesktop.login1",
                                           "/org/freedesktop/login1",
-                                          "ofg.freedesktop.login1.Manager",
+                                          "org.freedesktop.login1.Manager",
                                           "GetSessionByPID",
                                           g_variant_new("(u)", getpid()),
                                           G_VARIANT_TYPE("(o)"),
@@ -213,11 +214,13 @@ _auth_session_get_logind_session_id (GError **error)
                                           NULL,
                                           error);
     g_object_unref (bus);
-    if (error)
+    if (!result) {
+        DBG ("failed to get session id");
         return NULL;
+    }
 
     g_variant_get (result, "(o)", &session_id);
-    g_object_unref (result);
+    g_variant_unref (result);
 
     DBG ("logind session : %s", session_id);
 
