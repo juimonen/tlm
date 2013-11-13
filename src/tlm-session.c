@@ -24,6 +24,11 @@
  * 02110-1301 USA
  */
 
+#include <string.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include "tlm-session.h"
 #include "tlm-auth-session.h"
 #include "tlm-log.h"
@@ -185,21 +190,30 @@ _session_on_session_error (
 }
 
 static void
-_session_on_session_opened(
+_session_on_session_created(
     TlmAuthSession *session,
     const gchar *id,
     gpointer userdata)
 {
-    DBG ("Session ID : %s", id);
+    const char *shell;
+    const char *home;
+
+    DBG ("session ID : %s", id);
+
+    shell = getenv("SHELL");
+    home = getenv("HOME");
+    DBG ("starting %s in %s", shell, home);
+    if (shell) {
+        chdir(home);
+        execl(shell, shell, "-l", (const char *) NULL);
+        ERR ("execl(): %s", strerror(errno));
+    }
 }
 
 gboolean
 tlm_session_start (TlmSession *session, const gchar *username)
 {
     g_return_val_if_fail (session && TLM_IS_SESSION(session), FALSE);
-    g_return_val_if_fail (username, FALSE);
-
-    (void)username;
 
     session->priv->auth_session = 
         tlm_auth_session_new (session->priv->service, username);
@@ -208,8 +222,8 @@ tlm_session_start (TlmSession *session, const gchar *username)
 
     g_signal_connect (session->priv->auth_session, "auth-error", 
                 G_CALLBACK(_session_on_auth_error), (gpointer)session);
-    g_signal_connect (session->priv->auth_session, "session-opened",
-                G_CALLBACK(_session_on_session_opened), (gpointer)session);
+    g_signal_connect (session->priv->auth_session, "session-created",
+                G_CALLBACK(_session_on_session_created), (gpointer)session);
     g_signal_connect (session->priv->auth_session, "session-error",
                 G_CALLBACK (_session_on_session_error), (gpointer)session);
 

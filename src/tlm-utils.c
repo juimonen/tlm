@@ -50,6 +50,30 @@ tlm_user_get_name (uid_t user_id)
     return pwent->pw_name;
 }
 
+uid_t
+tlm_user_get_uid (const gchar *username)
+{
+    struct passwd *pwent;
+
+    pwent = getpwnam (username);
+    if (!pwent)
+        return -1;
+
+    return pwent->pw_uid;
+}
+
+gid_t
+tlm_user_get_gid (const gchar *username)
+{
+    struct passwd *pwent;
+
+    pwent = getpwnam (username);
+    if (!pwent)
+        return -1;
+
+    return pwent->pw_gid;
+}
+
 const gchar *
 tlm_user_get_home_dir (const gchar *username)
 {

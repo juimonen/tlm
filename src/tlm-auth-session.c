@@ -24,16 +24,20 @@
  * 02110-1301 USA
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <string.h> 
+#include <errno.h>
+#include <grp.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <security/pam_appl.h>
+#include <gio/gio.h>
+
 #include "tlm-auth-session.h"
 #include "tlm-log.h"
 #include "tlm-utils.h"
-
-#include <security/pam_appl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <malloc.h> /* calloc() */
-#include <string.h> /* strlen() */
-#include <gio/gio.h>
 
 G_DEFINE_TYPE (TlmAuthSession, tlm_auth_session, G_TYPE_OBJECT);
 
@@ -52,7 +56,7 @@ static GParamSpec *pspecs[N_PROPERTIES];
 enum {
     SIG_AUTH_ERROR,
     SIG_AUTH_SUCCESS,
-    SIG_SESSION_OPEND,
+    SIG_SESSION_CREATED,
     SIG_SESSION_ERROR,
     SIG_MAX
 };
@@ -167,7 +171,7 @@ tlm_auth_session_class_init (TlmAuthSessionClass *klass)
                                 0, NULL, NULL, NULL, G_TYPE_NONE,
                                 0, G_TYPE_NONE);
 
-    signals[SIG_SESSION_OPEND] = g_signal_new ("session-opened",
+    signals[SIG_SESSION_CREATED] = g_signal_new ("session-created",
                                 TLM_TYPE_AUTH_SESSION, G_SIGNAL_RUN_LAST,
                                 0, NULL, NULL, NULL, G_TYPE_NONE,
                                 1, G_TYPE_STRING);
@@ -243,11 +247,25 @@ _auth_session_pam_conversation_cb (int n_msgs,
     for (i=0; i < n_msgs; i++) {
         const struct pam_message *msg = msgs[i];
         struct pam_response *resp = *resps + i;
+        const char *login = "test";
+        const char *key = "test";
+        const char *login_prompt = "login";
+        const char *pwd_prompt = "Password";
 
-        DBG (" message string : %s", msg->msg);
-        if (msg->msg_style  == PAM_PROMPT_ECHO_OFF) {
-            resp->resp = strndup ("", PAM_MAX_RESP_SIZE - 1);
-            resp->resp[PAM_MAX_RESP_SIZE-1]='\0';
+        DBG (" message string : '%s'", msg->msg);
+        if (msg->msg_style == PAM_PROMPT_ECHO_ON &&
+            strncmp(msg->msg, login_prompt, strlen(login_prompt)) == 0) {
+            DBG ("  login prompt");
+            resp->resp = strndup (login, PAM_MAX_RESP_SIZE - 1);
+            resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
+            resp->resp_retcode = PAM_SUCCESS;
+            auth_session->priv->username = strdup(login);
+        }
+        else if (msg->msg_style == PAM_PROMPT_ECHO_OFF &&
+                 strncmp(msg->msg, pwd_prompt, strlen(pwd_prompt)) == 0) {
+            DBG ("  password prompt");
+            resp->resp = strndup (key, PAM_MAX_RESP_SIZE - 1);
+            resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
             resp->resp_retcode = PAM_SUCCESS;
         }
         else {
@@ -271,7 +289,10 @@ tlm_auth_session_putenv (
         auth_session && TLM_IS_AUTH_SESSION (auth_session), FALSE);
     g_return_val_if_fail (var, FALSE);
 
-    env_item = g_strdup_printf ("%s=%s", var, value ? value : "");
+    if (value)
+        env_item = g_strdup_printf ("%s=%s", var, value);
+    else
+        env_item = g_strdup_printf ("%s", var);
     res = pam_putenv (auth_session->priv->pam_handle, env_item);
     g_free (env_item);
     if (res != PAM_SUCCESS) {
@@ -368,18 +389,24 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
 
     g_signal_emit (auth_session, signals[SIG_AUTH_SUCCESS], 0);
 
-    tlm_auth_session_putenv (auth_session, "PATH", 
-                             "/usr/local/bin:/usr/bin:/bin");
-    tlm_auth_session_putenv (auth_session, "USER", priv->username);
-    tlm_auth_session_putenv (auth_session, "LOGNAME", priv->username);
-    tlm_auth_session_putenv (auth_session, "HOME", 
-                             tlm_user_get_home_dir (priv->username));
-    tlm_auth_session_putenv (auth_session, "SHELL",
-                             tlm_user_get_shell (priv->username));
-    tlm_auth_session_putenv (auth_session, "XDG_SESSION_CLASS", "greeter");
-    tlm_auth_session_putenv (auth_session, "XDG_VTNR", "1");
+    DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d",
+         getuid(), geteuid(), getgid(), getegid());
+    uid_t target_uid = tlm_user_get_uid (priv->username);
+    gid_t target_gid = tlm_user_get_gid (priv->username);
+    if (initgroups (priv->username, target_gid))
+        WARN ("initgroups() failed: %s", strerror(errno));
+    if (setregid (target_gid, getegid()))
+        WARN ("setregid() failed: %s", strerror(errno));
+    if (setreuid (target_uid, geteuid()))
+        WARN ("setreuid() failed: %s", strerror(errno));
 
-    res = pam_setcred (priv->pam_handle, 0);
+    setenv ("PATH", "/usr/local/bin:/usr/bin:/bin", 1);
+    setenv ("USER", priv->username, 1);
+    setenv ("LOGNAME", priv->username, 1);
+    setenv ("HOME", tlm_user_get_home_dir (priv->username), 1);
+    setenv ("SHELL", tlm_user_get_shell (priv->username), 1);
+
+    res = pam_setcred (priv->pam_handle, PAM_ESTABLISH_CRED);
     if (res != PAM_SUCCESS) {
         WARN ("Failed to establish pam credentials: %s", 
             pam_strerror (priv->pam_handle, res));
@@ -393,13 +420,22 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
         return FALSE;
     }
 
+    DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d user='%s'",
+         getuid(), geteuid(), getgid(), getegid(),
+         getenv("USER"));
+    DBG (" dropping privileges");
+    if (setegid(target_gid))
+        WARN ("setegid() failed: %s", strerror(errno));
+    if (seteuid(target_uid))
+        WARN ("seteuid() failed: %s", strerror(errno));
+
     priv->session_id = _auth_session_get_logind_session_id (&error);
     if (!priv->session_id) {
         g_signal_emit (auth_session, signals[SIG_SESSION_ERROR], 0, error);
         g_error_free (error);
         return FALSE;
     }
-    g_signal_emit (auth_session, signals[SIG_SESSION_OPEND],
+    g_signal_emit (auth_session, signals[SIG_SESSION_CREATED],
                    0, priv->session_id);
     return TRUE;
 }

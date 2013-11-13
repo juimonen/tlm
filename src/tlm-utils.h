@@ -27,6 +27,7 @@
 #ifndef _TLM_UTILS_H
 #define _TLM_UTILS_H
 
+#include <sys/types.h>
 #include <glib.h>
 
 G_BEGIN_DECLS
@@ -34,6 +35,10 @@ G_BEGIN_DECLS
 void g_clear_string (gchar **);
 
 const gchar * tlm_user_get_name (uid_t user_id);
+
+uid_t tlm_user_get_uid (const gchar *username);
+
+gid_t tlm_user_get_gid (const gchar *username);
 
 const gchar * tlm_user_get_home_dir (const gchar *username);
 

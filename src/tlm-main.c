@@ -67,7 +67,7 @@ _on_seat_added (TlmManager *manager, TlmSeat *seat, gpointer data)
     const gchar *uname = (const gchar *)data;
     DBG ("%s Seat Added", tlm_seat_get_id (seat));
     DBG ("starting auth session for user %s", uname);
-    if (!tlm_seat_create_session (seat, "tlm-guestlogin", uname)) {
+    if (!tlm_seat_create_session (seat, "tlm-login", uname)) {
         WARN ("Failed to start session");
         exit (0);
     }
