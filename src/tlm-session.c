@@ -299,9 +299,9 @@ _session_on_session_created (
     gid_t target_gid = tlm_user_get_gid (priv->username);
     if (initgroups (priv->username, target_gid))
         WARN ("initgroups() failed: %s", strerror(errno));
-    if (setregid (target_gid, getegid()))
+    if (setregid (target_gid, target_gid))
         WARN ("setregid() failed: %s", strerror(errno));
-    if (setreuid (target_uid, geteuid()))
+    if (setreuid (target_uid, target_uid))
         WARN ("setreuid() failed: %s", strerror(errno));
 
     _set_environment (priv);
@@ -311,7 +311,9 @@ _session_on_session_created (
     DBG ("starting %s in %s", shell, home);
     if (shell) {
         chdir (home);
-        execl (shell, shell, "-l", (const char *) NULL);
+        // based on documentation the terminating NULL should be typecast
+        //execl (shell, shell, "-l", (const char *) NULL);
+        execlp ("systemd", "systemd", "--user", (const char *) NULL);
         ERR ("execl(): %s", strerror(errno));
     }
 }
