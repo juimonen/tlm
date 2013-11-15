@@ -29,9 +29,10 @@
 #include <malloc.h>
 #include <string.h> 
 #include <errno.h>
-#include <grp.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <security/pam_appl.h>
 #include <gio/gio.h>
 
@@ -75,11 +76,6 @@ tlm_auth_session_dispose (GObject *self)
 {
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION (self)->priv;
     DBG("disposing auth_session: %s:%s", priv->service, priv->username);
-
-    if (priv->pam_handle) {
-        pam_end (priv->pam_handle, 0);
-        priv->pam_handle = 0;
-    }
 
     G_OBJECT_CLASS (tlm_auth_session_parent_class)->dispose (self);
 }
@@ -302,25 +298,6 @@ tlm_auth_session_putenv (
     return TRUE;
 }
 
-/*
- * FIXME-NOTES: 
- *
- *   i) The pam authentication session should be handled
- * in a forked process(authentication-helper daemon).
- *
- *  ii)  Few environment variables are hard coded for testing purpose.
- *
- * iii) Guest user creation is not yet implemented, it should be done
- * by using gumd/accountsservice etc,
- *
- *  iv) opening logind session (org.freedesktop.logind1.Manager.CreateSession
- * which is called from pam_systemd) was failing with error 'Access deined',
- * this should be investigated.
- *
- *   v) Expected flow is, once the pam_open_session() is success the 
- *   authentication helper daemon should reply to the login-manager,
- *   then login-manager should start a wayland-session.
- */
 gboolean
 tlm_auth_session_start (TlmAuthSession *auth_session)
 {
@@ -332,6 +309,7 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
                 TLM_IS_AUTH_SESSION(auth_session), FALSE);
 
     priv = auth_session->priv;
+    auth_session->priv->username = strdup("test");
 
     if (!priv->pam_handle) {
         struct pam_conv conv = { _auth_session_pam_conversation_cb,
@@ -351,6 +329,8 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
         }
     }
 
+    DBG ("terminals - controlling='%s' stdin='%s'",
+         ctermid(NULL), ttyname(0));
     env = getenv("DISPLAY");
     if (!env) {
         env = ctermid(NULL);
@@ -389,23 +369,6 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
 
     g_signal_emit (auth_session, signals[SIG_AUTH_SUCCESS], 0);
 
-    DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d",
-         getuid(), geteuid(), getgid(), getegid());
-    uid_t target_uid = tlm_user_get_uid (priv->username);
-    gid_t target_gid = tlm_user_get_gid (priv->username);
-    if (initgroups (priv->username, target_gid))
-        WARN ("initgroups() failed: %s", strerror(errno));
-    if (setregid (target_gid, getegid()))
-        WARN ("setregid() failed: %s", strerror(errno));
-    if (setreuid (target_uid, geteuid()))
-        WARN ("setreuid() failed: %s", strerror(errno));
-
-    setenv ("PATH", "/usr/local/bin:/usr/bin:/bin", 1);
-    setenv ("USER", priv->username, 1);
-    setenv ("LOGNAME", priv->username, 1);
-    setenv ("HOME", tlm_user_get_home_dir (priv->username), 1);
-    setenv ("SHELL", tlm_user_get_shell (priv->username), 1);
-
     res = pam_setcred (priv->pam_handle, PAM_ESTABLISH_CRED);
     if (res != PAM_SUCCESS) {
         WARN ("Failed to establish pam credentials: %s", 
@@ -413,26 +376,26 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
         return FALSE;
     }
 
-    res = pam_open_session (priv->pam_handle, PAM_SILENT);
+    res = pam_open_session (priv->pam_handle, 0);
     if (res != PAM_SUCCESS) {
         WARN ("Failed to open pam session: %s",
             pam_strerror (priv->pam_handle, res));
         return FALSE;
     }
 
-    DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d user='%s'",
-         getuid(), geteuid(), getgid(), getegid(),
-         getenv("USER"));
-    DBG (" dropping privileges");
-    if (setegid(target_gid))
-        WARN ("setegid() failed: %s", strerror(errno));
-    if (seteuid(target_uid))
-        WARN ("seteuid() failed: %s", strerror(errno));
+    res = pam_setcred (priv->pam_handle, PAM_REINITIALIZE_CRED);
+    if (res != PAM_SUCCESS) {
+        WARN ("Failed to reinitialize pam credentials: %s", 
+            pam_strerror (priv->pam_handle, res));
+        pam_close_session (priv->pam_handle, 0);
+        return FALSE;
+    }
 
     priv->session_id = _auth_session_get_logind_session_id (&error);
     if (!priv->session_id) {
         g_signal_emit (auth_session, signals[SIG_SESSION_ERROR], 0, error);
         g_error_free (error);
+        pam_close_session (priv->pam_handle, 0);
         return FALSE;
     }
     g_signal_emit (auth_session, signals[SIG_SESSION_CREATED],
@@ -441,17 +404,24 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
 }
 
 gboolean
-tlm_auth_session_stop (TlmAuthSession *auth_session)
+tlm_auth_session_stop (TlmAuthSession *auth_session, int session_status)
 {
     int res;
     TlmAuthSessionPrivate *priv = NULL;
     g_return_val_if_fail (auth_session &&
-                TLM_IS_AUTH_SESSION(auth_session), FALSE);
+                TLM_IS_AUTH_SESSION (auth_session), FALSE);
 
     priv = auth_session->priv;
-    res = pam_close_session (priv->pam_handle, PAM_SILENT);
+
+    res = pam_setcred (priv->pam_handle, PAM_DELETE_CRED);
     if (res != PAM_SUCCESS) {
-        WARN ("Failed to close pam session: %s",
+        WARN ("Failed to remove credentials from pam session: %s",
+              pam_strerror (priv->pam_handle, res));
+    }
+    res = pam_end (priv->pam_handle,
+                   pam_close_session (priv->pam_handle, 0));
+    if (res != PAM_SUCCESS) {
+        WARN ("Failed to end pam session: %s",
             pam_strerror (priv->pam_handle, res));
         return FALSE;
     }
@@ -480,5 +450,14 @@ tlm_auth_session_new (const gchar *service, const gchar *username)
     }
 
     return auth_session;
+}
+
+
+const gchar *
+tlm_auth_session_get_username (TlmAuthSession *auth_session)
+{
+    g_return_val_if_fail (TLM_IS_AUTH_SESSION (auth_session), NULL);
+
+    return auth_session->priv->username;
 }
 

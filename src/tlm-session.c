@@ -27,7 +27,12 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
+#include <grp.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 
 #include "tlm-session.h"
 #include "tlm-auth-session.h"
@@ -49,6 +54,7 @@ static GParamSpec *pspecs[N_PROPERTIES];
 struct _TlmSessionPrivate
 {
     gchar *service;
+    gchar *username;
     GHashTable *env_hash;
     TlmAuthSession *auth_session;
 };
@@ -74,6 +80,7 @@ tlm_session_finalize (GObject *self)
     TlmSession *session = TLM_SESSION(self);
 
     g_clear_string (&session->priv->service);
+    g_clear_string (&session->priv->username);
 
     G_OBJECT_CLASS (tlm_session_parent_class)->finalize (self);
 }
@@ -189,23 +196,122 @@ _session_on_session_error (
         WARN ("ERROR : %s", error->message);
 }
 
+static gboolean
+_set_terminal (TlmSessionPrivate *priv)
+{
+    int i;
+    int tty_fd;
+    const char *tty_dev;
+    struct stat tty_stat;
+
+    tty_dev = ttyname (0);
+    DBG ("trying to setup TTY '%s'", tty_dev);
+    if (!tty_dev) {
+        WARN ("no TTY");
+        return FALSE;
+    }
+    if (access (tty_dev, R_OK|W_OK)) {
+        WARN ("TTY not accessible: %s", strerror(errno));
+        return FALSE;
+    }
+    if (lstat (tty_dev, &tty_stat)) {
+        WARN ("lstat() failed: %s", strerror(errno));
+        return FALSE;
+    }
+    if (tty_stat.st_nlink > 1 ||
+        !S_ISCHR (tty_stat.st_mode) ||
+        strncmp (tty_dev, "/dev/", 5)) {
+        WARN ("invalid TTY");
+        return FALSE;
+    }
+
+    tty_fd = open (tty_dev, O_RDWR | O_NONBLOCK);
+    if (tty_fd < 0) {
+        WARN ("open() failed: %s", strerror(errno));
+        return FALSE;
+    }
+    if (!isatty(tty_fd)) {
+        close (tty_fd);
+        WARN ("isatty() failed");
+        return FALSE;
+    }
+
+    // close all old handles
+    for (i = 0; i < tty_fd; i++)
+        close (i);
+    dup2 (tty_fd, 0);
+    dup2 (tty_fd, 1);
+    dup2 (tty_fd, 2);
+    close (tty_fd);
+
+    return TRUE;
+}
+
+static gboolean
+_set_environment (TlmSessionPrivate *priv)
+{
+    setenv ("PATH", "/usr/local/bin:/usr/bin:/bin", 1);
+    setenv ("USER", priv->username, 1);
+    setenv ("LOGNAME", priv->username, 1);
+    setenv ("HOME", tlm_user_get_home_dir (priv->username), 1);
+    setenv ("SHELL", tlm_user_get_shell (priv->username), 1);
+
+    return TRUE;
+}
+
 static void
-_session_on_session_created(
-    TlmAuthSession *session,
+_session_on_session_created (
+    TlmAuthSession *auth_session,
     const gchar *id,
     gpointer userdata)
 {
+    int child_status = 0;
+    pid_t child_pid;
     const char *shell;
     const char *home;
+    TlmSession *session = TLM_SESSION (userdata);
+    TlmSessionPrivate *priv = session->priv;
 
+    priv = session->priv;
+    if (!priv->username)
+        priv->username =
+            g_strdup (tlm_auth_session_get_username (auth_session));
     DBG ("session ID : %s", id);
+
+    child_pid = fork ();
+    if (child_pid) {
+        DBG ("wait for child process %u", child_pid);
+        waitpid (child_pid, &child_status, 0);
+        DBG ("wait completed for %u", child_pid);
+        tlm_auth_session_stop (auth_session, child_status);
+        DBG ("session complete");
+        return;
+    }
+
+    /* this is child process here onwards */
+
+    _set_terminal (priv);
+
+    setsid ();
+    DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d (%s)",
+         getuid(), geteuid(), getgid(), getegid(), priv->username);
+    uid_t target_uid = tlm_user_get_uid (priv->username);
+    gid_t target_gid = tlm_user_get_gid (priv->username);
+    if (initgroups (priv->username, target_gid))
+        WARN ("initgroups() failed: %s", strerror(errno));
+    if (setregid (target_gid, getegid()))
+        WARN ("setregid() failed: %s", strerror(errno));
+    if (setreuid (target_uid, geteuid()))
+        WARN ("setreuid() failed: %s", strerror(errno));
+
+    _set_environment (priv);
 
     shell = getenv("SHELL");
     home = getenv("HOME");
     DBG ("starting %s in %s", shell, home);
     if (shell) {
-        chdir(home);
-        execl(shell, shell, "-l", (const char *) NULL);
+        chdir (home);
+        execl (shell, shell, "-l", (const char *) NULL);
         ERR ("execl(): %s", strerror(errno));
     }
 }
@@ -215,8 +321,12 @@ tlm_session_start (TlmSession *session, const gchar *username)
 {
     g_return_val_if_fail (session && TLM_IS_SESSION(session), FALSE);
 
+    if (session->priv->username)
+        g_free (session->priv->username);
+    session->priv->username = g_strdup (username);
     session->priv->auth_session = 
-        tlm_auth_session_new (session->priv->service, username);
+        tlm_auth_session_new (session->priv->service,
+                              session->priv->username);
 
     if (!session->priv->auth_session) return FALSE;
 

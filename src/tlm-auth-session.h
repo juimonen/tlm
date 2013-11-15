@@ -78,7 +78,10 @@ gboolean
 tlm_auth_session_start (TlmAuthSession *auth_session);
 
 gboolean
-tlm_auth_session_stop (TlmAuthSession *auth_session);
+tlm_auth_session_stop (TlmAuthSession *auth_session, int session_status);
+
+const gchar *
+tlm_auth_session_get_username (TlmAuthSession *auth_session);
 
 G_END_DECLS
 
