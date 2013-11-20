@@ -1,0 +1,16 @@
+/*** BEGIN file-header ***/
+/*** END file-header ***/
+
+/*** BEGIN file-production ***/
+/* Enumeration from "@filename@" */
+
+/*** END file-production ***/
+
+/*** BEGIN enumeration-production ***/
+#define TLM_TYPE_@ENUMSHORT@ (@enum_name@_get_type())
+GType @enum_name@_get_type (void) G_GNUC_CONST;
+
+/*** END enumeration-production ***/
+
+/*** BEGIN file-tail ***/
+/*** END file-tail ***/

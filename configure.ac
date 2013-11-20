@@ -9,8 +9,13 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AM_INIT_AUTOMAKE([1.11 silent-rules subdir-objects tar-pax -Wno-portability])
 
+#libtool
+LT_PREREQ([2.2])
+LT_INIT([disable-static])
+
 # Checks for programs.
 AC_PROG_CC
+AC_PATH_PROG(GLIB_MKENUMS, glib-mkenums)
 
 # Checks for libraries.
 PKG_CHECK_MODULES([TLM], [glib-2.0 gio-2.0 gio-unix-2.0])
@@ -28,5 +33,6 @@ TLM_CFLAGS="$TLM_CFLAGS -Wall -Werror"
 AC_OUTPUT([
 Makefile
 src/Makefile
+src/plugins/Makefile
 ])
 
