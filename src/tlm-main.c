@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
         g_log_set_always_fatal (log_level);
     }
 
-    tlm_log_init ();
+    tlm_log_init (G_LOG_DOMAIN);
 
     main_loop = g_main_loop_new (NULL, FALSE);
 
@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 
     DBG ("clean shutdown");
 
-    tlm_log_close ();
+    tlm_log_close (NULL);
 
     return 0;
 }

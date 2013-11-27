@@ -31,8 +31,8 @@
 
 G_BEGIN_DECLS
 
-void tlm_log_init (void);
-void tlm_log_close (void);
+void tlm_log_init (const gchar *domain);
+void tlm_log_close (const gchar *domain);
 
 #define EXPAND_LOG_MSG(frmt, args...) "%s +%d:" frmt, __FILE__, __LINE__, ##args
 

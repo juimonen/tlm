@@ -28,12 +28,12 @@
 
 #include <syslog.h>
 
-static gboolean initialized = FALSE;
-static int log_levels_enabled = (G_LOG_LEVEL_ERROR |
+static gboolean _initialized = FALSE;
+static int _log_levels_enabled = (G_LOG_LEVEL_ERROR |
                                  G_LOG_LEVEL_CRITICAL |
                                  G_LOG_LEVEL_WARNING |
                                  G_LOG_LEVEL_DEBUG);
-guint log_handler_id = 0;
+GHashTable *_log_handlers = NULL; /* log_domain:handler_id */
 
 static int
 _log_level_to_priority (GLogLevelFlags log_level)
@@ -60,11 +60,11 @@ _log_handler (const gchar *log_domain,
     int priority ;
     gboolean unint = FALSE;
 
-    if (! (log_level & log_levels_enabled))
+    if (! (log_level & _log_levels_enabled))
         return; 
 
-    if (!initialized) {
-        tlm_log_init ();
+    if (!_initialized) {
+        tlm_log_init (log_domain);
         unint = TRUE;
     }
 
@@ -79,26 +79,58 @@ _log_handler (const gchar *log_domain,
     g_free (msg);
 
     if (unint) {
-        tlm_log_close ();
+        tlm_log_close (log_domain);
     }
 }
 
-void tlm_log_init (void)
+void tlm_log_init (const gchar *domain)
 {
-    log_handler_id = g_log_set_handler (
-                G_LOG_DOMAIN, log_levels_enabled, _log_handler, NULL);
-    
+
+    if (!_log_handlers) {
+         _log_handlers = g_hash_table_new_full (
+                    g_str_hash, g_str_equal, g_free, NULL);
+    }
+
+    if (!domain)
+        domain = G_LOG_DOMAIN;
+
+    if (g_hash_table_contains (_log_handlers, domain))
+        return;
+
+    guint id = g_log_set_handler (
+            domain, _log_levels_enabled, _log_handler, NULL);
+
+    g_hash_table_insert (_log_handlers, g_strdup(domain), GUINT_TO_POINTER(id));
+
+    if (_initialized) return ;
+
     openlog (g_get_prgname(), LOG_PID | LOG_PERROR, LOG_DAEMON);
 
-    initialized = TRUE;
+    _initialized = TRUE;
 }
 
-void tlm_log_close (void)
+static void _remove_log_handler (gpointer key, gpointer value, gpointer udata)
 {
-    g_log_remove_handler (G_LOG_DOMAIN, log_handler_id);
+    if (!udata || g_strcmp0(udata, key) == 0) 
+        g_log_remove_handler ((const gchar *)key, GPOINTER_TO_UINT(value));
+}
 
-    closelog();
+void tlm_log_close (const gchar *domain)
+{
+    if (_log_handlers) {
+        g_hash_table_foreach (_log_handlers, _remove_log_handler, (gpointer)domain);
+        if (!domain) {
+            g_hash_table_unref (_log_handlers);
+            _log_handlers = NULL;
+        }
+        else {
+            g_hash_table_remove (_log_handlers, domain);
+        }
+    }
 
-    initialized = FALSE;
+    if (_initialized) {
+        closelog();
+        _initialized = FALSE;
+    }
 }
 
