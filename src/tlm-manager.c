@@ -27,6 +27,8 @@
 #include "tlm-manager.h"
 #include "tlm-seat.h"
 #include "tlm-log.h"
+#include "tlm-plugin.h"
+#include "config.h"
 
 #include <glib.h>
 #include <gio/gio.h>
@@ -44,6 +46,8 @@ struct _TlmManagerPrivate
 {
     GDBusConnection *connection;
     GHashTable *seats; /* { gchar*:TlmSeat* } */
+    TlmPlugin  *account_plugin;
+    GList      *auth_plugins;
     gboolean is_started;
 
     guint seat_added_id;
@@ -73,6 +77,8 @@ tlm_manager_dispose (GObject *self)
         g_hash_table_unref (manager->priv->seats);
         manager->priv->seats = NULL;
     }
+
+    g_clear_object (&manager->priv->account_plugin);
 
     G_OBJECT_CLASS (tlm_manager_parent_class)->dispose (self);
 }
@@ -131,6 +137,89 @@ tlm_manager_class_init (TlmManagerClass *klass)
                 G_TYPE_STRING);
 }
 
+static TlmPlugin *
+_load_plugin_file (const gchar *file_path, const gchar *plugin_name, TlmPluginTypeFlags type)
+{
+    TlmPlugin *plugin = NULL;
+    TlmPluginTypeFlags plugin_type;
+
+    DBG("Loading plugin %s", file_path);
+    GModule* plugin_module = g_module_open (file_path, G_MODULE_BIND_LOCAL);
+    if (plugin_module == NULL) {
+        DBG("Plugin couldn't be opened: %s", g_module_error());
+        return NULL;
+    }
+
+    gchar* get_type_func = g_strdup_printf("tlm_plugin_%s_get_type", plugin_name);
+    gpointer p;
+
+    DBG("Resolving symbol %s", get_type_func);
+    gboolean symfound = g_module_symbol (plugin_module, get_type_func, &p);
+    g_free(get_type_func);
+    if (!symfound) {
+        DBG("Symbol couldn't be resolved");
+        g_module_close (plugin_module);
+        return NULL;
+    }
+
+    DBG("Creating plugin object");
+    GType (*plugin_get_type_f)(void) = p;
+    plugin = g_object_new(plugin_get_type_f(), NULL);
+    if (plugin == NULL) {
+        DBG("Plugin couldn't be created");
+        g_module_close (plugin_module);
+        return NULL;
+    }
+    g_object_get (G_OBJECT (plugin), "plugin-type", &plugin_type, NULL);
+
+    if ((plugin_type & type) == 0) {
+        DBG("Plugin type mismatch %d:%d", type, plugin_type);
+        g_object_unref (plugin);
+        g_module_close (plugin_module);
+        return NULL;
+    } 
+
+    g_module_make_resident (plugin_module);
+
+    return plugin;
+}
+
+static void
+_load_accounts_plugin (TlmManager *self, const gchar *name)
+{
+    /* FIXME : plugins path priority
+                 i) environment
+                ii) configuration
+               iii) $(libdir)/tlm-plugins
+     */
+    const gchar *plugins_path = TLM_PLUGINS_DIR;
+    const gchar *env_val = NULL;
+    gchar *plugin_file = NULL;
+
+    env_val = g_getenv ("TLM_PLUGINS_DIR");
+    if (env_val)
+        plugins_path = env_val;
+
+    plugin_file = g_module_build_path(plugins_path, name);
+
+    self->priv->account_plugin =  _load_plugin_file (plugin_file, name, TLM_PLUGIN_TYPE_ACCOUNT);
+
+    g_free (plugin_file);
+}
+
+#if 0
+static void
+_load_auth_plugins (TlmManager *self)
+{
+    const gchar *plugin_path = TLM_PLUGINS_DIR;
+    gchar *plugin_file = NULL;
+
+    env_val = g_getenv ("TLM_PLUGINS_DIR");
+    if (env_val)
+        plugins_path = env_val;
+}
+#endif
+
 static void
 tlm_manager_init (TlmManager *manager)
 {
@@ -147,7 +236,14 @@ tlm_manager_init (TlmManager *manager)
     priv->seats = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
                                          (GDestroyNotify)g_object_unref);
 
+    priv->account_plugin = NULL;
+    priv->auth_plugins = NULL;
+
     manager->priv = priv;
+
+    /* FIXME: findout account plugin from configuration */
+    _load_accounts_plugin (manager, "default");
+    //_load_auth_plugins ();
 }
 
 static void
