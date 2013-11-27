@@ -15,4 +15,9 @@ install-sh
 missing
 *.deps
 stamp-h1
+config.guess
+config.sub
+libtool
+ltmain.sh
+m4/
 
