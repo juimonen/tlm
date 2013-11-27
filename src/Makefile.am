@@ -1,6 +1,6 @@
 include $(top_srcdir)/common.mk
 NULL=
-SUBDIRS = plugins
+SUBDIRS = . plugins
 bin_PROGRAMS = tlm
 lib_LTLIBRARIES = libtlm-plugin.la
 BUILT_SOURCES = \
@@ -34,11 +34,11 @@ libtlm_plugin_la_CFLAGS = \
 	-I$(abs_top_builddir) \
     -I$(abs_top_srcdir)/src \
 	-DG_LOG_DOMAIN=\"TLM_PLUGIN\" \
-	$(TLM_CFLAGS) \
+	$(GLIB_CFLAGS) \
 	$(NULL)
 
 libtlm_plugin_la_LIBADD = \
-	$(TLM_LIBS) \
+	$(GLIB_LIBS) \
 	$(NULL)
 
 tlm_SOURCES = \
