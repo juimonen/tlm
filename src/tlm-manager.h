@@ -66,6 +66,9 @@ tlm_manager_start(TlmManager *manager);
 gboolean 
 tlm_manager_stop(TlmManager *manager);
 
+gboolean
+tlm_manager_setup_guest_user (TlmManager *manager, const gchar *name);
+
 G_END_DECLS
 
 #endif /* _TLM_MANAGER_H */

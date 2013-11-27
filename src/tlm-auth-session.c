@@ -309,7 +309,6 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
                 TLM_IS_AUTH_SESSION(auth_session), FALSE);
 
     priv = auth_session->priv;
-    auth_session->priv->username = strdup("test");
 
     if (!priv->pam_handle) {
         struct pam_conv conv = { _auth_session_pam_conversation_cb,

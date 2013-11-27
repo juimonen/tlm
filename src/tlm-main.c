@@ -64,13 +64,25 @@ _setup_unix_signal_handlers (GMainLoop *loop)
 static void
 _on_seat_added (TlmManager *manager, TlmSeat *seat, gpointer data)
 {
-    const gchar *uname = (const gchar *)data;
-    DBG ("%s Seat Added", tlm_seat_get_id (seat));
+    gchar *uname = g_strdup((gchar *) data);
+
+    if (!uname) {
+        uname = g_strdup_printf ("guest_%s", tlm_seat_get_id(seat));
+        DBG ("%s Seat Added", tlm_seat_get_id (seat));
+        if (!tlm_manager_setup_guest_user (manager, uname)) {
+            WARN ("Failed to setup guest user");
+            g_free (uname);
+            exit (0);
+        }
+    }
+
     DBG ("starting auth session for user %s", uname);
     if (!tlm_seat_create_session (seat, "tlm-login", uname)) {
         WARN ("Failed to start session");
+        g_free (uname);
         exit (0);
     }
+    g_free (uname);
 }
 
 int main(int argc, char *argv[])

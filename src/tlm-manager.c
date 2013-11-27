@@ -435,6 +435,22 @@ tlm_manager_stop (TlmManager *manager)
     return TRUE;
 }
 
+gboolean
+tlm_manager_setup_guest_user (TlmManager *manager, const gchar *user_name)
+{
+    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
+    g_return_val_if_fail (manager->priv->account_plugin, FALSE);
+
+    if (tlm_plugin_is_valid_user (manager->priv->account_plugin, user_name)) {
+        DBG("user account '%s' already existing, cleaning the home folder", user_name);
+        return tlm_plugin_cleanup_guest_user (manager->priv->account_plugin, user_name, FALSE);
+    }
+    else {
+        DBG("Asking plugin to setup guest user '%s'", user_name); 
+        return tlm_plugin_setup_guest_user (manager->priv->account_plugin, user_name);
+    }
+}
+
 TlmManager *
 tlm_manager_new ()
 {
