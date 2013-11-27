@@ -46,5 +46,6 @@ AC_OUTPUT([
 Makefile
 src/Makefile
 src/plugins/Makefile
+src/plugins/default/Makefile
 ])
 
