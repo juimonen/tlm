@@ -83,6 +83,9 @@ tlm_auth_session_stop (TlmAuthSession *auth_session, int session_status);
 const gchar *
 tlm_auth_session_get_username (TlmAuthSession *auth_session);
 
+gchar **
+tlm_auth_session_get_envlist (TlmAuthSession *auth_session);
+
 G_END_DECLS
 
 #endif /* _TLM_AUTH_SESSION_H */

@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <grp.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -250,6 +251,18 @@ _set_terminal (TlmSessionPrivate *priv)
 static gboolean
 _set_environment (TlmSessionPrivate *priv)
 {
+	gchar **envlist = tlm_auth_session_get_envlist(priv->auth_session);
+
+    if (envlist) {
+    	gchar **env = 0;
+    	for (env = envlist; *env != NULL; ++env) {
+    		DBG ("ENV : %s", *env);
+    		putenv(*env);
+    		g_free (*env);
+    	}
+    	g_free (envlist);
+    }
+
     setenv ("PATH", "/usr/local/bin:/usr/bin:/bin", 1);
     setenv ("USER", priv->username, 1);
     setenv ("LOGNAME", priv->username, 1);
@@ -267,7 +280,6 @@ _session_on_session_created (
 {
     int child_status = 0;
     pid_t child_pid;
-    const char *shell;
     const char *home;
     TlmSession *session = TLM_SESSION (userdata);
     TlmSessionPrivate *priv = session->priv;
@@ -293,8 +305,6 @@ _session_on_session_created (
     _set_terminal (priv);
 
     setsid ();
-    DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d (%s)",
-         getuid(), geteuid(), getgid(), getegid(), priv->username);
     uid_t target_uid = tlm_user_get_uid (priv->username);
     gid_t target_gid = tlm_user_get_gid (priv->username);
     if (initgroups (priv->username, target_gid))
@@ -304,18 +314,18 @@ _session_on_session_created (
     if (setreuid (target_uid, target_uid))
         WARN ("setreuid() failed: %s", strerror(errno));
 
+    DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d (%s)",
+         getuid(), geteuid(), getgid(), getegid(), priv->username);
     _set_environment (priv);
 
-    shell = getenv("SHELL");
     home = getenv("HOME");
-    DBG ("starting %s in %s", shell, home);
-    if (shell) {
-        chdir (home);
-        // based on documentation the terminating NULL should be typecast
-        //execl (shell, shell, "-l", (const char *) NULL);
-        execlp ("systemd", "systemd", "--user", (const char *) NULL);
-        ERR ("execl(): %s", strerror(errno));
-    }
+    if (home) {
+    	DBG ("Changing directory to : %s", home);
+    	chdir (home);
+    } else WARN ("Could not get home directory");
+
+    execlp ("systemd", "systemd", "--user", (const char *) NULL);
+    DBG ("execl(): %s", strerror(errno));
 }
 
 gboolean

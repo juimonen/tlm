@@ -32,6 +32,7 @@
 
 #include <glib.h>
 #include <gio/gio.h>
+#include <stdio.h>
 
 G_DEFINE_TYPE (TlmManager, tlm_manager, G_TYPE_OBJECT);
 
@@ -63,6 +64,14 @@ enum {
 static guint signals[SIG_MAX];
 
 static void
+_unref_auth_plugins (gpointer data)
+{
+	GObject *plugin = G_OBJECT (data);
+
+	g_object_unref (plugin);
+}
+
+static void
 tlm_manager_dispose (GObject *self)
 {
     TlmManager *manager = TLM_MANAGER(self);
@@ -79,6 +88,10 @@ tlm_manager_dispose (GObject *self)
     }
 
     g_clear_object (&manager->priv->account_plugin);
+
+    if (manager->priv->auth_plugins) {
+    	g_list_free_full(manager->priv->auth_plugins, _unref_auth_plugins);
+    }
 
     G_OBJECT_CLASS (tlm_manager_parent_class)->dispose (self);
 }

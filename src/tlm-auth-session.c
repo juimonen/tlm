@@ -243,8 +243,6 @@ _auth_session_pam_conversation_cb (int n_msgs,
     for (i=0; i < n_msgs; i++) {
         const struct pam_message *msg = msgs[i];
         struct pam_response *resp = *resps + i;
-        const char *login = "test";
-        const char *key = "test";
         const char *login_prompt = "login";
         const char *pwd_prompt = "Password";
 
@@ -252,22 +250,20 @@ _auth_session_pam_conversation_cb (int n_msgs,
         if (msg->msg_style == PAM_PROMPT_ECHO_ON &&
             strncmp(msg->msg, login_prompt, strlen(login_prompt)) == 0) {
             DBG ("  login prompt");
-            resp->resp = strndup (login, PAM_MAX_RESP_SIZE - 1);
+            resp->resp = strndup (auth_session->priv->username,
+            		              PAM_MAX_RESP_SIZE - 1);
             resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
-            resp->resp_retcode = PAM_SUCCESS;
-            auth_session->priv->username = strdup(login);
         }
         else if (msg->msg_style == PAM_PROMPT_ECHO_OFF &&
                  strncmp(msg->msg, pwd_prompt, strlen(pwd_prompt)) == 0) {
             DBG ("  password prompt");
-            resp->resp = strndup (key, PAM_MAX_RESP_SIZE - 1);
+            resp->resp = strndup ("", PAM_MAX_RESP_SIZE - 1);
             resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
-            resp->resp_retcode = PAM_SUCCESS;
         }
         else {
             resp->resp = NULL;
-            resp->resp_retcode = PAM_SUCCESS;
         }
+        resp->resp_retcode = PAM_SUCCESS;
     }
 
     return PAM_SUCCESS;
@@ -303,7 +299,8 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
 {
     TlmAuthSessionPrivate *priv = NULL;
     int res;
-    const char *env;
+    const char *pam_tty = NULL;
+    const char *pam_ruser = NULL;
     GError *error = 0;
     g_return_val_if_fail (auth_session && 
                 TLM_IS_AUTH_SESSION(auth_session), FALSE);
@@ -320,7 +317,7 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
             WARN ("pam initialization failed: %s", pam_strerror (NULL, res));
             GError *error = g_error_new (TLM_AUTH_SESSION_ERROR,
                                          TLM_AUTH_SESSION_PAM_ERROR,
-                                         "pam inititalization failed : %s",
+                                         "pam initialization failed : %s",
                                          pam_strerror (NULL, res));
             g_signal_emit (auth_session, signals[SIG_AUTH_ERROR], 0, error);
             g_error_free (error);
@@ -328,21 +325,20 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
         }
     }
 
-    DBG ("terminals - controlling='%s' stdin='%s'",
-         ctermid(NULL), ttyname(0));
-    env = getenv("DISPLAY");
-    if (!env) {
-        env = ctermid(NULL);
+    pam_tty = getenv("DISPLAY");
+    if (!pam_tty) {
+        pam_tty = ctermid(NULL);
     }
-    DBG ("terminal '%s', setting PAM_TTY", env);
-    if (pam_set_item (priv->pam_handle, PAM_TTY, env) != PAM_SUCCESS) {
-            WARN ("pam_set_item(PAM_TTY)");
+    DBG ("etting PAM_TTY to '%s'", pam_tty);
+    if (pam_set_item (priv->pam_handle, PAM_TTY, pam_tty) != PAM_SUCCESS) {
+            WARN ("pam_set_item(PAM_TTY, '%s')", pam_tty);
     }
-    if (pam_set_item (priv->pam_handle,
-                      PAM_RUSER,
-                      tlm_user_get_name (geteuid())) != PAM_SUCCESS) {
-        WARN ("pam_set_item(PAM_RUSER)");
+
+    pam_ruser = tlm_user_get_name (geteuid());
+    if (pam_set_item (priv->pam_handle, PAM_RUSER, pam_ruser) != PAM_SUCCESS) {
+        WARN ("pam_set_item(PAM_RUSER, '%s')", pam_ruser);
     }
+
     if (pam_set_item (priv->pam_handle, PAM_RHOST, "localhost") !=
         PAM_SUCCESS) {
         WARN ("pam_set_item(PAM_RHOST)");
@@ -352,9 +348,8 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
     pam_get_item (priv->pam_handle, PAM_SERVICE, (const void **)&p_service);
     pam_get_item (priv->pam_handle, PAM_USER, (const void **)&p_uname);
     DBG ("PAM service : '%s', PAM username : '%s'", p_service, p_uname);
-    DBG ("starting pam authentication for user '%s'", priv->username); 
-    res = pam_authenticate (priv->pam_handle, PAM_SILENT);
-    if (res != PAM_SUCCESS) {
+    DBG ("Starting pam authentication for user '%s'", priv->username);
+    if((res = pam_authenticate (priv->pam_handle, PAM_SILENT)) != PAM_SUCCESS) {
         WARN ("pam authentication failure: %s", 
               pam_strerror (priv->pam_handle, res));
         GError *error = g_error_new (TLM_AUTH_SESSION_ERROR,
@@ -417,6 +412,13 @@ tlm_auth_session_stop (TlmAuthSession *auth_session, int session_status)
         WARN ("Failed to remove credentials from pam session: %s",
               pam_strerror (priv->pam_handle, res));
     }
+
+    res = pam_close_session (priv->pam_handle, PAM_SILENT);
+    if (res != PAM_SUCCESS) {
+    	WARN ("Failed to close session: %s",
+    		  pam_strerror(priv->pam_handle, res));
+    }
+
     res = pam_end (priv->pam_handle,
                    pam_close_session (priv->pam_handle, 0));
     if (res != PAM_SUCCESS) {
@@ -451,7 +453,6 @@ tlm_auth_session_new (const gchar *service, const gchar *username)
     return auth_session;
 }
 
-
 const gchar *
 tlm_auth_session_get_username (TlmAuthSession *auth_session)
 {
@@ -460,3 +461,10 @@ tlm_auth_session_get_username (TlmAuthSession *auth_session)
     return auth_session->priv->username;
 }
 
+gchar **
+tlm_auth_session_get_envlist (TlmAuthSession *auth_session)
+{
+	g_return_val_if_fail(TLM_IS_AUTH_SESSION(auth_session), NULL);
+
+    return (gchar **)pam_getenvlist(auth_session->priv->pam_handle);
+}

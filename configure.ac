@@ -15,7 +15,7 @@ LT_INIT([disable-static])
 
 # Checks for programs.
 AC_PROG_CC
-AC_PATH_PROG(GLIB_MKENUMS, glib-mkenums)
+AC_PATH_PROG(GLIB_MKENUMS, glib-mkenums, [$PATH])
 
 # Checks for libraries.
 PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.30])
@@ -42,10 +42,12 @@ AC_SUBST(TLM_LIBS)
 
 # Checks for library functions.
 
-AC_OUTPUT([
+AC_CONFIG_FILES([
 Makefile
 src/Makefile
 src/plugins/Makefile
 src/plugins/default/Makefile
 ])
+
+AC_OUTPUT
 
