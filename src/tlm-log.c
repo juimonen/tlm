@@ -55,8 +55,6 @@ _log_handler (const gchar *log_domain,
               const gchar *message,
               gpointer userdata)
 {
-    GString *gstring ;
-    gchar *msg = 0;
     int priority ;
     gboolean unint = FALSE;
 
@@ -70,13 +68,7 @@ _log_handler (const gchar *log_domain,
 
     priority = _log_level_to_priority (log_level);
 
-    gstring = g_string_new (NULL);
-    g_string_printf (gstring, "[%s] %s", log_domain, message);
-    msg = g_string_free (gstring, FALSE);
-
-    syslog (priority, msg);
-
-    g_free (msg);
+    syslog (priority, "[%s] %s", log_domain, message);
 
     if (unint) {
         tlm_log_close (log_domain);
