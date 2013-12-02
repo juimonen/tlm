@@ -321,7 +321,8 @@ _session_on_session_created (
     home = getenv("HOME");
     if (home) {
     	DBG ("Changing directory to : %s", home);
-    	chdir (home);
+    	if (chdir (home) < 0)
+            WARN ("Failed to change directroy : %s", strerror (errno));
     } else WARN ("Could not get home directory");
 
     execlp ("systemd", "systemd", "--user", (const char *) NULL);
