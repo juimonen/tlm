@@ -1,3 +1,9 @@
+.*.swp
+.deps/
+.libs/
+*.la
+*.lo
+*.pc
 *.o
 *.so
 src/tlm
@@ -17,7 +23,9 @@ missing
 stamp-h1
 config.guess
 config.sub
+INSTALL
 libtool
 ltmain.sh
 m4/
+src/tlm-plugin-types.*
 

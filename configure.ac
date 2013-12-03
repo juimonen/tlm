@@ -35,6 +35,16 @@ TLM_LIBS="$GLIB_LIBS $GIO_LIBS $GMODULE_LIBS"
 AC_SUBST(TLM_CFLAGS)
 AC_SUBST(TLM_LIBS)
 
+# Enable gum
+PKG_CHECK_MODULES([LIBGUM], [libgum], [have_libgum=yes], [have_libgum=no])
+AC_ARG_ENABLE(gum, [  --enable-gum build for gumd plugin], ,
+            [enable_gum=$have_libgum])
+if test "x$enable_gum" = "xyes" && test "x$have_libgum" = "xno" ; then
+    AC_MSG_ERROR("libgum is required.")
+fi
+AC_SUBST(LIBGUM_CFLAGS)
+AC_SUBST(LIBGUM_LIBS)
+AM_CONDITIONAL(HAVE_LIBGUM, [test x$enable_gum = xyes])
 
 # Checks for header files.
 
@@ -47,6 +57,7 @@ Makefile
 src/Makefile
 src/plugins/Makefile
 src/plugins/default/Makefile
+src/plugins/gumd/Makefile
 ])
 
 AC_OUTPUT
