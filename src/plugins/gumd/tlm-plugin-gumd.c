@@ -68,6 +68,7 @@ _create_mainloop ()
 static void
 _run_mainloop ()
 {
+   op_error = NULL;
     _create_mainloop ();
      g_main_loop_run (main_loop);
 }
@@ -87,10 +88,10 @@ _on_user_op (
 
 static gboolean
 _setup_guest_account (
-        TlmPlugin *plugin,
+        TlmAccountPlugin *plugin,
         const gchar *user_name)
 {
-    g_return_val_if_fail (plugin && TLM_IS_PLUGIN_GUMD(plugin), FALSE);
+    g_return_val_if_fail (plugin && TLM_IS_ACCOUNT_PLUGIN_GUMD(plugin), FALSE);
     g_return_val_if_fail (user_name && user_name[0], FALSE);
 
     GumUser *guser = gum_user_create (_on_user_op, NULL);
@@ -134,7 +135,7 @@ _setup_guest_account (
 
 static gboolean
 _cleanup_guest_user (
-        TlmPlugin *plugin,
+        TlmAccountPlugin *plugin,
         const gchar *user_name,
         gboolean delete)
 {
@@ -146,7 +147,7 @@ _cleanup_guest_user (
 
     (void) delete;
 
-    g_return_val_if_fail (plugin && TLM_IS_PLUGIN_GUMD(plugin), FALSE);
+    g_return_val_if_fail (plugin && TLM_IS_ACCOUNT_PLUGIN_GUMD(plugin), FALSE);
     g_return_val_if_fail (user_name && user_name[0], FALSE);
 
     GumUser *guser = gum_user_get_by_name (user_name, _on_user_op, NULL);
@@ -167,10 +168,14 @@ _cleanup_guest_user (
             &home_dir, NULL);
 
     if (!gum_file_delete_home_dir (home_dir, &error)) {
+        WARN ("Failed to delete home directory '%s' : %s", 
+                home_dir, error->message); 
         goto _finished;
     }
 
     if (!gum_file_create_home_dir (home_dir, uid, gid, 022, &error)) {
+        WARN ("Failed to create home directory %s with uid : %d, gid : %d : %s",
+             home_dir, uid, gid, error->message); 
         goto _finished;
     }
     ret = TRUE;
@@ -187,10 +192,10 @@ _finished:
 
 static gboolean
 _is_valid_user (
-        TlmPlugin *plugin,
+        TlmAccountPlugin *plugin,
         const gchar *user_name)
 {
-    g_return_val_if_fail (plugin && TLM_IS_PLUGIN_GUMD(plugin), FALSE);
+    g_return_val_if_fail (plugin && TLM_IS_ACCOUNT_PLUGIN_GUMD(plugin), FALSE);
     g_return_val_if_fail (user_name && user_name[0], FALSE);
 
     GumUser *guser = gum_user_get_by_name (user_name, _on_user_op, NULL);
@@ -215,7 +220,7 @@ _is_valid_user (
 
 static void
 _plugin_interface_init (
-        TlmPluginInterface *iface)
+        TlmAccountPluginInterface *iface)
 {
     iface->setup_guest_user_account = _setup_guest_account;
     iface->cleanup_guest_user = _cleanup_guest_user;
@@ -223,50 +228,23 @@ _plugin_interface_init (
 }
 
 G_DEFINE_TYPE_WITH_CODE (
-        TlmPluginGumd,
-        tlm_plugin_gumd,
+        TlmAccountPluginGumd,
+        tlm_account_plugin_gumd,
         G_TYPE_OBJECT,
-        G_IMPLEMENT_INTERFACE (TLM_TYPE_PLUGIN,
+        G_IMPLEMENT_INTERFACE (TLM_TYPE_ACCOUNT_PLUGIN,
                 _plugin_interface_init));
 
 
-enum {
-    PROP_0,
-    PROP_TYPE
-};
-
 static void
-_get_property (
-        GObject *object,
-        guint prop_id,
-        GValue *value,
-        GParamSpec *pspec)
+tlm_account_plugin_gumd_class_init (
+        TlmAccountPluginGumdClass *kls)
 {
-    switch (prop_id)
-    {
-        case PROP_TYPE:
-            g_value_set_enum (value, TLM_PLUGIN_TYPE_ACCOUNT);
-            break;
-        gumd:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-            break;
-    }
+    (void)kls;
 }
 
 static void
-tlm_plugin_gumd_class_init (
-        TlmPluginGumdClass *kls)
-{
-    GObjectClass *g_kls = G_OBJECT_CLASS (kls);
-
-    g_kls->get_property = _get_property;
-
-    g_object_class_override_property (g_kls, PROP_TYPE, "plugin-type");
-}
-
-static void
-tlm_plugin_gumd_init (
-        TlmPluginGumd *self)
+tlm_account_plugin_gumd_init (
+        TlmAccountPluginGumd *self)
 {
     tlm_log_init(G_LOG_DOMAIN);
 }

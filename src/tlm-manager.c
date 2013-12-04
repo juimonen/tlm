@@ -27,7 +27,8 @@
 #include "tlm-manager.h"
 #include "tlm-seat.h"
 #include "tlm-log.h"
-#include "tlm-plugin.h"
+#include "tlm-account-plugin.h"
+#include "tlm-auth-plugin.h"
 #include "config.h"
 
 #include <glib.h>
@@ -47,7 +48,7 @@ struct _TlmManagerPrivate
 {
     GDBusConnection *connection;
     GHashTable *seats; /* { gchar*:TlmSeat* } */
-    TlmPlugin  *account_plugin;
+    TlmAccountPlugin  *account_plugin;
     GList      *auth_plugins;
     gboolean is_started;
 
@@ -150,20 +151,19 @@ tlm_manager_class_init (TlmManagerClass *klass)
                 G_TYPE_STRING);
 }
 
-static TlmPlugin *
-_load_plugin_file (const gchar *file_path, const gchar *plugin_name, TlmPluginTypeFlags type)
+static TlmAccountPlugin *
+_load_account_plugin_file (const gchar *file_path, const gchar *plugin_name)
 {
-    TlmPlugin *plugin = NULL;
-    TlmPluginTypeFlags plugin_type;
+    TlmAccountPlugin *plugin = NULL;
 
     DBG("Loading plugin %s", file_path);
-    GModule* plugin_module = g_module_open (file_path, G_MODULE_BIND_LOCAL);
+    GModule* plugin_module = g_module_open (file_path, G_MODULE_BIND_LAZY);
     if (plugin_module == NULL) {
         DBG("Plugin couldn't be opened: %s", g_module_error());
         return NULL;
     }
 
-    gchar* get_type_func = g_strdup_printf("tlm_plugin_%s_get_type", plugin_name);
+    gchar* get_type_func = g_strdup_printf("tlm_account_plugin_%s_get_type", plugin_name);
     gpointer p;
 
     DBG("Resolving symbol %s", get_type_func);
@@ -183,15 +183,6 @@ _load_plugin_file (const gchar *file_path, const gchar *plugin_name, TlmPluginTy
         g_module_close (plugin_module);
         return NULL;
     }
-    g_object_get (G_OBJECT (plugin), "plugin-type", &plugin_type, NULL);
-
-    if ((plugin_type & type) == 0) {
-        DBG("Plugin type mismatch %d:%d", type, plugin_type);
-        g_object_unref (plugin);
-        g_module_close (plugin_module);
-        return NULL;
-    } 
-
     g_module_make_resident (plugin_module);
 
     return plugin;
@@ -208,14 +199,17 @@ _load_accounts_plugin (TlmManager *self, const gchar *name)
     const gchar *plugins_path = TLM_PLUGINS_DIR;
     const gchar *env_val = NULL;
     gchar *plugin_file = NULL;
+    gchar *plugin_file_name = NULL;
 
     env_val = g_getenv ("TLM_PLUGINS_DIR");
     if (env_val)
         plugins_path = env_val;
 
-    plugin_file = g_module_build_path(plugins_path, name);
+    plugin_file_name = g_strdup_printf ("libtlm-plugin-%s", name);
+    plugin_file = g_module_build_path(plugins_path, plugin_file_name);
+    g_free (plugin_file_name);
 
-    self->priv->account_plugin =  _load_plugin_file (plugin_file, name, TLM_PLUGIN_TYPE_ACCOUNT);
+    self->priv->account_plugin =  _load_account_plugin_file (plugin_file, name);
 
     g_free (plugin_file);
 }
@@ -255,7 +249,7 @@ tlm_manager_init (TlmManager *manager)
     manager->priv = priv;
 
     /* FIXME: findout account plugin from configuration */
-    _load_accounts_plugin (manager, "default");
+    _load_accounts_plugin (manager, "gumd");
     //_load_auth_plugins ();
 }
 
@@ -454,13 +448,17 @@ tlm_manager_setup_guest_user (TlmManager *manager, const gchar *user_name)
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
     g_return_val_if_fail (manager->priv->account_plugin, FALSE);
 
-    if (tlm_plugin_is_valid_user (manager->priv->account_plugin, user_name)) {
-        DBG("user account '%s' already existing, cleaning the home folder", user_name);
-        return tlm_plugin_cleanup_guest_user (manager->priv->account_plugin, user_name, FALSE);
+    if (tlm_account_plugin_is_valid_user (
+            manager->priv->account_plugin, user_name)) {
+        DBG("user account '%s' already existing, cleaning the home folder",
+                 user_name);
+        return tlm_account_plugin_cleanup_guest_user (
+                    manager->priv->account_plugin, user_name, FALSE);
     }
     else {
         DBG("Asking plugin to setup guest user '%s'", user_name); 
-        return tlm_plugin_setup_guest_user (manager->priv->account_plugin, user_name);
+        return tlm_account_plugin_setup_guest_user (
+                    manager->priv->account_plugin, user_name);
     }
 }
 

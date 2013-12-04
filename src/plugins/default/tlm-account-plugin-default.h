@@ -23,36 +23,42 @@
  * 02110-1301 USA
  */
 
-#ifndef _TLM_PLUGIN_DEFAULT_H
-#define _TLM_PLUGIN_DEFAULT_H
+#ifndef _TLM_ACCOUNT_PLUGIN_DEFAULT_H
+#define _TLM_ACCOUNT_PLUGIN_DEFAULT_H
 
 #include <glib.h>
-#include "tlm-plugin.h"
+#include "tlm-account-plugin.h"
 
 G_BEGIN_DECLS
 
-#define TLM_TYPE_PLUGIN_DEFAULT (tlm_plugin_default_get_type())
-#define TLM_PLUGIN_DEFAULT(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TLM_TYPE_PLUGIN_DEFAULT,  TlmPluginDefault))
-#define TLM_IS_PLUGIN_DEFAULT(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TLM_TYPE_PLUGIN_DEFAULT))
-#define TLM_PLUGIN_DEFAULT_CLASS(kls) (G_TYPE_CHECK_CLASS_CAST ((klass), TLM_TYPE_PLUGIN_DEFAULT, TlmPluginDefaultClass))
-#define TLM_IS_PLUGIN_DEFAULT_CLASS(kls) (G_TYPE_CHECK_CLASS_TYPE ((klass), TLM_TYPE_PLUGIN_DEFAULT))
+#define TLM_TYPE_ACCOUNT_PLUGIN_DEFAULT (tlm_account_plugin_default_get_type())
+#define TLM_ACCOUNT_PLUGIN_DEFAULT(obj) \
+    (G_TYPE_CHECK_INSTANCE_CAST( \
+        (obj), TLM_TYPE_ACCOUNT_PLUGIN_DEFAULT, TlmPluginDefault))
+#define TLM_IS_ACCOUNT_PLUGIN_DEFAULT(obj) \
+    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TLM_TYPE_ACCOUNT_PLUGIN_DEFAULT))
+#define TLM_ACCOUNT_PLUGIN_DEFAULT_CLASS(kls) \
+    (G_TYPE_CHECK_CLASS_CAST( \
+        (klass), TLM_TYPE_ACCOUNT_PLUGIN_DEFAULT, TlmPluginDefaultClass))
+#define TLM_IS_ACCOUNT_PLUGIN_DEFAULT_CLASS(kls) \
+    (G_TYPE_CHECK_CLASS_TYPE ((klass), TLM_TYPE_ACCOUNT_PLUGIN_DEFAULT))
 
-typedef struct _TlmPluginDefault TlmPluginDefault;
-typedef struct _TlmPluginDefaultClass TlmPluginDefaultClass;
+typedef struct _TlmAccountPluginDefault TlmAccountPluginDefault;
+typedef struct _TlmAccountPluginDefaultClass TlmAccountPluginDefaultClass;
 
-struct _TlmPluginDefault
+struct _TlmAccountPluginDefault
 {
     GObject parent;
 };
 
-struct _TlmPluginDefaultClass
+struct _TlmAccountPluginDefaultClass
 {
     GObjectClass parent_class;
 };
 
-GType tlm_plugin_default_get_type ();
+GType tlm_account_plugin_default_get_type ();
 
 G_END_DECLS
 
-#endif /* _TLM_PLUGIN_DEFAULT_H */
+#endif /* _TLM_ACCOUNT_PLUGIN_DEFAULT_H */
 

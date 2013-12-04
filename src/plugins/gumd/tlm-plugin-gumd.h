@@ -23,40 +23,42 @@
  * 02110-1301 USA
  */
 
-#ifndef _TLM_PLUGIN_GUMD_H
-#define _TLM_PLUGIN_GUMD_H
+#ifndef _TLM_ACCOUNT_PLUGIN_GUMD_H
+#define _TLM_ACCOUNT_PLUGIN_GUMD_H
 
 #include <glib.h>
-#include "tlm-plugin.h"
+#include "tlm-account-plugin.h"
 
 G_BEGIN_DECLS
 
-#define TLM_TYPE_PLUGIN_GUMD (tlm_plugin_gumd_get_type())
-#define TLM_PLUGIN_GUMD(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), \
-        TLM_TYPE_PLUGIN_GUMD,  TlmPluginGumd))
-#define TLM_IS_PLUGIN_GUMD(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), \
-        TLM_TYPE_PLUGIN_GUMD))
-#define TLM_PLUGIN_GUMD_CLASS(kls) (G_TYPE_CHECK_CLASS_CAST ((klass), \
-        TLM_TYPE_PLUGIN_GUMD, TlmPluginGumdClass))
-#define TLM_IS_PLUGIN_GUMD_CLASS(kls) (G_TYPE_CHECK_CLASS_TYPE ((klass), \
-        TLM_TYPE_PLUGIN_GUMD))
+#define TLM_TYPE_ACCOUNT_PLUGIN_GUMD (tlm_account_plugin_gumd_get_type())
+#define TLM_ACCOUNT_PLUGIN_GUMD(obj)  \
+    (G_TYPE_CHECK_INSTANCE_CAST (\
+        (obj), TLM_TYPE_ACCOUNT_PLUGIN_GUMD,  TlmAccountPluginGumd))
+#define TLM_IS_ACCOUNT_PLUGIN_GUMD(obj) \
+    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TLM_TYPE_ACCOUNT_PLUGIN_GUMD))
+#define TLM_ACCOUNT_PLUGIN_GUMD_CLASS(kls) \
+    (G_TYPE_CHECK_CLASS_CAST ( \
+        (klass), TLM_TYPE_ACCOUNT_PLUGIN_GUMD, TlmAccountPluginGumdClass))
+#define TLM_IS_ACCOUNT_PLUGIN_GUMD_CLASS(kls) \
+    (G_TYPE_CHECK_CLASS_TYPE ((klass), TLM_TYPE_ACCOUNT_PLUGIN_GUMD))
 
-typedef struct _TlmPluginGumd TlmPluginGumd;
-typedef struct _TlmPluginGumdClass TlmPluginGumdClass;
+typedef struct _TlmAccountPluginGumd TlmAccountPluginGumd;
+typedef struct _TlmAccountPluginGumdClass TlmAccountPluginGumdClass;
 
-struct _TlmPluginGumd
+struct _TlmAccountPluginGumd
 {
     GObject parent;
 };
 
-struct _TlmPluginGumdClass
+struct _TlmAccountPluginGumdClass
 {
     GObjectClass parent_class;
 };
 
-GType tlm_plugin_gumd_get_type ();
+GType tlm_account_plugin_gumd_get_type ();
 
 G_END_DECLS
 
-#endif /* _TLM_PLUGIN_GUMD_H */
+#endif /* _TLM_ACCOUNT_PLUGIN_GUMD_H */
 

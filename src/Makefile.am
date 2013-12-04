@@ -3,31 +3,18 @@ NULL=
 SUBDIRS = . plugins
 bin_PROGRAMS = tlm
 lib_LTLIBRARIES = libtlm-plugin.la
-BUILT_SOURCES = \
-    tlm-plugin-types.h \
-	tlm-plugin-types.c
-
-tlm-plugin-types.h: tlm-enum.h.template tlm-plugin.h
-	$(GLIB_MKENUMS) --template tlm-enum.h.template \
-                    --fhead "#ifndef _TLM_PLUGIN_TYPES_H\n#define _TLM_PLUGIN_TYPES_H_\n\n#include <glib-object.h>\n\nG_BEGIN_DECLS" \
-                    --identifier-prefix Tlm \
-                    --ftail "\nG_END_DECLS\n\n#endif\n" \
-                    tlm-plugin.h > $@
-
-tlm-plugin-types.c: tlm-enum.c.template tlm-plugin.h tlm-plugin-types.h
-	$(GLIB_MKENUMS) --template tlm-enum.c.template \
-                    --fhead "#include \"tlm-plugin-types.h\"\n" \
-                    --identifier-prefix Tlm \
-                    tlm-plugin.h > $@
+BUILT_SOURCES = 
 
 libtlm_plugin_la_includedir = $(includedir)/tlm
 libtlm_plugin_la_include_HEADERS = \
-	tlm-plugin.h \
+	tlm-account-plugin.h \
+	tlm-auth-plugin.h \
 	$(NULL)
 
 libtlm_plugin_la_SOURCES = \
 	$(BUILT_SOURCES) \
-	tlm-plugin.c \
+	tlm-account-plugin.c \
+	tlm-auth-plugin.c \
 	$(NULL)
 
 libtlm_plugin_la_CFLAGS = \
