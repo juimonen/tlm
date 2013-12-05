@@ -36,55 +36,6 @@
 #include "tlm-plugin-gumd.h"
 #include "tlm-log.h"
 
-static GMainLoop *main_loop = NULL;
-static GError *op_error = NULL;
-
-static void
-_stop_mainloop ()
-{
-    if (main_loop) {
-        g_main_loop_quit (main_loop);
-    }
-}
-
-static void
-_delete_mainloop ()
-{
-    _stop_mainloop ();
-    if (main_loop) {
-        g_main_loop_unref (main_loop);
-        main_loop = NULL;
-    }
-}
-
-static void
-_create_mainloop ()
-{
-    if (main_loop == NULL) {
-        main_loop = g_main_loop_new (NULL, FALSE);
-    }
-}
-
-static void
-_run_mainloop ()
-{
-    _create_mainloop ();
-     g_main_loop_run (main_loop);
-}
-
-static void
-_on_user_op (
-        GumUser *user,
-        const GError *error,
-        gpointer user_data)
-{
-    _delete_mainloop ();
-
-    if (error) {
-        op_error = g_error_copy (error);
-    }
-}
-
 static gboolean
 _setup_guest_account (
         TlmPlugin *plugin,
@@ -93,41 +44,22 @@ _setup_guest_account (
     g_return_val_if_fail (plugin && TLM_IS_PLUGIN_GUMD(plugin), FALSE);
     g_return_val_if_fail (user_name && user_name[0], FALSE);
 
-    GumUser *guser = gum_user_create (_on_user_op, NULL);
+    GumUser *guser = gum_user_create_sync ();
     if (!guser) {
         WARN ("Failed user %s creation", user_name);
         return FALSE;
     }
 
-    _run_mainloop ();
+    g_object_set (G_OBJECT (guser), "usertype", GUM_USERTYPE_GUEST, "username",
+            user_name, NULL);
 
-    if (op_error) {
-        WARN ("Failed user %s creation with error  %d:%s", user_name,
-                op_error->code, op_error->message);
-        g_object_unref (guser);
-        g_error_free (op_error);
-        return FALSE;
-    }
-
-    g_object_set (G_OBJECT (guser), "usertype", GUM_USERTYPE_GUEST, NULL);
-    g_object_set (G_OBJECT (guser), "username", user_name, NULL);
-
-    if (!gum_user_add (guser, _on_user_op, NULL)) {
+    if (!gum_user_add_sync (guser)) {
         WARN ("Failed user %s add", user_name);
         g_object_unref (guser);
         return FALSE;
     }
 
-    _run_mainloop ();
-
     g_object_unref (guser);
-
-    if (op_error) {
-        WARN ("Failed user %s add -- %d:%s", user_name, op_error->code,
-                op_error->message);
-        g_error_free (op_error);
-        return FALSE;
-    }
 
     return TRUE;
 }
@@ -143,24 +75,17 @@ _cleanup_guest_user (
     gchar *home_dir = NULL;
     GError *error = NULL;
     gboolean ret = FALSE;
+    guint umask = 022;
 
     (void) delete;
 
     g_return_val_if_fail (plugin && TLM_IS_PLUGIN_GUMD(plugin), FALSE);
     g_return_val_if_fail (user_name && user_name[0], FALSE);
 
-    GumUser *guser = gum_user_get_by_name (user_name, _on_user_op, NULL);
+    GumUser *guser = gum_user_get_by_name_sync (user_name);
     if (!guser) {
         WARN ("Failed to cleanup user %s", user_name);
         return FALSE;
-    }
-
-    _run_mainloop ();
-
-    if (op_error) {
-        WARN ("Failed to cleanup user %s %d:%s", user_name, op_error->code,
-                op_error->message);
-        goto _finished;
     }
 
     g_object_get (G_OBJECT (guser), "uid", &uid, "gid", &gid, "homedir",
@@ -170,14 +95,13 @@ _cleanup_guest_user (
         goto _finished;
     }
 
-    if (!gum_file_create_home_dir (home_dir, uid, gid, 022, &error)) {
+    if (!gum_file_create_home_dir (home_dir, uid, gid, umask, &error)) {
         goto _finished;
     }
     ret = TRUE;
 
 _finished:
 
-    if (op_error) g_error_free (op_error);
     if (error) g_error_free (error);
     g_free (home_dir);
     g_object_unref (guser);
@@ -193,23 +117,13 @@ _is_valid_user (
     g_return_val_if_fail (plugin && TLM_IS_PLUGIN_GUMD(plugin), FALSE);
     g_return_val_if_fail (user_name && user_name[0], FALSE);
 
-    GumUser *guser = gum_user_get_by_name (user_name, _on_user_op, NULL);
+    GumUser *guser = gum_user_get_by_name_sync (user_name);
     if (!guser) {
         WARN ("Failed to find user %s", user_name);
         return FALSE;
     }
 
-    _run_mainloop ();
-
     g_object_unref (guser);
-
-    if (op_error) {
-        WARN ("Failed user %s find -- %d:%s", user_name, op_error->code,
-                op_error->message);
-        g_error_free (op_error);
-        return FALSE;
-    }
-
     return TRUE;
 }
 
