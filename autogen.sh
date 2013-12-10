@@ -10,5 +10,5 @@ libtoolize --copy --force
 autoconf
 automake --add-missing --copy
 autoreconf --install --force
-. $srcdir/configure "$@"
+$srcdir/configure "$@"
 
