@@ -57,8 +57,10 @@ Makefile
 src/Makefile
 src/plugins/Makefile
 src/plugins/default/Makefile
-src/plugins/gumd/Makefile
 ])
+
+AM_COND_IF([HAVE_LIBGUM],
+           AC_CONFIG_FILES([src/plugins/gumd/Makefile]))
 
 AC_OUTPUT
 

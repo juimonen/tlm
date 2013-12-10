@@ -1,17 +1,17 @@
 include $(top_srcdir)/common.mk
-plugins_LTLIBRARIES = libdefault.la
+plugins_LTLIBRARIES = libtlm-plugin-default.la
 
-libdefault_la_SOURCES = \
-	tlm-plugin-default.h \
-	tlm-plugin-default.c
+libtlm_plugin_default_la_SOURCES = \
+	tlm-account-plugin-default.h \
+	tlm-account-plugin-default.c
 
-libdefault_la_CFLAGS = \
+libtlm_plugin_default_la_CFLAGS = \
 	-I$(abs_top_builddir)/src \
 	-DG_LOG_DOMAIN=\"TLM_PLUGIN_DEFAULT\" \
 	$(GLIB_CFLAGS)
 
-libdefault_la_LDFLAGS = -avoid-version
+libtlm_plugin_default_la_LDFLAGS = -avoid-version
 
-libdefault_la_LIBADD = \
+libtlm_plugin_default_la_LIBADD = \
 	$(abs_top_builddir)/src/libtlm-plugin.la \
 	$(GLIB_LIBS)
