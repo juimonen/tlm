@@ -1,6 +1,6 @@
-#%PAM-1.0
-auth     include        common-auth
-account  include        common-account
-password include        common-password
-session  required       pam_loginuid.so
-session  include        common-session
+auth    required    pam_permit.so
+auth    required    pam_env.so
+account required    pam_unix.so nullok
+session required    pam_unix.so
+session required    pam_loginuid.so
+session required    pam_systemd.so debug=1 
