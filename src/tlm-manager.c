@@ -231,6 +231,7 @@ static void
 tlm_manager_init (TlmManager *manager)
 {
     GError *error = NULL;
+    const gchar *act_plugin_name = NULL;
     TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
     
     priv->connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, &error);
@@ -249,7 +250,11 @@ tlm_manager_init (TlmManager *manager)
     manager->priv = priv;
 
     /* FIXME: findout account plugin from configuration */
-    _load_accounts_plugin (manager, "gumd");
+    act_plugin_name = g_getenv("TLM_ACCOUNT_PLUGIN");
+    if (!act_plugin_name)
+        act_plugin_name = "default";
+    
+    _load_accounts_plugin (manager, act_plugin_name);
     //_load_auth_plugins ();
 }
 
