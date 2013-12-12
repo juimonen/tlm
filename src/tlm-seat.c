@@ -24,6 +24,9 @@
  * 02110-1301 USA
  */
 
+#include <unistd.h>
+#include <fcntl.h>
+
 #include "tlm-seat.h"
 #include "tlm-session.h"
 #include "tlm-log.h"
@@ -45,7 +48,12 @@ struct _TlmSeatPrivate
 {
     gchar *id;
     gchar *path;
+    gchar *default_user;
+    gchar *next_user;
+    gchar *next_password;
     TlmSession *session;
+    gint notify_fd[2];
+    GIOChannel *notify_channel;
 };
 
 static void
@@ -64,16 +72,21 @@ static void
 tlm_seat_finalize (GObject *self)
 {
     TlmSeat *seat = TLM_SEAT(self);
+    TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
 
-    if (seat->priv->id) {
-        g_free (seat->priv->id);
-        seat->priv->id = NULL;
+    if (priv->id) {
+        g_free (priv->id);
+        priv->id = NULL;
     }
 
-    if (seat->priv->path) {
-        g_free (seat->priv->path);
-        seat->priv->path = NULL;
+    if (priv->path) {
+        g_free (priv->path);
+        priv->path = NULL;
     }
+
+    g_io_channel_unref (priv->notify_channel);
+    close (priv->notify_fd[0]);
+    close (priv->notify_fd[1]);
 
     G_OBJECT_CLASS (tlm_seat_parent_class)->finalize (self);
 }
@@ -127,7 +140,7 @@ tlm_seat_class_init (TlmSeatClass *klass)
 {
     GObjectClass *g_klass = G_OBJECT_CLASS (klass);
 
-    g_type_class_add_private (klass, sizeof(TlmSeatPrivate));
+    g_type_class_add_private (klass, sizeof (TlmSeatPrivate));
 
     g_klass->dispose = tlm_seat_dispose ;
     g_klass->finalize = tlm_seat_finalize;
@@ -144,6 +157,24 @@ tlm_seat_class_init (TlmSeatClass *klass)
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 }
 
+static gboolean
+_notify_handler (GIOChannel *channel,
+                 GIOCondition condition,
+                 gpointer user_data)
+{
+    TlmSeat *seat = TLM_SEAT(user_data);
+    pid_t notify_pid = 0;
+
+    if (read (seat->priv->notify_fd[0],
+              &notify_pid, sizeof (notify_pid)) < (ssize_t) sizeof (notify_pid))
+        WARN ("failed to read child pid for seat %p", seat);
+
+    DBG ("handling session termination for pid %u", notify_pid);
+    g_clear_object (&seat->priv->session);
+
+    return TRUE;
+}
+
 static void
 tlm_seat_init (TlmSeat *seat)
 {
@@ -152,6 +183,14 @@ tlm_seat_init (TlmSeat *seat)
     priv->id = priv->path = NULL;
 
     seat->priv = priv;
+
+    if (pipe2 (priv->notify_fd, O_NONBLOCK | O_CLOEXEC))
+        ERR ("pipe2() failed");
+    priv->notify_channel = g_io_channel_unix_new (priv->notify_fd[0]);
+    g_io_add_watch (priv->notify_channel,
+                    G_IO_IN,
+                    _notify_handler,
+                    seat);
 }
 
 const gchar *
@@ -173,7 +212,8 @@ tlm_seat_create_session (
     g_return_val_if_fail (seat->priv->session == NULL, FALSE);
     g_return_val_if_fail (service, FALSE);
 
-    seat->priv->session = tlm_session_new (service);
+    seat->priv->session = tlm_session_new (service,
+                                           seat->priv->notify_fd[1]);
     tlm_session_putenv (seat->priv->session, "XDG_SEAT", seat->priv->id);
 
     return tlm_session_start(seat->priv->session, username);

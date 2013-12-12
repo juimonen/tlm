@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <grp.h>
 #include <stdio.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -48,17 +49,21 @@ G_DEFINE_TYPE (TlmSession, tlm_session, G_TYPE_OBJECT);
 enum {
     PROP_0,
     PROP_SERVICE,
+    PROP_NOTIFY_FD,
     N_PROPERTIES
 };
 static GParamSpec *pspecs[N_PROPERTIES];
 
 struct _TlmSessionPrivate
 {
+    gint notify_fd;
     gchar *service;
     gchar *username;
     GHashTable *env_hash;
     TlmAuthSession *auth_session;
 };
+
+static GHashTable *notify_table = NULL;
 
 static void
 tlm_session_dispose (GObject *self)
@@ -83,20 +88,26 @@ tlm_session_finalize (GObject *self)
     g_clear_string (&session->priv->service);
     g_clear_string (&session->priv->username);
 
+    g_hash_table_unref (notify_table);
+
     G_OBJECT_CLASS (tlm_session_parent_class)->finalize (self);
 }
 
 static void
 _session_set_property (GObject *obj,
-                    guint property_id,
-                    const GValue *value,
-                    GParamSpec *pspec)
+                       guint property_id,
+                       const GValue *value,
+                       GParamSpec *pspec)
 {
     TlmSession *session = TLM_SESSION(obj);
+    TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
 
     switch (property_id) {
         case PROP_SERVICE: 
-          session->priv->service = g_value_dup_string (value);
+            priv->service = g_value_dup_string (value);
+            break;
+        case PROP_NOTIFY_FD:
+            priv->notify_fd = g_value_get_int (value);
             break;
 
         default:
@@ -106,15 +117,18 @@ _session_set_property (GObject *obj,
 
 static void
 _session_get_property (GObject *obj,
-                    guint property_id,
-                    GValue *value,
-                    GParamSpec *pspec)
+                       guint property_id,
+                       GValue *value,
+                       GParamSpec *pspec)
 {
     TlmSession *session = TLM_SESSION(obj);
 
     switch (property_id) {
         case PROP_SERVICE: 
             g_value_set_string (value, session->priv->service);
+            break;
+        case PROP_NOTIFY_FD:
+            g_value_set_int (value, session->priv->notify_fd);
             break;
 
         default:
@@ -127,17 +141,28 @@ tlm_session_class_init (TlmSessionClass *klass)
 {
     GObjectClass *g_klass = G_OBJECT_CLASS (klass);
 
-    g_type_class_add_private (klass, sizeof(TlmSessionPrivate));
+    g_type_class_add_private (klass, sizeof (TlmSessionPrivate));
 
     g_klass->dispose = tlm_session_dispose ;
     g_klass->finalize = tlm_session_finalize;
     g_klass->set_property = _session_set_property;
     g_klass->get_property = _session_get_property;
 
-    pspecs[PROP_SERVICE] = g_param_spec_string ("service", 
-                        "authentication service", "Service", NULL, 
-                        G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY |
-                        G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_SERVICE] =
+        g_param_spec_string ("service",
+                             "authentication service",
+                             "PAM service",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_NOTIFY_FD] =
+        g_param_spec_int ("notify-fd",
+                          "notification descriptor",
+                          "SIGCHLD notification file descriptor",
+                          0,
+                          INT_MAX,
+                          0,
+                          G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
+
 
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 }
@@ -148,11 +173,20 @@ tlm_session_init (TlmSession *session)
     TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
     
     priv->service = NULL;
-    priv->env_hash = g_hash_table_new_full (
-                        g_str_hash, g_str_equal, g_free, g_free);
+    priv->env_hash = g_hash_table_new_full (g_str_hash,
+                                            g_str_equal,
+                                            g_free,
+                                            g_free);
     priv->auth_session = NULL;
 
     session->priv = priv;
+
+    if (!notify_table) {
+        notify_table = g_hash_table_new (g_direct_hash,
+                                         g_direct_equal);
+    } else {
+        g_hash_table_ref (notify_table);
+    }
 }
 
 gboolean
@@ -273,12 +307,45 @@ _set_environment (TlmSessionPrivate *priv)
 }
 
 static void
+_signal_action (
+    int signal_no,
+    siginfo_t *signal_info,
+    void *context)
+{
+    gpointer notify_ptr;
+
+    switch (signal_no) {
+        case SIGCHLD:
+            DBG ("SIGCHLD received for %u status %d",
+                 signal_info->si_pid,
+                 signal_info->si_status);
+            notify_ptr = g_hash_table_lookup (notify_table,
+                                              GUINT_TO_POINTER (signal_info->si_pid));
+            if (!notify_ptr) {
+                WARN ("no notify entry found for child pid %u",
+                      signal_info->si_pid);
+                return;
+            }
+            if (write (GPOINTER_TO_INT (notify_ptr),
+                   &signal_info->si_pid,
+                   sizeof (pid_t)) < (ssize_t) sizeof (pid_t))
+                WARN ("failed to send notification");
+            g_hash_table_remove (notify_table, notify_ptr);
+            break;
+        default:
+            DBG ("%s received for %u",
+                 strsignal (signal_no),
+                 signal_info->si_pid);
+    }
+}
+
+static void
 _session_on_session_created (
     TlmAuthSession *auth_session,
     const gchar *id,
     gpointer userdata)
 {
-    int child_status = 0;
+    //int child_status = 0;
     pid_t child_pid;
     const char *home;
     TlmSession *session = TLM_SESSION (userdata);
@@ -292,11 +359,18 @@ _session_on_session_created (
 
     child_pid = fork ();
     if (child_pid) {
-        DBG ("wait for child process %u", child_pid);
-        waitpid (child_pid, &child_status, 0);
-        DBG ("wait completed for %u", child_pid);
-        tlm_auth_session_stop (auth_session, child_status);
-        DBG ("session complete");
+        DBG ("stablish handler for the child pid %u", child_pid);
+        struct sigaction sa;
+        memset (&sa, 0x00, sizeof (sa));
+        sa.sa_sigaction = _signal_action;
+        sigaddset (&sa.sa_mask, SIGCHLD);
+        sa.sa_flags = SA_SIGINFO | SA_RESTART;
+        if (sigaction (SIGCHLD, &sa, NULL))
+            WARN ("failed to establish watch for %u", child_pid);
+
+        g_hash_table_insert (notify_table,
+                             GUINT_TO_POINTER (child_pid),
+                             GINT_TO_POINTER (priv->notify_fd));
         return;
     }
 
@@ -366,8 +440,11 @@ tlm_session_stop (TlmSession *session)
 }
 
 TlmSession *
-tlm_session_new (const gchar *service)
+tlm_session_new (const gchar *service, gint notify_fd)
 {
-    return g_object_new (TLM_TYPE_SESSION, "service", service, NULL);
+    return g_object_new (TLM_TYPE_SESSION,
+                         "service", service,
+                         "notify-fd", notify_fd,
+                         NULL);
 }
 

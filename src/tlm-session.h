@@ -60,7 +60,7 @@ struct _TlmSessionClass
 GType tlm_session_get_type(void);
 
 TlmSession *
-tlm_session_new (const gchar *service);
+tlm_session_new (const gchar *service, gint notify_fd);
 
 gboolean
 tlm_session_putenv (TlmSession *session,

@@ -413,12 +413,6 @@ tlm_auth_session_stop (TlmAuthSession *auth_session, int session_status)
               pam_strerror (priv->pam_handle, res));
     }
 
-    res = pam_close_session (priv->pam_handle, PAM_SILENT);
-    if (res != PAM_SUCCESS) {
-    	WARN ("Failed to close session: %s",
-    		  pam_strerror(priv->pam_handle, res));
-    }
-
     res = pam_end (priv->pam_handle,
                    pam_close_session (priv->pam_handle, 0));
     if (res != PAM_SUCCESS) {

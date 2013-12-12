@@ -47,6 +47,7 @@ tlm_SOURCES = \
 tlm_CFLAGS = \
     -I$(abs_top_builddir) \
     -I$(abs_top_srcdir)/src \
+	-D_GNU_SOURCE \
 	-DG_LOG_DOMAIN=\"TLM\" \
 	-DTLM_PLUGINS_DIR='"$(pluginsdir)"' \
     $(TLM_CFLAGS) \
