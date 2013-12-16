@@ -50,7 +50,7 @@ struct _TlmAuthPluginInterface {
 
 GType tlm_auth_plugin_get_type (void);
 
-void
+gboolean
 tlm_auth_plugin_start_authentication (TlmAuthPlugin *self,
                                       const gchar *seat_id, 
                                       const gchar *pam_service,

@@ -50,20 +50,24 @@ tlm_auth_plugin_default_init (TlmAuthPluginInterface *g_class)
      * 
      */
     _signals[AUTHENTICATE] = g_signal_new ("authenticate",
-            G_TYPE_FROM_CLASS (g_class), G_SIGNAL_RUN_FIRST,
-            0, NULL, NULL, NULL, G_TYPE_NONE,
+            G_TYPE_FROM_CLASS (g_class), G_SIGNAL_RUN_LAST,
+            0, NULL, NULL, NULL, G_TYPE_BOOLEAN,
             4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 
 }
 
-void
+gboolean
 tlm_auth_plugin_start_authentication (TlmAuthPlugin   *self,
                                       const gchar *seat,
                                       const gchar *pam_service,
                                       const gchar *user_name,
                                       const gchar *password)
 {
+    gboolean res = FALSE;
+
     g_signal_emit(self, _signals[AUTHENTICATE], 0, 
-            seat, pam_service, user_name, password);
+            seat, pam_service, user_name, password, &res);
+
+    return res;
 }
 
