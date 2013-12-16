@@ -34,6 +34,7 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <stdio.h>
+#include <string.h>
 
 G_DEFINE_TYPE (TlmManager, tlm_manager, G_TYPE_OBJECT);
 
@@ -151,10 +152,35 @@ tlm_manager_class_init (TlmManagerClass *klass)
                 G_TYPE_STRING);
 }
 
-static TlmAccountPlugin *
-_load_account_plugin_file (const gchar *file_path, const gchar *plugin_name)
+static gboolean
+_manager_authenticate_cb (TlmAuthPlugin *plugin,
+                          const gchar *seat_id,
+                          const gchar *pam_service,
+                          const gchar *username,
+                          const gchar *password,
+                          gpointer user_data)
 {
-    TlmAccountPlugin *plugin = NULL;
+    TlmManager *self = TLM_MANAGER (user_data);
+    TlmSeat *seat = NULL;
+
+    g_return_val_if_fail (self, FALSE);
+
+    DBG ("'%s' '%s' '%s' '%s'", seat_id, pam_service, username, password);
+
+    seat = g_hash_table_lookup (self->priv->seats, seat_id);
+    if (!seat) {
+        WARN ("Seat is not ready : %s", seat_id);
+        return FALSE;
+    }
+
+    /* re login with new username */
+    return tlm_seat_create_session (seat, pam_service, username);
+}
+
+static GObject *
+_load_plugin_file (const gchar *file_path, const gchar *plugin_name, const gchar *plugin_type)
+{
+    GObject *plugin = NULL;
 
     DBG("Loading plugin %s", file_path);
     GModule* plugin_module = g_module_open (file_path, G_MODULE_BIND_LAZY);
@@ -163,7 +189,7 @@ _load_account_plugin_file (const gchar *file_path, const gchar *plugin_name)
         return NULL;
     }
 
-    gchar* get_type_func = g_strdup_printf("tlm_account_plugin_%s_get_type", plugin_name);
+    gchar* get_type_func = g_strdup_printf("tlm_%s_plugin_%s_get_type", plugin_type, plugin_name);
     gpointer p;
 
     DBG("Resolving symbol %s", get_type_func);
@@ -209,23 +235,73 @@ _load_accounts_plugin (TlmManager *self, const gchar *name)
     plugin_file = g_module_build_path(plugins_path, plugin_file_name);
     g_free (plugin_file_name);
 
-    self->priv->account_plugin =  _load_account_plugin_file (plugin_file, name);
+    self->priv->account_plugin =  TLM_ACCOUNT_PLUGIN(
+        _load_plugin_file (plugin_file, name, "account"));
 
     g_free (plugin_file);
 }
 
-#if 0
 static void
 _load_auth_plugins (TlmManager *self)
 {
-    const gchar *plugin_path = TLM_PLUGINS_DIR;
-    gchar *plugin_file = NULL;
+    const gchar *plugins_path = TLM_PLUGINS_DIR;
+    const gchar *env_val = NULL;
+    const gchar *plugin_file_name = NULL;
+    GDir  *plugins_dir = NULL;
+    GError *error = NULL;
 
     env_val = g_getenv ("TLM_PLUGINS_DIR");
     if (env_val)
         plugins_path = env_val;
+    
+    plugins_dir = g_dir_open (plugins_path, 0, &error);
+    if (!plugins_dir) {
+        WARN ("Faile to open pluins folder '%s' : %s", plugins_path,
+                 error ? error->message : "NULL");
+        g_error_free (error);
+        return;
+    }
+
+    while ((plugin_file_name = g_dir_read_name (plugins_dir)) != NULL)
+    {
+        DBG("Plugin File : %s", plugin_file_name);
+        if (g_str_has_prefix (plugin_file_name, "libtlm-plugin-") &&
+            g_str_has_suffix (plugin_file_name, ".so"))
+        {
+            gchar *plugin_file_path = NULL;
+            gchar *plugin_name = NULL;
+            GObject *plugin = NULL;
+        
+            plugin_file_path = g_module_build_path(plugins_path, 
+                                                   plugin_file_name);
+
+            if (!g_file_test (plugin_file_path, 
+                              G_FILE_TEST_IS_REGULAR && G_FILE_TEST_EXISTS)) {
+                WARN ("Ingnoring plugin : %s", plugin_file_path);
+                g_free (plugin_file_path);
+                continue;
+            }
+
+            DBG ("loading auth plugin '%s'", plugin_file_name);
+ 
+            plugin_name = g_strdup (plugin_file_name + 14); // truncate prefix
+            plugin_name[strlen(plugin_name) - 3] = '\0' ; // truncate suffix
+    
+            plugin = _load_plugin_file (plugin_file_path, plugin_name, "auth");
+            if (plugin) {
+                g_signal_connect (plugin, "authenticate",
+                     G_CALLBACK(_manager_authenticate_cb), self);
+                self->priv->auth_plugins = g_list_append (
+                            self->priv->auth_plugins, plugin);
+            }
+            g_free (plugin_file_path);
+            g_free (plugin_name);
+        }
+    }
+
+    g_dir_close (plugins_dir);
+
 }
-#endif
 
 static void
 tlm_manager_init (TlmManager *manager)
@@ -255,7 +331,7 @@ tlm_manager_init (TlmManager *manager)
         act_plugin_name = "default";
     
     _load_accounts_plugin (manager, act_plugin_name);
-    //_load_auth_plugins ();
+    _load_auth_plugins (manager);
 }
 
 static void
