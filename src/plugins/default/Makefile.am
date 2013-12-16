@@ -3,7 +3,9 @@ plugins_LTLIBRARIES = libtlm-plugin-default.la
 
 libtlm_plugin_default_la_SOURCES = \
 	tlm-account-plugin-default.h \
-	tlm-account-plugin-default.c
+	tlm-account-plugin-default.c \
+	tlm-auth-plugin-default.h \
+    tlm-auth-plugin-default.c
 
 libtlm_plugin_default_la_CFLAGS = \
 	-I$(abs_top_builddir)/src \
