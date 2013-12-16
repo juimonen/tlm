@@ -213,10 +213,13 @@ tlm_seat_create_session (
     g_return_val_if_fail (service, FALSE);
 
     seat->priv->session = tlm_session_new (service,
-                                           seat->priv->notify_fd[1]);
+                                           seat->priv->notify_fd[1],
+                                           username, NULL);
+    if (!seat->priv->session)
+        return FALSE;
     tlm_session_putenv (seat->priv->session, "XDG_SEAT", seat->priv->id);
 
-    return tlm_session_start(seat->priv->session, username);
+    return TRUE;
 }
 
 TlmSeat *

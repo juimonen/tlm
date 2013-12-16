@@ -50,6 +50,7 @@ enum {
     PROP_0,
     PROP_SERVICE,
     PROP_USERNAME,
+    PROP_PASSWORD,
     N_PROPERTIES
 };
 static GParamSpec *pspecs[N_PROPERTIES];
@@ -67,6 +68,7 @@ struct _TlmAuthSessionPrivate
 {
     gchar *service;
     gchar *username;
+    gchar *password;
     gchar *session_id; /* logind session path */
     pam_handle_t *pam_handle;
 };
@@ -87,6 +89,7 @@ tlm_auth_session_finalize (GObject *self)
 
     g_clear_string (&priv->service);
     g_clear_string (&priv->username);
+    g_clear_string (&priv->password);
 
     G_OBJECT_CLASS (tlm_auth_session_parent_class)->finalize (self);
 }
@@ -97,15 +100,18 @@ _auth_session_set_property (GObject *obj,
                             const GValue *value,
                             GParamSpec *pspec)
 {
-    TlmAuthSession *auth_session = TLM_AUTH_SESSION(obj);
+    TlmAuthSession *auth_session = TLM_AUTH_SESSION (obj);
+    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
     switch (property_id) {
         case PROP_SERVICE: 
-            auth_session->priv->service = g_value_dup_string (value);
+            priv->service = g_value_dup_string (value);
             break;
-
         case PROP_USERNAME:
-            auth_session->priv->username = g_value_dup_string (value);
+            priv->username = g_value_dup_string (value);
+            break;
+        case PROP_PASSWORD:
+            priv->password = g_value_dup_string (value);
             break;
 
         default:
@@ -120,14 +126,17 @@ _auth_session_get_property (GObject *obj,
                             GParamSpec *pspec)
 {
     TlmAuthSession *auth_session = TLM_AUTH_SESSION(obj);
+    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
     switch (property_id) {
         case PROP_SERVICE: 
-            g_value_set_string (value, auth_session->priv->service);
+            g_value_set_string (value, priv->service);
             break;
-
         case PROP_USERNAME:
-            g_value_set_string (value, auth_session->priv->username);
+            g_value_set_string (value, priv->username);
+            break;
+        case PROP_PASSWORD:
+            g_value_set_string (value, priv->password);
             break;
 
         default:
@@ -147,14 +156,24 @@ tlm_auth_session_class_init (TlmAuthSessionClass *klass)
     g_klass->set_property = _auth_session_set_property;
     g_klass->get_property = _auth_session_get_property;
 
-    pspecs[PROP_SERVICE] = g_param_spec_string ("service", 
-                        "authentication service", "Service", NULL, 
-                        G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY |
-                        G_PARAM_STATIC_STRINGS);
-    pspecs[PROP_USERNAME] = g_param_spec_string ("username", 
-                        "username", "Username", NULL, 
-                        G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY |
-                        G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_SERVICE] =
+        g_param_spec_string ("service",
+                             "authentication service",
+                             "Service",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_USERNAME] =
+        g_param_spec_string ("username",
+                             "username",
+                             "Username",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_PASSWORD] =
+        g_param_spec_string ("password",
+                             "password",
+                             "Unix password for the user to login",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 
@@ -398,7 +417,7 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
 }
 
 gboolean
-tlm_auth_session_stop (TlmAuthSession *auth_session, int session_status)
+tlm_auth_session_stop (TlmAuthSession *auth_session)
 {
     int res;
     TlmAuthSessionPrivate *priv = NULL;
@@ -425,12 +444,15 @@ tlm_auth_session_stop (TlmAuthSession *auth_session, int session_status)
 }
 
 TlmAuthSession *
-tlm_auth_session_new (const gchar *service, const gchar *username)
+tlm_auth_session_new (const gchar *service,
+                      const gchar *username,
+                      const gchar *password)
 {
     TlmAuthSession *auth_session = TLM_AUTH_SESSION (
         g_object_new (TLM_TYPE_AUTH_SESSION,
                       "service", service,
                       "username", username,
+                      "password", password,
                       NULL));
 
     struct pam_conv conv = { _auth_session_pam_conversation_cb,

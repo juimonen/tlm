@@ -67,7 +67,9 @@ struct _TlmAuthSessionClass
 GType tlm_auth_session_get_type(void);
 
 TlmAuthSession *
-tlm_auth_session_new (const gchar *service, const gchar *username);
+tlm_auth_session_new (const gchar *service,
+                      const gchar *username,
+                      const gchar *password);
 
 gboolean
 tlm_auth_session_putenv (TlmAuthSession *auth_session,
@@ -78,7 +80,7 @@ gboolean
 tlm_auth_session_start (TlmAuthSession *auth_session);
 
 gboolean
-tlm_auth_session_stop (TlmAuthSession *auth_session, int session_status);
+tlm_auth_session_stop (TlmAuthSession *auth_session);
 
 const gchar *
 tlm_auth_session_get_username (TlmAuthSession *auth_session);

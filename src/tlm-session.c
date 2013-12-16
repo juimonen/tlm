@@ -50,6 +50,8 @@ enum {
     PROP_0,
     PROP_SERVICE,
     PROP_NOTIFY_FD,
+    PROP_USERNAME,
+    PROP_PASSWORD,
     N_PROPERTIES
 };
 static GParamSpec *pspecs[N_PROPERTIES];
@@ -57,6 +59,7 @@ static GParamSpec *pspecs[N_PROPERTIES];
 struct _TlmSessionPrivate
 {
     gint notify_fd;
+    pid_t child_pid;
     gchar *service;
     gchar *username;
     GHashTable *env_hash;
@@ -71,6 +74,7 @@ tlm_session_dispose (GObject *self)
     TlmSession *session = TLM_SESSION(self);
     DBG("disposing session: %s", session->priv->service);
 
+    tlm_auth_session_stop (session->priv->auth_session);
     g_clear_object (&session->priv->auth_session);
     if (session->priv->env_hash) {
         g_hash_table_unref (session->priv->env_hash);
@@ -109,6 +113,9 @@ _session_set_property (GObject *obj,
         case PROP_NOTIFY_FD:
             priv->notify_fd = g_value_get_int (value);
             break;
+        case PROP_USERNAME:
+            priv->username = g_value_dup_string (value);
+            break;
 
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
@@ -122,13 +129,17 @@ _session_get_property (GObject *obj,
                        GParamSpec *pspec)
 {
     TlmSession *session = TLM_SESSION(obj);
+    TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
 
     switch (property_id) {
         case PROP_SERVICE: 
-            g_value_set_string (value, session->priv->service);
+            g_value_set_string (value, priv->service);
             break;
         case PROP_NOTIFY_FD:
-            g_value_set_int (value, session->priv->notify_fd);
+            g_value_set_int (value, priv->notify_fd);
+            break;
+        case PROP_USERNAME:
+            g_value_set_string (value, priv->username);
             break;
 
         default:
@@ -162,7 +173,12 @@ tlm_session_class_init (TlmSessionClass *klass)
                           INT_MAX,
                           0,
                           G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
-
+    pspecs[PROP_USERNAME] =
+        g_param_spec_string ("username",
+                             "user name",
+                             "Unix user name of user to login",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 }
@@ -345,8 +361,6 @@ _session_on_session_created (
     const gchar *id,
     gpointer userdata)
 {
-    //int child_status = 0;
-    pid_t child_pid;
     const char *home;
     TlmSession *session = TLM_SESSION (userdata);
     TlmSessionPrivate *priv = session->priv;
@@ -357,19 +371,19 @@ _session_on_session_created (
             g_strdup (tlm_auth_session_get_username (auth_session));
     DBG ("session ID : %s", id);
 
-    child_pid = fork ();
-    if (child_pid) {
-        DBG ("stablish handler for the child pid %u", child_pid);
+    priv->child_pid = fork ();
+    if (priv->child_pid) {
+        DBG ("stablish handler for the child pid %u", priv->child_pid);
         struct sigaction sa;
         memset (&sa, 0x00, sizeof (sa));
         sa.sa_sigaction = _signal_action;
         sigaddset (&sa.sa_mask, SIGCHLD);
         sa.sa_flags = SA_SIGINFO | SA_RESTART;
         if (sigaction (SIGCHLD, &sa, NULL))
-            WARN ("failed to establish watch for %u", child_pid);
+            WARN ("failed to establish watch for %u", priv->child_pid);
 
         g_hash_table_insert (notify_table,
-                             GUINT_TO_POINTER (child_pid),
+                             GUINT_TO_POINTER (priv->child_pid),
                              GINT_TO_POINTER (priv->notify_fd));
         return;
     }
@@ -403,17 +417,15 @@ _session_on_session_created (
     DBG ("execl(): %s", strerror(errno));
 }
 
-gboolean
-tlm_session_start (TlmSession *session, const gchar *username)
+static gboolean
+_start_session (TlmSession *session, const gchar *password)
 {
     g_return_val_if_fail (session && TLM_IS_SESSION(session), FALSE);
 
-    if (session->priv->username)
-        g_free (session->priv->username);
-    session->priv->username = g_strdup (username);
     session->priv->auth_session = 
         tlm_auth_session_new (session->priv->service,
-                              session->priv->username);
+                              session->priv->username,
+                              password);
 
     if (!session->priv->auth_session) return FALSE;
 
@@ -431,20 +443,30 @@ tlm_session_start (TlmSession *session, const gchar *username)
     return tlm_auth_session_start (session->priv->auth_session);
 }
 
-gboolean
-tlm_session_stop (TlmSession *session)
+TlmSession *
+tlm_session_new (const gchar *service, gint notify_fd,
+                 const gchar *username, const gchar *password)
 {
-    g_return_val_if_fail (session && TLM_IS_SESSION(session), FALSE);
-
-    return TRUE;
+    TlmSession *session =
+        g_object_new (TLM_TYPE_SESSION,
+                      "service", service,
+                      "notify-fd", notify_fd,
+                      "username", username,
+                      NULL);
+    if (!_start_session (session, password)) {
+        g_object_unref (session);
+        return NULL;
+    }
+    return session;
 }
 
-TlmSession *
-tlm_session_new (const gchar *service, gint notify_fd)
+void
+tlm_session_terminate (TlmSession *session)
 {
-    return g_object_new (TLM_TYPE_SESSION,
-                         "service", service,
-                         "notify-fd", notify_fd,
-                         NULL);
+    g_return_if_fail (session && TLM_IS_SESSION(session));
+
+    if (kill(session->priv->child_pid, SIGTERM) < 0)
+        WARN ("kill(%u, SIGTERM): %s",
+              session->priv->child_pid, strerror(errno));
 }
 

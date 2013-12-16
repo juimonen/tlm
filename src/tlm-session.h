@@ -60,18 +60,18 @@ struct _TlmSessionClass
 GType tlm_session_get_type(void);
 
 TlmSession *
-tlm_session_new (const gchar *service, gint notify_fd);
+tlm_session_new (const gchar *service,
+                 gint notify_fd,
+                 const gchar *username,
+                 const gchar *password);
 
 gboolean
 tlm_session_putenv (TlmSession *session,
                     const gchar *var,
                     const gchar *val);
 
-gboolean
-tlm_session_start (TlmSession *session, const gchar *username);
-
-gboolean
-tlm_session_stop (TlmSession *session);
+void
+tlm_session_terminate (TlmSession *session);
 
 G_END_DECLS
 
