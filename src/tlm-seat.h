@@ -60,15 +60,25 @@ struct _TlmSeatClass
 GType tlm_seat_get_type(void);
 
 TlmSeat *
-tlm_seat_new (const gchar *id, const gchar *path);
+tlm_seat_new (const gchar *id,
+              const gchar *path,
+              const gchar *default_service,
+              const gchar *default_user);
 
 const gchar *
 tlm_seat_get_id (TlmSeat *seat);
 
 gboolean
+tlm_seat_switch_user (TlmSeat *seat,
+                      const gchar *service,
+                      const gchar *username,
+                      const gchar *password);
+
+gboolean
 tlm_seat_create_session (TlmSeat *seat,
                          const gchar *service, 
-                         const gchar *username);
+                         const gchar *username,
+                         const gchar *password);
 
 
 G_END_DECLS

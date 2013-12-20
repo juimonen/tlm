@@ -63,7 +63,8 @@ TlmSession *
 tlm_session_new (const gchar *service,
                  gint notify_fd,
                  const gchar *username,
-                 const gchar *password);
+                 const gchar *password,
+                 const gchar *seat_id);
 
 gboolean
 tlm_session_putenv (TlmSession *session,

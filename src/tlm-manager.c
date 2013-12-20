@@ -174,7 +174,7 @@ _manager_authenticate_cb (TlmAuthPlugin *plugin,
     }
 
     /* re login with new username */
-    return tlm_seat_create_session (seat, pam_service, username);
+    return tlm_seat_switch_user (seat, pam_service, username, password);
 }
 
 static GObject *
@@ -256,7 +256,7 @@ _load_auth_plugins (TlmManager *self)
     
     plugins_dir = g_dir_open (plugins_path, 0, &error);
     if (!plugins_dir) {
-        WARN ("Faile to open pluins folder '%s' : %s", plugins_path,
+        WARN ("Failed to open pluins folder '%s' : %s", plugins_path,
                  error ? error->message : "NULL");
         g_error_free (error);
         return;
@@ -349,7 +349,8 @@ _manager_hashify_seats (TlmManager *manager, GVariant *hash_map)
     g_variant_iter_init (&iter, hash_map);
     while (g_variant_iter_next (&iter, "(so)", &id, &path)) {
         DBG("found seat %s:%s", id, path);
-        TlmSeat *seat = tlm_seat_new (id, path);
+        // FIXME: set correct guest service and user
+        TlmSeat *seat = tlm_seat_new (id, path, "tlm-login", "test");
 
         g_hash_table_insert (priv->seats, id, seat);
 
@@ -413,7 +414,7 @@ _manager_on_seat_added (GDBusConnection *connection,
     DBG("Seat added: %s:%s", id, path);
 
     if (!g_hash_table_contains (manager->priv->seats, id)) {
-        TlmSeat *seat = tlm_seat_new (id, path);
+        TlmSeat *seat = tlm_seat_new (id, path, "tlm-login", "test");
 
         g_hash_table_insert (manager->priv->seats,(gpointer)id, (gpointer)seat);
         g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);

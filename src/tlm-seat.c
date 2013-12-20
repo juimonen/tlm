@@ -30,6 +30,7 @@
 #include "tlm-seat.h"
 #include "tlm-session.h"
 #include "tlm-log.h"
+#include "tlm-utils.h"
 
 G_DEFINE_TYPE (TlmSeat, tlm_seat, G_TYPE_OBJECT);
 
@@ -40,6 +41,8 @@ enum {
     PROP_0,
     PROP_ID,
     PROP_PATH,
+    PROP_DEFAULT_SERVICE,
+    PROP_DEFAULT_USER,
     N_PROPERTIES
 };
 static GParamSpec *pspecs[N_PROPERTIES];
@@ -48,7 +51,9 @@ struct _TlmSeatPrivate
 {
     gchar *id;
     gchar *path;
+    gchar *default_service;
     gchar *default_user;
+    gchar *next_service;
     gchar *next_user;
     gchar *next_password;
     TlmSession *session;
@@ -63,9 +68,18 @@ tlm_seat_dispose (GObject *self)
 
     DBG("disposing seat: %s", seat->priv->id);
 
+    // TODO: fix
     g_clear_object (&seat->priv->session);
 
     G_OBJECT_CLASS (tlm_seat_parent_class)->dispose (self);
+}
+
+static void
+_reset_next (TlmSeatPrivate *priv)
+{
+    g_clear_string (&priv->next_service);
+    g_clear_string (&priv->next_user);
+    g_clear_string (&priv->next_password);
 }
 
 static void
@@ -74,15 +88,12 @@ tlm_seat_finalize (GObject *self)
     TlmSeat *seat = TLM_SEAT(self);
     TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
 
-    if (priv->id) {
-        g_free (priv->id);
-        priv->id = NULL;
-    }
+    g_clear_string (&priv->id);
+    g_clear_string (&priv->path);
+    g_clear_string (&priv->default_service);
+    g_clear_string (&priv->default_user);
 
-    if (priv->path) {
-        g_free (priv->path);
-        priv->path = NULL;
-    }
+    _reset_next (priv);
 
     g_io_channel_unref (priv->notify_channel);
     close (priv->notify_fd[0]);
@@ -98,18 +109,23 @@ _seat_set_property (GObject *obj,
                     GParamSpec *pspec)
 {
     TlmSeat *seat = TLM_SEAT(obj);
+    TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
 
     switch (property_id) {
         case PROP_ID: 
-        seat->priv->id = g_value_dup_string (value);
-        break;
-
+            priv->id = g_value_dup_string (value);
+            break;
         case PROP_PATH:
-        seat->priv->path = g_value_dup_string (value);
-        break;
-
+            priv->path = g_value_dup_string (value);
+            break;
+        case PROP_DEFAULT_SERVICE:
+            priv->default_service = g_value_dup_string (value);
+            break;
+        case PROP_DEFAULT_USER:
+            priv->default_user = g_value_dup_string (value);
+            break;
         default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
     }
 }
 
@@ -123,15 +139,19 @@ _seat_get_property (GObject *obj,
 
     switch (property_id) {
         case PROP_ID: 
-        g_value_set_string (value, seat->priv->id);
-        break;
-
+            g_value_set_string (value, seat->priv->id);
+            break;
         case PROP_PATH:
-        g_value_set_string (value, seat->priv->path);
-        break;
-
+            g_value_set_string (value, seat->priv->path);
+            break;
+        case PROP_DEFAULT_SERVICE:
+            g_value_set_string (value, seat->priv->default_service);
+            break;
+        case PROP_DEFAULT_USER:
+            g_value_set_string (value, seat->priv->default_user);
+            break;
         default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
     }
 }
 
@@ -147,12 +167,30 @@ tlm_seat_class_init (TlmSeatClass *klass)
     g_klass->set_property = _seat_set_property;
     g_klass->get_property = _seat_get_property;
 
-    pspecs[PROP_ID] = g_param_spec_string ("id", "seat id", "Seat Id", NULL, 
-                        G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY |
-                        G_PARAM_STATIC_STRINGS);
-    pspecs[PROP_PATH] = g_param_spec_string ("path", "object path",
-             "Seat Object path at logind", NULL, 
-             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_ID] =
+        g_param_spec_string ("id",
+                             "seat id",
+                             "Seat Id",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_PATH] =
+        g_param_spec_string ("path",
+                             "object path",
+                             "Seat Object path at logind",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_DEFAULT_SERVICE] =
+        g_param_spec_string ("default-service",
+                             "default service",
+                             "Default PAM service for auto-login",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_DEFAULT_USER] =
+        g_param_spec_string ("default-user",
+                             "default user name",
+                             "Default user name for auto-login",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 }
@@ -171,6 +209,11 @@ _notify_handler (GIOChannel *channel,
 
     DBG ("handling session termination for pid %u", notify_pid);
     g_clear_object (&seat->priv->session);
+
+    tlm_seat_create_session(seat,
+                            seat->priv->next_service,
+                            seat->priv->next_user,
+                            seat->priv->next_password);
 
     return TRUE;
 }
@@ -201,30 +244,70 @@ tlm_seat_get_id (TlmSeat *seat)
     return (const gchar*) seat->priv->id;
 }
 
+gboolean
+tlm_seat_switch_user (TlmSeat *seat,
+                      const gchar *service,
+                      const gchar *username,
+                      const gchar *password)
+{
+    g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
+
+    TlmSeatPrivate *priv = TLM_SEAT_PRIV (seat);
+
+    if (!priv->session) {
+        return tlm_seat_create_session (seat, service, username, password);
+    }
+
+    if (priv->next_service)
+        g_free (priv->next_service);
+    priv->next_service = g_strdup (service);
+    if (priv->next_user)
+        g_free (priv->next_user);
+    priv->next_user = g_strdup (username);
+    if (priv->next_password)
+        g_free (priv->next_password);
+    tlm_session_terminate (priv->session);
+
+    return TRUE;
+}
 
 gboolean
-tlm_seat_create_session (
-    TlmSeat *seat,
-    const gchar *service, 
-    const gchar *username)
+tlm_seat_create_session (TlmSeat *seat,
+                         const gchar *service,
+                         const gchar *username,
+                         const gchar *password)
 {
     g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
     g_return_val_if_fail (seat->priv->session == NULL, FALSE);
-    g_return_val_if_fail (service, FALSE);
 
-    seat->priv->session = tlm_session_new (service,
-                                           seat->priv->notify_fd[1],
-                                           username, NULL);
+    TlmSeatPrivate *priv = TLM_SEAT_PRIV (seat);
+
+    if (!priv->session) {
+        priv->session =
+            tlm_session_new ((service) ? service : priv->default_service,
+                             seat->priv->notify_fd[1],
+                             (username) ? username : priv->default_user,
+                             password,
+                             priv->id);
+        _reset_next (priv);
+    }
     if (!seat->priv->session)
         return FALSE;
-    tlm_session_putenv (seat->priv->session, "XDG_SEAT", seat->priv->id);
 
     return TRUE;
 }
 
 TlmSeat *
-tlm_seat_new (const gchar *id, const gchar *path)
+tlm_seat_new (const gchar *id,
+              const gchar *path,
+              const gchar *default_service,
+              const gchar *default_user)
 {
-    return g_object_new (TLM_TYPE_SEAT, "id", id, "path", path, NULL);
+    return g_object_new (TLM_TYPE_SEAT,
+                         "id", id,
+                         "path", path,
+                         "default-service", default_service,
+                         "default-user", default_user,
+                         NULL);
 }
 

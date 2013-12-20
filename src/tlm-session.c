@@ -51,7 +51,6 @@ enum {
     PROP_SERVICE,
     PROP_NOTIFY_FD,
     PROP_USERNAME,
-    PROP_PASSWORD,
     N_PROPERTIES
 };
 static GParamSpec *pspecs[N_PROPERTIES];
@@ -445,7 +444,8 @@ _start_session (TlmSession *session, const gchar *password)
 
 TlmSession *
 tlm_session_new (const gchar *service, gint notify_fd,
-                 const gchar *username, const gchar *password)
+                 const gchar *username, const gchar *password,
+                 const gchar *seat_id)
 {
     TlmSession *session =
         g_object_new (TLM_TYPE_SESSION,
@@ -453,6 +453,7 @@ tlm_session_new (const gchar *service, gint notify_fd,
                       "notify-fd", notify_fd,
                       "username", username,
                       NULL);
+    tlm_session_putenv (session, "XDG_SEAT", seat_id);
     if (!_start_session (session, password)) {
         g_object_unref (session);
         return NULL;
