@@ -199,6 +199,9 @@ tlm_session_init (TlmSession *session)
     if (!notify_table) {
         notify_table = g_hash_table_new (g_direct_hash,
                                          g_direct_equal);
+        /* NOTE: this will leak one reference since this singleton is
+         * never freed */
+        g_hash_table_ref (notify_table);
     } else {
         g_hash_table_ref (notify_table);
     }
@@ -361,6 +364,7 @@ _session_on_session_created (
     gpointer userdata)
 {
     const char *home;
+    const char *shell;
     TlmSession *session = TLM_SESSION (userdata);
     TlmSessionPrivate *priv = session->priv;
 
@@ -372,14 +376,14 @@ _session_on_session_created (
 
     priv->child_pid = fork ();
     if (priv->child_pid) {
-        DBG ("stablish handler for the child pid %u", priv->child_pid);
+        DBG ("establish handler for the child pid %u", priv->child_pid);
         struct sigaction sa;
         memset (&sa, 0x00, sizeof (sa));
         sa.sa_sigaction = _signal_action;
         sigaddset (&sa.sa_mask, SIGCHLD);
         sa.sa_flags = SA_SIGINFO | SA_RESTART;
         if (sigaction (SIGCHLD, &sa, NULL))
-            WARN ("failed to establish watch for %u", priv->child_pid);
+            WARN ("Failed to establish watch for %u", priv->child_pid);
 
         g_hash_table_insert (notify_table,
                              GUINT_TO_POINTER (priv->child_pid),
@@ -407,12 +411,19 @@ _session_on_session_created (
 
     home = getenv("HOME");
     if (home) {
-    	DBG ("Changing directory to : %s", home);
+        DBG ("changing directory to : %s", home);
     	if (chdir (home) < 0)
             WARN ("Failed to change directroy : %s", strerror (errno));
     } else WARN ("Could not get home directory");
 
-    execlp ("systemd", "systemd", "--user", (const char *) NULL);
+    shell = getenv("SHELL");
+    if (shell) {
+        DBG ("starting shell %s", shell);
+        execlp (shell, shell, (const char *) NULL);
+    } else {
+        DBG ("starting systemd user session");
+        execlp ("systemd", "systemd", "--user", (const char *) NULL);
+    }
     DBG ("execl(): %s", strerror(errno));
 }
 

@@ -348,7 +348,7 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
     if (!pam_tty) {
         pam_tty = ctermid(NULL);
     }
-    DBG ("etting PAM_TTY to '%s'", pam_tty);
+    DBG ("setting PAM_TTY to '%s'", pam_tty);
     if (pam_set_item (priv->pam_handle, PAM_TTY, pam_tty) != PAM_SUCCESS) {
             WARN ("pam_set_item(PAM_TTY, '%s')", pam_tty);
     }
@@ -367,9 +367,9 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
     pam_get_item (priv->pam_handle, PAM_SERVICE, (const void **)&p_service);
     pam_get_item (priv->pam_handle, PAM_USER, (const void **)&p_uname);
     DBG ("PAM service : '%s', PAM username : '%s'", p_service, p_uname);
-    DBG ("Starting pam authentication for user '%s'", priv->username);
+    DBG ("starting pam authentication for user '%s'", priv->username);
     if((res = pam_authenticate (priv->pam_handle, PAM_SILENT)) != PAM_SUCCESS) {
-        WARN ("pam authentication failure: %s", 
+        WARN ("PAM authentication failure: %s",
               pam_strerror (priv->pam_handle, res));
         GError *error = g_error_new (TLM_AUTH_SESSION_ERROR,
                                      TLM_AUTH_SESSION_PAM_ERROR,
