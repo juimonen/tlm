@@ -29,6 +29,8 @@
 #include "tlm-log.h"
 #include "tlm-account-plugin.h"
 #include "tlm-auth-plugin.h"
+#include "tlm-config.h"
+#include "tlm-config-general.h"
 #include "config.h"
 
 #include <glib.h>
@@ -48,6 +50,7 @@ G_DEFINE_TYPE (TlmManager, tlm_manager, G_TYPE_OBJECT);
 struct _TlmManagerPrivate
 {
     GDBusConnection *connection;
+    TlmConfig *config;
     GHashTable *seats; /* { gchar*:TlmSeat* } */
     TlmAccountPlugin  *account_plugin;
     GList      *auth_plugins;
@@ -90,6 +93,7 @@ tlm_manager_dispose (GObject *self)
     }
 
     g_clear_object (&manager->priv->account_plugin);
+    g_clear_object (&manager->priv->config);
 
     if (manager->priv->auth_plugins) {
     	g_list_free_full(manager->priv->auth_plugins, _unref_auth_plugins);
@@ -178,7 +182,10 @@ _manager_authenticate_cb (TlmAuthPlugin *plugin,
 }
 
 static GObject *
-_load_plugin_file (const gchar *file_path, const gchar *plugin_name, const gchar *plugin_type)
+_load_plugin_file (const gchar *file_path, 
+                   const gchar *plugin_name,
+                   const gchar *plugin_type,
+                   GHashTable *config)
 {
     GObject *plugin = NULL;
 
@@ -189,7 +196,9 @@ _load_plugin_file (const gchar *file_path, const gchar *plugin_name, const gchar
         return NULL;
     }
 
-    gchar* get_type_func = g_strdup_printf("tlm_%s_plugin_%s_get_type", plugin_type, plugin_name);
+    gchar* get_type_func = g_strdup_printf("tlm_%s_plugin_%s_get_type", 
+                                           plugin_type,
+                                           plugin_name);
     gpointer p;
 
     DBG("Resolving symbol %s", get_type_func);
@@ -203,7 +212,7 @@ _load_plugin_file (const gchar *file_path, const gchar *plugin_name, const gchar
 
     DBG("Creating plugin object");
     GType (*plugin_get_type_f)(void) = p;
-    plugin = g_object_new(plugin_get_type_f(), NULL);
+    plugin = g_object_new(plugin_get_type_f(), "config", config, NULL);
     if (plugin == NULL) {
         DBG("Plugin couldn't be created");
         g_module_close (plugin_module);
@@ -217,26 +226,23 @@ _load_plugin_file (const gchar *file_path, const gchar *plugin_name, const gchar
 static void
 _load_accounts_plugin (TlmManager *self, const gchar *name)
 {
-    /* FIXME : plugins path priority
-                 i) environment
-                ii) configuration
-               iii) $(libdir)/tlm-plugins
-     */
-    const gchar *plugins_path = TLM_PLUGINS_DIR;
-    const gchar *env_val = NULL;
+    const gchar *plugins_path = NULL;
     gchar *plugin_file = NULL;
     gchar *plugin_file_name = NULL;
+    GHashTable *accounts_config = NULL;
 
-    env_val = g_getenv ("TLM_PLUGINS_DIR");
-    if (env_val)
-        plugins_path = env_val;
+    plugins_path = tlm_config_get_string (self->priv->config,
+                                          TLM_CONFIG_GENERAL,
+                                          TLM_CONFIG_GENERAL_PLUGINS_DIR);
+
+    accounts_config = tlm_config_get_group (self->priv->config, name);
 
     plugin_file_name = g_strdup_printf ("libtlm-plugin-%s", name);
     plugin_file = g_module_build_path(plugins_path, plugin_file_name);
     g_free (plugin_file_name);
 
     self->priv->account_plugin =  TLM_ACCOUNT_PLUGIN(
-        _load_plugin_file (plugin_file, name, "account"));
+        _load_plugin_file (plugin_file, name, "account", accounts_config));
 
     g_free (plugin_file);
 }
@@ -244,15 +250,14 @@ _load_accounts_plugin (TlmManager *self, const gchar *name)
 static void
 _load_auth_plugins (TlmManager *self)
 {
-    const gchar *plugins_path = TLM_PLUGINS_DIR;
-    const gchar *env_val = NULL;
+    const gchar *plugins_path = NULL;
     const gchar *plugin_file_name = NULL;
     GDir  *plugins_dir = NULL;
     GError *error = NULL;
 
-    env_val = g_getenv ("TLM_PLUGINS_DIR");
-    if (env_val)
-        plugins_path = env_val;
+    plugins_path = tlm_config_get_string (self->priv->config,
+                                          TLM_CONFIG_GENERAL,
+                                          TLM_CONFIG_GENERAL_PLUGINS_DIR);
     
     plugins_dir = g_dir_open (plugins_path, 0, &error);
     if (!plugins_dir) {
@@ -268,9 +273,10 @@ _load_auth_plugins (TlmManager *self)
         if (g_str_has_prefix (plugin_file_name, "libtlm-plugin-") &&
             g_str_has_suffix (plugin_file_name, ".so"))
         {
-            gchar *plugin_file_path = NULL;
-            gchar *plugin_name = NULL;
-            GObject *plugin = NULL;
+            gchar      *plugin_file_path = NULL;
+            gchar      *plugin_name = NULL;
+            GHashTable *plugin_config = NULL;
+            GObject    *plugin = NULL;
         
             plugin_file_path = g_module_build_path(plugins_path, 
                                                    plugin_file_name);
@@ -286,8 +292,14 @@ _load_auth_plugins (TlmManager *self)
  
             plugin_name = g_strdup (plugin_file_name + 14); // truncate prefix
             plugin_name[strlen(plugin_name) - 3] = '\0' ; // truncate suffix
+
+            plugin_config = tlm_config_get_group (self->priv->config,
+                                                  plugin_name);
     
-            plugin = _load_plugin_file (plugin_file_path, plugin_name, "auth");
+            plugin = _load_plugin_file (plugin_file_path,
+                                        plugin_name, 
+                                        "auth",
+                                        plugin_config);
             if (plugin) {
                 g_signal_connect (plugin, "authenticate",
                      G_CALLBACK(_manager_authenticate_cb), self);
@@ -310,6 +322,7 @@ tlm_manager_init (TlmManager *manager)
     const gchar *act_plugin_name = NULL;
     TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
     
+    priv->config = tlm_config_new ();
     priv->connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, &error);
     if (!priv->connection) {
         CRITICAL ("error getting system bus: %s", error->message);
@@ -325,10 +338,9 @@ tlm_manager_init (TlmManager *manager)
 
     manager->priv = priv;
 
-    /* FIXME: findout account plugin from configuration */
-    act_plugin_name = g_getenv("TLM_ACCOUNT_PLUGIN");
-    if (!act_plugin_name)
-        act_plugin_name = "default";
+    act_plugin_name = tlm_config_get_string (priv->config, 
+                                             TLM_CONFIG_GENERAL,
+                                             TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN);
     
     _load_accounts_plugin (manager, act_plugin_name);
     _load_auth_plugins (manager);

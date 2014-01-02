@@ -37,6 +37,15 @@ TLM_LIBS="$GLIB_LIBS $GIO_LIBS $GMODULE_LIBS"
 AC_SUBST(TLM_CFLAGS)
 AC_SUBST(TLM_LIBS)
 
+# Enable debug
+AC_ARG_ENABLE(debug, [ --enable-debug enable debug features], , 
+                     [enable_debug=$enable_debug])
+echo -n "enable debug features... "
+echo $enable_debug
+if test "x$enable_debug" = "xyes" ; then
+    AC_DEFINE(ENABLE_DEBUG, [1], [Enable debug features])
+fi
+
 # Enable gum
 PKG_CHECK_MODULES([LIBGUM], [libgum], [have_libgum=yes], [have_libgum=no])
 AC_ARG_ENABLE(gum, [  --enable-gum build for gumd plugin], ,

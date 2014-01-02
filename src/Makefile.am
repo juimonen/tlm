@@ -41,6 +41,8 @@ tlm_SOURCES = \
 	tlm-seat.c \
 	tlm-manager.h \
 	tlm-manager.c \
+    tlm-config.h \
+    tlm-config.c \
 	tlm-main.c \
 	$(NULL)
 
@@ -50,6 +52,7 @@ tlm_CFLAGS = \
 	-D_GNU_SOURCE \
 	-DG_LOG_DOMAIN=\"TLM\" \
 	-DTLM_PLUGINS_DIR='"$(pluginsdir)"' \
+    -DTLM_SYSCONF_DIR='"$(sysconfdir)"' \
     $(TLM_CFLAGS) \
     $(NULL)
 
