@@ -30,7 +30,15 @@ G_DEFINE_INTERFACE (TlmAccountPlugin, tlm_account_plugin, 0)
 static void
 tlm_account_plugin_default_init (TlmAccountPluginInterface *g_class)
 {
-    (void)g_class;
+    /**
+     * TlmAccountPlugin:config:
+     * 
+     * This property holds a list of key-value pairs of plugin configuration
+     */
+    g_object_interface_install_property (g_class, g_param_spec_boxed (
+            "config", "Config", "Config parameters",
+            G_TYPE_HASH_TABLE, G_PARAM_CONSTRUCT_ONLY 
+                | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 gboolean

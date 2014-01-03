@@ -54,6 +54,16 @@ tlm_auth_plugin_default_init (TlmAuthPluginInterface *g_class)
             0, NULL, NULL, NULL, G_TYPE_BOOLEAN,
             4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 
+    /**
+     * TlmAuthPlugin:config:
+     * 
+     * This property holds a list of key-value pairs of plugin configuration
+     */
+    g_object_interface_install_property (g_class, g_param_spec_boxed (
+            "config", "Config", "Config parameters",
+            G_TYPE_HASH_TABLE, G_PARAM_CONSTRUCT_ONLY
+                | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
 }
 
 gboolean
