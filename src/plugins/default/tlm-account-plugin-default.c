@@ -32,6 +32,18 @@
 #include "tlm-account-plugin-default.h"
 #include "tlm-log.h"
 
+enum {
+    PROP_0,
+    PROP_CONFIG
+};
+
+struct _TlmAccountPluginDefault
+{
+    GObject parent;
+    GHashTable *config;
+};
+
+
 static gboolean
 _setup_guest_account (TlmAccountPlugin *plugin, const gchar *user_name)
 {
@@ -127,9 +139,64 @@ G_DEFINE_TYPE_WITH_CODE (TlmAccountPluginDefault, tlm_account_plugin_default,
 
 
 static void
+_plugin_finalize (GObject *self)
+{
+    TlmAccountPluginDefault *plugin = TLM_ACCOUNT_PLUGIN_DEFAULT(self);
+
+    if (plugin->config) g_hash_table_unref (plugin->config);
+
+    G_OBJECT_CLASS (tlm_account_plugin_default_parent_class)->finalize(self);
+}
+
+static void
+_plugin_set_property (GObject      *object,
+                      guint         prop_id,
+                      const GValue *value,
+                      GParamSpec   *pspec)
+{
+    TlmAccountPluginDefault *self = TLM_ACCOUNT_PLUGIN_DEFAULT (object);
+
+    switch (prop_id) {
+        case PROP_CONFIG: {
+            gpointer p = g_value_get_boxed (value);
+            if (p)
+                self->config = g_hash_table_ref ((GHashTable *)p);
+            break;
+        }
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+            break;
+    }
+}
+
+static void
+_plugin_get_property (GObject *object,
+                      guint    prop_id,
+                      GValue  *value,
+                      GParamSpec *pspec)
+{
+    TlmAccountPluginDefault *self = TLM_ACCOUNT_PLUGIN_DEFAULT (object);
+
+    switch (prop_id) {
+        case PROP_CONFIG:
+            g_object_set_boxed (value, self->config);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+            break;
+    }
+}
+
+static void
 tlm_account_plugin_default_class_init (TlmAccountPluginDefaultClass *kls)
 {
-    (void)kls;
+    GObjectClass *g_class = G_OBJECT_CLASS (kls);
+
+    g_class->set_property = _plugin_set_property;
+    g_class->get_property = _plugin_get_property;
+    g_class->finalize = _plugin_finalize;
+
+    g_object_class_override_property (g_class, PROP_CONFIG, "config");
 }
 
 static void

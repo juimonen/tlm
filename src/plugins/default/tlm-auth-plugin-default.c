@@ -37,6 +37,12 @@ struct _TlmAuthPluginDefault
 {
     GObject parent;
     /* priv */
+    GHashTable *config;
+};
+
+enum {
+    PROP_0,
+    PROP_CONFIG
 };
 
 GWeakRef __self ;
@@ -59,6 +65,8 @@ static void
 _plugin_finalize (GObject *self)
 {
     TlmAuthPluginDefault *plugin = TLM_AUTH_PLUGIN_DEFAULT(self);
+
+    if (plugin->config) g_hash_table_unref (plugin->config);
 
     g_weak_ref_clear (&__self);
 
@@ -85,9 +93,54 @@ _on_signal_cb (int sig_no)
 }
 
 static void
+_plugin_set_property (GObject      *object,
+                      guint         prop_id,
+                      const GValue *value,
+                      GParamSpec   *pspec)
+{
+    TlmAuthPluginDefault *self = TLM_AUTH_PLUGIN_DEFAULT (object);
+
+    switch (prop_id) {
+        case PROP_CONFIG: {
+            gpointer p = g_value_get_boxed (value);
+            if (p)
+                self->config = g_hash_table_ref ((GHashTable *)p);
+            break;
+        }
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+            break;
+    }
+}
+
+static void
+_plugin_get_property (GObject *object,
+                      guint    prop_id,
+                      GValue  *value,
+                      GParamSpec *pspec)
+{
+    TlmAuthPluginDefault *self = TLM_AUTH_PLUGIN_DEFAULT (object);
+
+    switch (prop_id) {
+        case PROP_CONFIG:
+            g_object_set_boxed (value, self->config);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+            break;
+    }
+}
+
+static void
 tlm_auth_plugin_default_class_init (TlmAuthPluginDefaultClass *kls)
 {
-    G_OBJECT_CLASS (kls)->finalize  = _plugin_finalize;
+    GObjectClass *g_class = G_OBJECT_CLASS (kls);
+
+    g_class->set_property = _plugin_set_property;
+    g_class->get_property = _plugin_get_property;
+    g_class->finalize  = _plugin_finalize;
+
+    g_object_class_override_property (g_class, PROP_CONFIG, "config");
 }
 
 static void

@@ -34,7 +34,7 @@ G_BEGIN_DECLS
 #define TLM_TYPE_ACCOUNT_PLUGIN_DEFAULT (tlm_account_plugin_default_get_type())
 #define TLM_ACCOUNT_PLUGIN_DEFAULT(obj) \
     (G_TYPE_CHECK_INSTANCE_CAST( \
-        (obj), TLM_TYPE_ACCOUNT_PLUGIN_DEFAULT, TlmPluginDefault))
+        (obj), TLM_TYPE_ACCOUNT_PLUGIN_DEFAULT, TlmAccountPluginDefault))
 #define TLM_IS_ACCOUNT_PLUGIN_DEFAULT(obj) \
     (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TLM_TYPE_ACCOUNT_PLUGIN_DEFAULT))
 #define TLM_ACCOUNT_PLUGIN_DEFAULT_CLASS(kls) \
@@ -45,11 +45,6 @@ G_BEGIN_DECLS
 
 typedef struct _TlmAccountPluginDefault TlmAccountPluginDefault;
 typedef struct _TlmAccountPluginDefaultClass TlmAccountPluginDefaultClass;
-
-struct _TlmAccountPluginDefault
-{
-    GObject parent;
-};
 
 struct _TlmAccountPluginDefaultClass
 {
