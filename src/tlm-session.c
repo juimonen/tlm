@@ -91,8 +91,6 @@ tlm_session_finalize (GObject *self)
     g_clear_string (&session->priv->service);
     g_clear_string (&session->priv->username);
 
-    g_hash_table_unref (notify_table);
-
     G_OBJECT_CLASS (tlm_session_parent_class)->finalize (self);
 }
 
@@ -199,11 +197,7 @@ tlm_session_init (TlmSession *session)
     if (!notify_table) {
         notify_table = g_hash_table_new (g_direct_hash,
                                          g_direct_equal);
-        /* NOTE: this will leak one reference since this singleton is
-         * never freed */
-        g_hash_table_ref (notify_table);
-    } else {
-        g_hash_table_ref (notify_table);
+        /* NOTE: the notify_table won't be freed ever */
     }
 }
 
