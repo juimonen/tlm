@@ -39,6 +39,7 @@ G_DEFINE_TYPE (TlmSeat, tlm_seat, G_TYPE_OBJECT);
 
 enum {
     PROP_0,
+    PROP_CONFIG,
     PROP_ID,
     PROP_PATH,
     PROP_DEFAULT_SERVICE,
@@ -49,6 +50,7 @@ static GParamSpec *pspecs[N_PROPERTIES];
 
 struct _TlmSeatPrivate
 {
+    TlmConfig *config;
     gchar *id;
     gchar *path;
     gchar *default_service;
@@ -99,6 +101,9 @@ tlm_seat_finalize (GObject *self)
     close (priv->notify_fd[0]);
     close (priv->notify_fd[1]);
 
+    if (priv->config)
+        g_object_unref (priv->config);
+
     G_OBJECT_CLASS (tlm_seat_parent_class)->finalize (self);
 }
 
@@ -112,6 +117,9 @@ _seat_set_property (GObject *obj,
     TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
 
     switch (property_id) {
+        case PROP_CONFIG:
+            priv->config = g_value_dup_object (value);
+            break;
         case PROP_ID: 
             priv->id = g_value_dup_string (value);
             break;
@@ -136,19 +144,23 @@ _seat_get_property (GObject *obj,
                     GParamSpec *pspec)
 {
     TlmSeat *seat = TLM_SEAT(obj);
+    TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
 
     switch (property_id) {
+        case PROP_CONFIG:
+            g_value_set_object (value, priv->config);
+            break;
         case PROP_ID: 
-            g_value_set_string (value, seat->priv->id);
+            g_value_set_string (value, priv->id);
             break;
         case PROP_PATH:
-            g_value_set_string (value, seat->priv->path);
+            g_value_set_string (value, priv->path);
             break;
         case PROP_DEFAULT_SERVICE:
-            g_value_set_string (value, seat->priv->default_service);
+            g_value_set_string (value, priv->default_service);
             break;
         case PROP_DEFAULT_USER:
-            g_value_set_string (value, seat->priv->default_user);
+            g_value_set_string (value, priv->default_user);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
@@ -167,6 +179,12 @@ tlm_seat_class_init (TlmSeatClass *klass)
     g_klass->set_property = _seat_set_property;
     g_klass->get_property = _seat_get_property;
 
+    pspecs[PROP_CONFIG] =
+        g_param_spec_object ("config",
+                             "config object",
+                             "Configuration object",
+                             TLM_TYPE_CONFIG,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
     pspecs[PROP_ID] =
         g_param_spec_string ("id",
                              "seat id",
@@ -284,7 +302,8 @@ tlm_seat_create_session (TlmSeat *seat,
 
     if (!priv->session) {
         priv->session =
-            tlm_session_new ((service) ? service : priv->default_service,
+            tlm_session_new (priv->config,
+                             (service) ? service : priv->default_service,
                              seat->priv->notify_fd[1],
                              (username) ? username : priv->default_user,
                              password,
@@ -298,12 +317,14 @@ tlm_seat_create_session (TlmSeat *seat,
 }
 
 TlmSeat *
-tlm_seat_new (const gchar *id,
+tlm_seat_new (TlmConfig *config,
+              const gchar *id,
               const gchar *path,
               const gchar *default_service,
               const gchar *default_user)
 {
     return g_object_new (TLM_TYPE_SEAT,
+                         "config", config,
                          "id", id,
                          "path", path,
                          "default-service", default_service,

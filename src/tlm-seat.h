@@ -29,6 +29,8 @@
 
 #include <glib-object.h>
 
+#include <tlm-config.h>
+
 G_BEGIN_DECLS
 
 #define TLM_TYPE_SEAT       (tlm_seat_get_type())
@@ -60,7 +62,8 @@ struct _TlmSeatClass
 GType tlm_seat_get_type(void);
 
 TlmSeat *
-tlm_seat_new (const gchar *id,
+tlm_seat_new (TlmConfig *config,
+              const gchar *id,
               const gchar *path,
               const gchar *default_service,
               const gchar *default_user);

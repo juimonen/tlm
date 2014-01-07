@@ -29,6 +29,8 @@
 
 #include <glib-object.h>
 
+#include <tlm-config.h>
+
 G_BEGIN_DECLS
 
 #define TLM_TYPE_SESSION       (tlm_session_get_type())
@@ -60,7 +62,8 @@ struct _TlmSessionClass
 GType tlm_session_get_type(void);
 
 TlmSession *
-tlm_session_new (const gchar *service,
+tlm_session_new (TlmConfig *config,
+                 const gchar *service,
                  gint notify_fd,
                  const gchar *username,
                  const gchar *password,

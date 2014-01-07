@@ -351,8 +351,12 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
 {
     g_return_if_fail (manager && TLM_IS_MANAGER (manager));
 
-   // FIXME: set correct guest service and user
-    TlmSeat *seat = tlm_seat_new (seat_id, seat_path, "tlm-login", "guest_seat0");
+    // FIXME: set correct guest service and user
+    TlmSeat *seat = tlm_seat_new (manager->priv->config,
+                                  seat_id,
+                                  seat_path,
+                                  "tlm-login",
+                                  "guest_seat0");
 
     g_hash_table_insert (manager->priv->seats, g_strdup (seat_id), seat);
 

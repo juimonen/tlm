@@ -57,4 +57,11 @@
  */
 #define TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN  "ACCOUNTS_PLUGIN"
 
+/**
+ * TLM_CONFIG_GENERAL_SESSION_CMD:
+ *
+ * Session command line
+ */
+#define TLM_CONFIG_GENERAL_SESSION_CMD      "SESSION_CMD"
+
 #endif /* __TLM_GENERAL_CONFIG_H_ */

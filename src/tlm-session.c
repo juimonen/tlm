@@ -40,6 +40,7 @@
 #include "tlm-auth-session.h"
 #include "tlm-log.h"
 #include "tlm-utils.h"
+#include "tlm-config-general.h"
 
 G_DEFINE_TYPE (TlmSession, tlm_session, G_TYPE_OBJECT);
 
@@ -48,6 +49,7 @@ G_DEFINE_TYPE (TlmSession, tlm_session, G_TYPE_OBJECT);
 
 enum {
     PROP_0,
+    PROP_CONFIG,
     PROP_SERVICE,
     PROP_NOTIFY_FD,
     PROP_USERNAME,
@@ -57,6 +59,7 @@ static GParamSpec *pspecs[N_PROPERTIES];
 
 struct _TlmSessionPrivate
 {
+    TlmConfig *config;
     gint notify_fd;
     pid_t child_pid;
     gchar *service;
@@ -91,6 +94,9 @@ tlm_session_finalize (GObject *self)
     g_clear_string (&session->priv->service);
     g_clear_string (&session->priv->username);
 
+    if (session->priv->config)
+        g_object_unref (session->priv->config);
+
     G_OBJECT_CLASS (tlm_session_parent_class)->finalize (self);
 }
 
@@ -104,6 +110,9 @@ _session_set_property (GObject *obj,
     TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
 
     switch (property_id) {
+        case PROP_CONFIG:
+            priv->config = g_value_dup_object (value);
+            break;
         case PROP_SERVICE: 
             priv->service = g_value_dup_string (value);
             break;
@@ -129,6 +138,9 @@ _session_get_property (GObject *obj,
     TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
 
     switch (property_id) {
+        case PROP_CONFIG:
+            g_value_set_object (value, priv->config);
+            break;
         case PROP_SERVICE: 
             g_value_set_string (value, priv->service);
             break;
@@ -156,6 +168,12 @@ tlm_session_class_init (TlmSessionClass *klass)
     g_klass->set_property = _session_set_property;
     g_klass->get_property = _session_get_property;
 
+    pspecs[PROP_CONFIG] =
+        g_param_spec_object ("config",
+                             "config object",
+                             "Configuration object",
+                             TLM_TYPE_CONFIG,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
     pspecs[PROP_SERVICE] =
         g_param_spec_string ("service",
                              "authentication service",
@@ -357,8 +375,13 @@ _session_on_session_created (
     const gchar *id,
     gpointer userdata)
 {
+    const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
     const char *home;
     const char *shell;
+    gchar **temp_strv = NULL;
+    gchar **args = NULL;
+    gchar **temp_iter;
+    gchar **args_iter;
     TlmSession *session = TLM_SESSION (userdata);
     TlmSessionPrivate *priv = session->priv;
 
@@ -410,7 +433,42 @@ _session_on_session_created (
             WARN ("Failed to change directroy : %s", strerror (errno));
     } else WARN ("Could not get home directory");
 
-    shell = getenv("SHELL");
+    shell = tlm_config_get_string (priv->config,
+                                   TLM_CONFIG_GENERAL,
+                                   TLM_CONFIG_GENERAL_SESSION_CMD);
+    if (shell) {
+        temp_strv = g_regex_split_simple (pattern,
+                                          shell,
+                                          0,
+                                          G_REGEX_MATCH_NOTEMPTY);
+        if (temp_strv) {
+            args = g_new0 (gchar *, g_strv_length (temp_strv));
+            for (temp_iter = temp_strv, args_iter = args;
+                 *temp_iter != NULL;
+                 temp_iter++) {
+                gchar *item = g_strstrip (*temp_iter);
+                if (strlen (item) == 0) {
+                    g_free (item);
+                    continue;
+                }
+                size_t item_len = strlen (item);
+                if ((item[0] == '\"' && item[item_len - 1] == '\"') ||
+                    (item[0] == '\'' && item[item_len - 1] == '\'')) {
+                    item[item_len - 1] = '\0';
+                    memmove (item, item + 1, item_len - 1);
+                }
+                *args_iter = g_strcompress (item);
+                g_free (item);
+                args_iter++;
+            }
+            g_strfreev (temp_strv);
+            DBG ("starting session executable %s", args[0]);
+            execvp (args[0], args);
+            g_strfreev (args);
+        }
+    }
+    else
+        shell = getenv("SHELL");
     if (shell) {
         DBG ("starting shell %s", shell);
         execlp (shell, shell, (const char *) NULL);
@@ -448,12 +506,14 @@ _start_session (TlmSession *session, const gchar *password)
 }
 
 TlmSession *
-tlm_session_new (const gchar *service, gint notify_fd,
+tlm_session_new (TlmConfig *config,
+                 const gchar *service, gint notify_fd,
                  const gchar *username, const gchar *password,
                  const gchar *seat_id)
 {
     TlmSession *session =
         g_object_new (TLM_TYPE_SESSION,
+                      "config", config,
                       "service", service,
                       "notify-fd", notify_fd,
                       "username", username,
