@@ -347,26 +347,33 @@ tlm_manager_init (TlmManager *manager)
 }
 
 static void
+_add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
+{
+    g_return_if_fail (manager && TLM_IS_MANAGER (manager));
+
+   // FIXME: set correct guest service and user
+    TlmSeat *seat = tlm_seat_new (seat_id, seat_path, "tlm-login", "guest_seat0");
+
+    g_hash_table_insert (manager->priv->seats, g_strdup (seat_id), seat);
+
+    g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);
+
+}
+
+static void
 _manager_hashify_seats (TlmManager *manager, GVariant *hash_map)
 {
     GVariantIter iter;
     gchar *id = 0, *path = 0;
-    TlmManagerPrivate *priv = NULL;
 
     g_return_if_fail (manager);
     g_return_if_fail (hash_map);
 
-    priv = manager->priv;
-
     g_variant_iter_init (&iter, hash_map);
     while (g_variant_iter_next (&iter, "(so)", &id, &path)) {
         DBG("found seat %s:%s", id, path);
-        // FIXME: set correct guest service and user
-        TlmSeat *seat = tlm_seat_new (id, path, "tlm-login", "test");
-
-        g_hash_table_insert (priv->seats, id, seat);
-
-        g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);
+        _add_seat (manager, id, path);
+        g_free (id);
         g_free (path);
     }
 }
@@ -426,16 +433,10 @@ _manager_on_seat_added (GDBusConnection *connection,
     DBG("Seat added: %s:%s", id, path);
 
     if (!g_hash_table_contains (manager->priv->seats, id)) {
-        TlmSeat *seat = tlm_seat_new (id, path, "tlm-login", "test");
-
-        g_hash_table_insert (manager->priv->seats,(gpointer)id, (gpointer)seat);
-        g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);
-        g_free (path);
-    } 
-    else {
-        g_free (id);
-        g_free (path);
+        _add_seat (manager, id, path);
     }
+    g_free (id);
+    g_free (path);
 }
 
 static void
