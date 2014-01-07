@@ -206,7 +206,7 @@ _load_config (
             DBG ("found config : '%s/%s' - '%s'", groups[i], keys[j], value);
 
             g_hash_table_insert (group_table,
-                                 (gpointer)keys[j],
+                                 (gpointer)g_strdup (keys[j]),
                                  (gpointer)g_variant_new_string (value));
 
         }
@@ -377,12 +377,12 @@ tlm_config_set_string (
                                              g_free,
                                              (GDestroyNotify)g_variant_unref);
         g_hash_table_insert (self->priv->config_table,
-                             (gpointer)group,
+                             (gpointer)g_strdup (group),
                              (gpointer)group_table);
     }
 
     g_hash_table_insert (group_table,
-                         (gpointer) key,
+                         (gpointer) g_strdup (key),
                          g_variant_new_string (value));
 
 }
