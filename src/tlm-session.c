@@ -315,6 +315,7 @@ _set_terminal (TlmSessionPrivate *priv)
 static gboolean
 _set_environment (TlmSessionPrivate *priv)
 {
+    const gchar *path;
 	gchar **envlist = tlm_auth_session_get_envlist(priv->auth_session);
 
     if (envlist) {
@@ -327,7 +328,12 @@ _set_environment (TlmSessionPrivate *priv)
     	g_free (envlist);
     }
 
-    setenv ("PATH", "/usr/local/bin:/usr/bin:/bin", 1);
+    path = tlm_config_get_string (priv->config,
+                                  TLM_CONFIG_GENERAL,
+                                  TLM_CONFIG_GENERAL_SESSION_PATH);
+    if (!path)
+        path = "/usr/local/bin:/usr/bin:/bin";
+    setenv ("PATH", path, 1);
     setenv ("USER", priv->username, 1);
     setenv ("LOGNAME", priv->username, 1);
     setenv ("HOME", tlm_user_get_home_dir (priv->username), 1);

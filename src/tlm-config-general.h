@@ -65,6 +65,13 @@
 #define TLM_CONFIG_GENERAL_SESSION_CMD      "SESSION_CMD"
 
 /**
+ * TLM_CONFIG_GENERAL_SESSION_PATH:
+ *
+ * Default session search PATH
+ */
+#define TLM_CONFIG_GENERAL_SESSION_PATH     "SESSION_PATH"
+
+/**
  * TLM_CONFIG_GENERAL_AUTO_LOGIN_GUEST
  *
  * Autologin to guest on a seat : TRUE/FALSE
