@@ -109,6 +109,17 @@ tlm_config_set_string (
         const gchar *key,
         const gchar *value);
 
+gboolean
+tlm_config_has_group (
+        TlmConfig *self,
+        const gchar *group);
+
+gboolean
+tlm_config_has_key (
+        TlmConfig *self,
+        const gchar *group,
+        const gchar *key);
+
 GHashTable *
 tlm_config_get_group (
         TlmConfig *self,
