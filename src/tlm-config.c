@@ -488,6 +488,55 @@ tlm_config_set_uint (
     g_free (s_value);
 }
 
+/**
+ * tlm_config_has_group:
+ * @self: (transfer none): an instance of #TlmConfig
+ * @group: the group name
+ *
+ * Checks if any configuration available for #group.
+ *
+ * Returns: TRUE if found, FALSE otherwise.
+ */
+gboolean
+tlm_config_has_group (
+    TlmConfig *self,
+    const gchar *group)
+{
+    g_return_val_if_fail (self && TLM_IS_CONFIG (self), FALSE);
+    g_return_val_if_fail (group, FALSE);
+
+    return g_hash_table_contains (self->priv->config_table,
+                                  (gconstpointer)group);
+}
+
+/**
+ * tlm_config_has_key:
+ * @self: (transfer none): an instance of #TlmConfig
+ * @group: the group name
+ * @key: the key name
+ *
+ * Checks if #key is in given #group.
+ *
+ * Returns: TRUE, if found, FALSE otherwise.
+ */
+
+gboolean
+tlm_config_has_key (
+    TlmConfig *self,
+    const gchar *group,
+    const gchar *key)
+{
+    GHashTable *group_table = NULL;
+    g_return_val_if_fail (self && TLM_IS_CONFIG (self), FALSE);
+    g_return_val_if_fail (key, FALSE);
+
+    if (!group) group = TLM_CONFIG_GENERAL;
+
+    group_table = tlm_config_get_group (self, group);
+    if (!group_table) return FALSE;
+
+    return g_hash_table_contains (group_table, (gconstpointer)key);
+}
 
 static void
 tlm_config_dispose (

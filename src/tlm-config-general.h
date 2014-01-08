@@ -64,4 +64,18 @@
  */
 #define TLM_CONFIG_GENERAL_SESSION_CMD      "SESSION_CMD"
 
+/**
+ * TLM_CONFIG_GENERAL_AUTO_LOGIN_GUEST
+ *
+ * Autologin to guest on a seat : TRUE/FALSE
+ */
+#define TLM_CONFIG_GENERAL_AUTO_LOGIN_GUEST "AUTLOGIN_GUEST"
+
+/**
+ * TLM_CONFIG_GENERAL_PAM_SERVICE:
+ *
+ * pam service file to use
+ */ 
+#define TLM_CONFIG_GENERAL_PAM_SERVICE      "PAM_SERVICE"
+
 #endif /* __TLM_GENERAL_CONFIG_H_ */
