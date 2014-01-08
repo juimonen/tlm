@@ -375,6 +375,7 @@ _session_on_session_created (
     const gchar *id,
     gpointer userdata)
 {
+    gint i;
     const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
     const char *home;
     const char *shell;
@@ -462,20 +463,28 @@ _session_on_session_created (
                 args_iter++;
             }
             g_strfreev (temp_strv);
-            DBG ("starting session executable %s", args[0]);
-            execvp (args[0], args);
-            g_strfreev (args);
+        }
+    } else {
+        args = g_new0 (gchar *, 3);
+        shell = getenv("SHELL");
+        if (shell) {
+            /* use shell if no override configured */
+            args[0] = g_strdup (shell);
+        } else {
+            /* in case shell is not defined, fall back to systemd --user */
+            args[0] = g_strdup ("systemd");
+            args[1] = g_strdup ("--user");
         }
     }
-    else
-        shell = getenv("SHELL");
-    if (shell) {
-        DBG ("starting shell %s", shell);
-        execlp (shell, shell, (const char *) NULL);
-    } else {
-        DBG ("starting systemd user session");
-        execlp ("systemd", "systemd", "--user", (const char *) NULL);
+    DBG ("executing: ");
+    for (args_iter = args, i = 0;
+         *args_iter != NULL;
+         args_iter++, i++) {
+        DBG ("\targv[%d]: %s", i, *args_iter);
     }
+    execvp (args[0], args);
+    /* we reach here only in case of error */
+    g_strfreev (args);
     DBG ("execl(): %s", strerror(errno));
 }
 
