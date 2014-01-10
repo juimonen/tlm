@@ -76,13 +76,20 @@
  *
  * Autologin to guest on a seat : TRUE/FALSE
  */
-#define TLM_CONFIG_GENERAL_AUTO_RELOGIN "AUTO_RELOGIN"
+#define TLM_CONFIG_GENERAL_AUTO_RELOGIN     "AUTO_RELOGIN"
 
 /**
  * TLM_CONFIG_GENERAL_PAM_SERVICE:
  *
- * pam service file to use
+ * PAM service file to use
  */ 
 #define TLM_CONFIG_GENERAL_PAM_SERVICE      "PAM_SERVICE"
+
+/**
+ * TLM_CONFIG_GENERAL_DEFAULT_USER:
+ *
+ * Default username for autologin
+ */
+#define TLM_CONFIG_GENERAL_DEFAULT_USER     "DEFAULT_USER"
 
 #endif /* __TLM_GENERAL_CONFIG_H_ */

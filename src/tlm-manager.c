@@ -351,12 +351,16 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
 {
     g_return_if_fail (manager && TLM_IS_MANAGER (manager));
 
-    // FIXME: set correct guest service and user
+    // FIXME: support proper name construction
     TlmSeat *seat = tlm_seat_new (manager->priv->config,
                                   seat_id,
                                   seat_path,
-                                  "tlm-login",
-                                  "guest_seat0");
+                                  tlm_config_get_string (manager->priv->config,
+                                                         TLM_CONFIG_GENERAL,
+                                                         TLM_CONFIG_GENERAL_PAM_SERVICE),
+                                  tlm_config_get_string (manager->priv->config,
+                                                         TLM_CONFIG_GENERAL,
+                                                         TLM_CONFIG_GENERAL_DEFAULT_USER));
 
     g_hash_table_insert (manager->priv->seats, g_strdup (seat_id), seat);
 

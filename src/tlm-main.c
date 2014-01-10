@@ -34,6 +34,8 @@
 #include "tlm-log.h"
 #include "tlm-manager.h"
 #include "tlm-seat.h"
+#include "tlm-config.h"
+#include "tlm-config-general.h"
 
 
 static gboolean
@@ -66,15 +68,21 @@ _on_seat_added (TlmManager *manager, TlmSeat *seat, gpointer data)
 {
     gchar *uname = g_strdup((gchar *) data);
 
-    if (!uname) {
-        uname = g_strdup_printf ("guest_%s", tlm_seat_get_id(seat));
+    // FIXME: manager should handle this instead of main
+
+    /*if (!uname) {
+        uname = g_strdup_printf ("%s_%s",
+                                 tlm_config_get_string (manager->priv->config,
+                                                        TLM_CONFIG_GENERAL,
+                                                        TLM_CONFIG_GENERAL_DEFAULT_USER),
+                                 tlm_seat_get_id (seat));
         DBG ("%s Seat Added", tlm_seat_get_id (seat));
         if (!tlm_manager_setup_guest_user (manager, uname)) {
             WARN ("Failed to setup guest user");
             g_free (uname);
             exit (0);
         }
-    }
+    }*/
 
     DBG ("starting auth session for user %s", uname);
     if (!tlm_seat_create_session (seat, "tlm-login", uname, NULL)) {
@@ -142,6 +150,7 @@ int main(int argc, char *argv[])
 
     manager = tlm_manager_new ();
 
+    // FIXME: this should be internal business to the manager
     g_signal_connect(manager, "seat-added", 
             G_CALLBACK(_on_seat_added), username);
 

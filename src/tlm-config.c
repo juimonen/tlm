@@ -258,9 +258,9 @@ _set_defaults (
 {
 
     /* plugins dir => TLM_PLUGINS_DIR <=> $(pkglibdir)/plugins */
-    if (!tlm_config_get_string (self, 
-                                TLM_CONFIG_GENERAL,
-                                TLM_CONFIG_GENERAL_PLUGINS_DIR)) {
+    if (!tlm_config_has_key (self, 
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_PLUGINS_DIR)) {
         tlm_config_set_string (self,
                                TLM_CONFIG_GENERAL, 
                                TLM_CONFIG_GENERAL_PLUGINS_DIR,
@@ -268,15 +268,34 @@ _set_defaults (
     }
 
     /* accounts plugin => default */
-    if (!tlm_config_get_string (self,
-                                TLM_CONFIG_GENERAL,
-                                TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN)) {
+    if (!tlm_config_has_key (self,
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN)) {
         tlm_config_set_string (self,
                                TLM_CONFIG_GENERAL,
                                TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN,
                                "default");
     }
 
+    /* default PAM service => tlm-login */
+    if (!tlm_config_has_key (self,
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_PAM_SERVICE)) {
+        tlm_config_set_string (self,
+                               TLM_CONFIG_GENERAL,
+                               TLM_CONFIG_GENERAL_PAM_SERVICE,
+                               "tlm-login");
+    }
+
+    /* default user => guest */
+    if (!tlm_config_has_key (self,
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_DEFAULT_USER)) {
+        tlm_config_set_string (self,
+                               TLM_CONFIG_GENERAL,
+                               TLM_CONFIG_GENERAL_DEFAULT_USER,
+                               "guest");
+    }
 }
 
 /**
