@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
  *          Amarnath Valluri <amarnath.valluri@linux.intel.com>
@@ -518,11 +518,13 @@ tlm_config_get_boolean (
     str_value = tlm_config_get_string (self, group, key);
     g_return_val_if_fail (str_value, retval);
 
-    if (g_ascii_strncasecmp (str_value, "false", 5) == 0)
-        return retval;
+    if (g_ascii_strncasecmp (str_value, "false", 5) == 0 ||
+        g_ascii_strncasecmp (str_value, "no", 2) == 0)
+        return FALSE;
 
-    if (g_ascii_strncasecmp (str_value, "true", 4) == 0)
-        return retval;
+    if (g_ascii_strncasecmp (str_value, "true", 4) == 0 ||
+        g_ascii_strncasecmp (str_value, "yes", 3) == 0)
+        return TRUE;
 
     if (sscanf (str_value, "%d", &value) <= 0)
         return retval;
