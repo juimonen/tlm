@@ -385,10 +385,8 @@ _session_on_session_created (
     const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
     const char *home;
     const char *shell;
-    gchar **temp_strv = NULL;
     gchar **args = NULL;
-    gchar **temp_iter;
-    gchar **args_iter;
+    gchar **args_iter = NULL;
     TlmSession *session = TLM_SESSION (userdata);
     TlmSessionPrivate *priv = session->priv;
 
@@ -444,28 +442,31 @@ _session_on_session_created (
                                    TLM_CONFIG_GENERAL,
                                    TLM_CONFIG_GENERAL_SESSION_CMD);
     if (shell) {
-        temp_strv = g_regex_split_simple (pattern,
-                                          shell,
-                                          0,
-                                          G_REGEX_MATCH_NOTEMPTY);
+        DBG ("Session command : %s", shell);
+        gchar **temp_strv = g_regex_split_simple (pattern,
+                                                  shell,
+                                                  0,
+                                                  G_REGEX_MATCH_NOTEMPTY);
         if (temp_strv) {
+            gchar **temp_iter;
+            
             args = g_new0 (gchar *, g_strv_length (temp_strv));
             for (temp_iter = temp_strv, args_iter = args;
                  *temp_iter != NULL;
                  temp_iter++) {
+                size_t item_len = 0;
                 gchar *item = g_strstrip (*temp_iter);
-                if (strlen (item) == 0) {
-                    g_free (item);
+
+                item_len = strlen (item);
+                if (item_len == 0) {
                     continue;
                 }
-                size_t item_len = strlen (item);
                 if ((item[0] == '\"' && item[item_len - 1] == '\"') ||
                     (item[0] == '\'' && item[item_len - 1] == '\'')) {
                     item[item_len - 1] = '\0';
                     memmove (item, item + 1, item_len - 1);
                 }
                 *args_iter = g_strcompress (item);
-                g_free (item);
                 args_iter++;
             }
             g_strfreev (temp_strv);
