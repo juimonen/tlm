@@ -110,6 +110,20 @@ tlm_config_set_string (
         const gchar *value);
 
 gboolean
+tlm_config_get_boolean (
+        TlmConfig *self,
+        const gchar *group,
+        const gchar *key,
+        gboolean retval);
+
+void
+tlm_config_set_boolean (
+        TlmConfig *self,
+        const gchar *group,
+        const gchar *key,
+        gboolean value);
+
+gboolean
 tlm_config_has_group (
         TlmConfig *self,
         const gchar *group);

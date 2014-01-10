@@ -493,6 +493,64 @@ tlm_config_set_uint (
 }
 
 /**
+ * tlm_config_get_boolean:
+ * @self: (transfer none): an instance of #TlmConfig
+ * @group: (trnsfer none): the group name
+ * @key: (transfer none): the key name
+ * @retval: value to be returned in case key is not found
+ *
+ * Get a boolean configuration value.
+ *
+ * Returns: the value corresponding to the key as boolean. If the
+ * key does not exist or cannot be converted to boolean, retval is returned.
+ */
+gboolean
+tlm_config_get_boolean (
+        TlmConfig *self,
+        const gchar *group,
+        const gchar *key,
+        gboolean retval)
+{
+    const gchar *str_value = NULL;
+    gint value = 0;
+    g_return_val_if_fail (self && TLM_IS_CONFIG (self), retval);
+    
+    str_value = tlm_config_get_string (self, group, key);
+    g_return_val_if_fail (str_value, retval);
+
+    if (g_ascii_strncasecmp (str_value, "false", 5) == 0)
+        return retval;
+
+    if (g_ascii_strncasecmp (str_value, "true", 4) == 0)
+        return retval;
+
+    if (sscanf (str_value, "%d", &value) <= 0)
+        return retval;
+
+    return (gboolean) value;
+}
+
+/**
+ * tlm_config_set_boolean:
+ * @self: (transfer none): an instance of #TlmConfig
+ * @group: the group name
+ * @key: the key name
+ * @value: the value
+ *
+ * Sets the configuration value to the provided #value.
+ */
+void
+tlm_config_set_boolean (
+        TlmConfig *self,
+        const gchar *group,
+        const gchar *key,
+        gboolean value)
+{
+    g_return_if_fail (self && TLM_IS_CONFIG (self));
+
+    tlm_config_set_int (self, group, key, (gint)value);
+}
+/**
  * tlm_config_has_group:
  * @self: (transfer none): an instance of #TlmConfig
  * @group: the group name
