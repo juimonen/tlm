@@ -59,7 +59,7 @@ tlm_CFLAGS = \
 
 tlm_LDADD = \
 	$(TLM_LIBS) \
-	$(abs_top_builddir)/src/libtlm-plugin.la \
+	libtlm-plugin.la \
 	-lpam \
 	$(NULL)
 
