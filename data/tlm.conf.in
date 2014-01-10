@@ -1,0 +1,31 @@
+#
+# Example configuration for tlm.
+#
+
+#
+# This group contains top-level settings.
+#
+[General]
+#
+# Name of the account plugin to use to manage(add/remove) guest user accounts
+ACCOUNTS_PLUGIN=@TLM_ACCOUNTS_PLUGIN@
+#
+# Base path where tlm plugins are located.
+PLUGINS_DIR=@TLM_PLUGINS_DIR@
+#
+# Auto relogin on logout
+AUTO_RELOGIN=1
+#
+# PAM service file to use
+PAM_SERVICE=tlm-login
+#
+# Session command : The command run after successfull login
+SESSION_CMD=/bin/bash
+#
+#
+# plugin specific settings.
+#
+#[pluginname]
+#
+
+

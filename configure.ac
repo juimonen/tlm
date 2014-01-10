@@ -68,6 +68,7 @@ Makefile
 src/Makefile
 src/plugins/Makefile
 src/plugins/default/Makefile
+data/Makefile
 ])
 
 AM_COND_IF([HAVE_LIBGUM],

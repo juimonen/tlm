@@ -119,7 +119,7 @@ _load_config (
         def_config = g_strdup (g_getenv ("TLM_CONF_FILE"));
         if (!def_config)
             def_config = g_build_filename (g_get_user_config_dir(),
-                                           "tlm/tlm.conf",
+                                           "/tlm.conf",
                                            NULL);
         if (g_access (def_config, R_OK) == 0) {
             self->priv->config_file_path = def_config;
@@ -128,7 +128,7 @@ _load_config (
             sysconfdirs = g_get_system_config_dirs ();
             while (*sysconfdirs != NULL) {
                 def_config = g_build_filename (*sysconfdirs,
-                                               "tlm/tlm.conf",
+                                               "/tlm.conf",
                                                NULL);
                 if (g_access (def_config, R_OK) == 0) {
                     self->priv->config_file_path = def_config;
@@ -144,7 +144,7 @@ _load_config (
 #   error "System configuration directory not defined!"
 #   endif
     def_config = g_build_filename (TLM_SYSCONF_DIR,
-                                   "tlm/tlm.conf",
+                                   "/tlm.conf",
                                    NULL);
     if (g_access (def_config, R_OK) == 0) {
         self->priv->config_file_path = def_config;
@@ -164,6 +164,10 @@ _load_config (
             g_key_file_free (settings);
             return FALSE;
         }
+    }
+    else {
+        WARN ("No valid configuration file found");
+        return FALSE;
     }
 
     groups = g_key_file_get_groups (settings, &n_groups);
