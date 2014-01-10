@@ -31,6 +31,7 @@
 #include "tlm-session.h"
 #include "tlm-log.h"
 #include "tlm-utils.h"
+#include "tlm-config-general.h"
 
 G_DEFINE_TYPE (TlmSeat, tlm_seat, G_TYPE_OBJECT);
 
@@ -228,10 +229,15 @@ _notify_handler (GIOChannel *channel,
     DBG ("handling session termination for pid %u", notify_pid);
     g_clear_object (&seat->priv->session);
 
-    tlm_seat_create_session(seat,
-                            seat->priv->next_service,
-                            seat->priv->next_user,
-                            seat->priv->next_password);
+    if (tlm_config_get_boolean (seat->priv->config,
+                                TLM_CONFIG_GENERAL,
+                                TLM_CONFIG_GENERAL_AUTO_RELOGIN,
+                                TRUE)) {
+        tlm_seat_create_session(seat,
+                                seat->priv->next_service,
+                                seat->priv->next_user,
+                                seat->priv->next_password);
+    }
 
     return TRUE;
 }
