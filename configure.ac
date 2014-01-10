@@ -30,6 +30,10 @@ PKG_CHECK_MODULES([GMODULE], [gmodule-2.0])
 AC_SUBST(GMODULE_CFLAGS)
 AC_SUBST(GMODULE_LIBS)
 
+PKG_CHECK_MODULES([ELEMENTARY], [elementary])
+AC_SUBST(ELEMENTARY_CFLAGS)
+AC_SUBST(ELEMENTARY_LIBS)
+
 AC_CHECK_HEADERS([security/pam_appl.h],,[AC_MSG_ERROR("pam-devel is required")])
 
 TLM_CFLAGS="$GLIB_CFLAGS $GIO_CFLAGS $GMODULE_CFLAGS -Wall -Werror"
@@ -45,6 +49,15 @@ echo $enable_debug
 if test "x$enable_debug" = "xyes" ; then
     AC_DEFINE(ENABLE_DEBUG, [1], [Enable debug features])
 fi
+
+# specify logindefs file gum
+AC_ARG_ENABLE(logindefs,
+          [  --enable-logindefs=path  enable logindefs at location "path"
+          instead of default "/etc/login.defs"], 
+          [enable_logindefs=$enableval],
+          [enable_logindefs="/etc/login.defs"])
+AC_DEFINE_UNQUOTED(TLM_LOGINDEFS_PATH, ["$enable_logindefs"], [Path for
+login.defs file])
 
 # Enable gum
 PKG_CHECK_MODULES([LIBGUM], [libgum], [have_libgum=yes], [have_libgum=no])
@@ -69,6 +82,7 @@ src/Makefile
 src/plugins/Makefile
 src/plugins/default/Makefile
 data/Makefile
+examples/Makefile
 ])
 
 AM_COND_IF([HAVE_LIBGUM],
