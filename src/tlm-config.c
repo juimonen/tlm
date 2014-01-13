@@ -36,12 +36,11 @@
 /**
  * SECTION:tlm-config
  * @short_description: tlm configuration information
- * @include: tlm/common/tlm-config.h
+ * @include: tlm-config.h
  *
  * #TlmConfig holds configuration information as a set of keys and values
  * (integer or strings). The key names are defined in
- * <link linkend="tlmd-General-configuration">General config keys</link>,
- * and <link linkend="tlmd-DBus-configuration">DBus config keys</link>.
+ * <link linkend="tlmd-General-configuration">General config keys</link>.
  *
  * The configuration is retrieved from the tlm configuration file. See below
  * for where the file is searched for.
@@ -52,7 +51,7 @@
  *
  * TlmConfig* config = tlm_config_new ();
  * const gchar *str = tlm_config_get_string (config,
- *  TLM_CONFIG_GENERAL_SKEL_DIR, 0);
+ *  TLM_CONFIG_GENERAL, TLM_CONFIG_GENERAL_PAM_SERVICE, 0);
  * g_object_unref(config);
  *
  * ]|
@@ -62,7 +61,7 @@
  *
  * If tlm has been compiled with --enable-debug, then these locations are used,
  * in decreasing order of priority:
- * - UM_CONF_FILE environment variable
+ * - TLM_CONF_FILE environment variable
  * - g_get_user_config_dir() + "tlm.conf"
  * - each of g_get_system_config_dirs() + "tlm.conf"
  *
@@ -72,7 +71,7 @@
  * <refsect1><title>Example configuration file</title></refsect1>
  *
  * See example configuration file here:
- * <ulink url="https://github.com/01org/tlmd/blob/master/src/common/tlm.conf.in">
+ * <ulink url="https://github.com/01org/tlm/blob/master/data/tlm.conf.in">
  * tlm configuration file</ulink>
  *
  */
