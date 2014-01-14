@@ -535,7 +535,8 @@ tlm_config_get_boolean (
     g_return_val_if_fail (self && TLM_IS_CONFIG (self), retval);
     
     str_value = tlm_config_get_string (self, group, key);
-    g_return_val_if_fail (str_value, retval);
+    if (!str_value)
+        return retval;
 
     if (g_ascii_strncasecmp (str_value, "false", 5) == 0 ||
         g_ascii_strncasecmp (str_value, "no", 2) == 0)

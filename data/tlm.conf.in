@@ -13,11 +13,19 @@ ACCOUNTS_PLUGIN=@TLM_ACCOUNTS_PLUGIN@
 # Base path where tlm plugins are located.
 #PLUGINS_DIR=@TLM_PLUGINS_DIR@
 #
-# Auto relogin on logout
-#AUTO_RELOGIN=1
+# Auto-login default user
+#AUTO_LOGIN=1
+#
+# Prepare default/guest users before auto-login
+#PREPARE_DEFAULT=0
 #
 # PAM service file to use
 PAM_SERVICE=tlm-login
+#
+# Default (guest) username or template to use
+#  %S - seat number
+#  %I - seat id string
+#DEFAULT_USER = guest
 #
 # Session command : The command run after successfull login
 # Default: $SHELL
@@ -25,9 +33,13 @@ PAM_SERVICE=tlm-login
 #SESSION_CMD=systemd --user
 #
 #
+# Seat specific settings where the group name is seat id
+#[seat0]
+#DEFAULT_USER = guest_%S
+#
+#
 # plugin specific settings.
 #
 #[pluginname]
 #
-
 

@@ -49,6 +49,12 @@ enum {
 };
 static GParamSpec *pspecs[N_PROPERTIES];
 
+enum {
+    SIG_PREPARE_USER,
+    SIG_MAX
+};
+static guint signals[SIG_MAX];
+
 struct _TlmSeatPrivate
 {
     TlmConfig *config;
@@ -212,6 +218,17 @@ tlm_seat_class_init (TlmSeatClass *klass)
                              G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
+
+    signals[SIG_PREPARE_USER] = g_signal_new ("prepare-user",
+                                              TLM_TYPE_SEAT,
+                                              G_SIGNAL_RUN_LAST,
+                                              0,
+                                              NULL,
+                                              NULL,
+                                              NULL,
+                                              G_TYPE_NONE,
+                                              1,
+                                              G_TYPE_STRING);
 }
 
 static gboolean
@@ -220,23 +237,29 @@ _notify_handler (GIOChannel *channel,
                  gpointer user_data)
 {
     TlmSeat *seat = TLM_SEAT(user_data);
+    TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
     pid_t notify_pid = 0;
 
-    if (read (seat->priv->notify_fd[0],
+    if (read (priv->notify_fd[0],
               &notify_pid, sizeof (notify_pid)) < (ssize_t) sizeof (notify_pid))
         WARN ("failed to read child pid for seat %p", seat);
 
     DBG ("handling session termination for pid %u", notify_pid);
-    g_clear_object (&seat->priv->session);
+    g_clear_object (&priv->session);
 
-    if (tlm_config_get_boolean (seat->priv->config,
+    if (tlm_config_get_boolean (priv->config,
                                 TLM_CONFIG_GENERAL,
-                                TLM_CONFIG_GENERAL_AUTO_RELOGIN,
+                                TLM_CONFIG_GENERAL_AUTO_LOGIN,
                                 TRUE)) {
-        tlm_seat_create_session(seat,
-                                seat->priv->next_service,
-                                seat->priv->next_user,
-                                seat->priv->next_password);
+        if (!priv->next_user)
+            g_signal_emit (seat,
+                           signals[SIG_PREPARE_USER],
+                           0,
+                           priv->default_user);
+        tlm_seat_create_session (seat,
+                                 seat->priv->next_service,
+                                 seat->priv->next_user,
+                                 seat->priv->next_password);
     }
 
     return TRUE;
