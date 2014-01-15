@@ -192,7 +192,7 @@ _load_config (
                                g_str_hash,
                                g_str_equal,
                                g_free,
-                               (GDestroyNotify)g_variant_unref);
+                               (GDestroyNotify)g_free);
 
         for (j = 0; j < n_keys; j++) {
             gchar *value = g_key_file_get_value (settings,
@@ -210,7 +210,7 @@ _load_config (
 
             g_hash_table_insert (group_table,
                                  (gpointer)g_strdup (keys[j]),
-                                 (gpointer)g_variant_new_string (value));
+                                 (gpointer)value);
 
         }
 
@@ -320,32 +320,6 @@ tlm_config_get_group (
 }
 
 /**
- * tlm_config_get_value:
- * @self: (transfer none): an instance of #TlmConfig
- * @group: (transfer none): the group name, NULL refers to General
- * @key: (transfer none): the key name
- *
- * Get the configuration value stored for #key in #group.
- *
- * Returns: the value corresponding to the key and group. If the
- * key does not exist, NULL is returned.
- */
-GVariant *
-tlm_config_get_value (
-        TlmConfig *self,
-        const gchar *group,
-        const gchar *key)
-{
-    g_return_val_if_fail (self && TLM_IS_CONFIG(self), NULL);
-    g_return_val_if_fail (key && key[0], NULL);
-
-    GHashTable *group_table = tlm_config_get_group (self, group);
-    if (!group_table) return NULL;
-
-    return (GVariant *) g_hash_table_lookup (group_table, key);
-}
-
-/**
  * tlm_config_get_string:
  * @self: (transfer none): an instance of #TlmConfig
  * @group: (transfer none): the group name, NULL refers to General
@@ -365,10 +339,10 @@ tlm_config_get_string (
     g_return_val_if_fail (self && TLM_IS_CONFIG (self), NULL);
     g_return_val_if_fail (key && key[0], NULL);
 
-    GVariant* value = tlm_config_get_value (self, group, key);
-    if (!value) return NULL;
+    GHashTable *group_table = tlm_config_get_group (self, group);
+    if (!group_table) return NULL;
 
-    return g_variant_get_string (value, NULL);
+    return (const gchar *) g_hash_table_lookup (group_table, key);
 }
 
 /**
@@ -397,7 +371,7 @@ tlm_config_set_string (
         group_table = g_hash_table_new_full (g_str_hash,
                                              g_str_equal,
                                              g_free,
-                                             (GDestroyNotify)g_variant_unref);
+                                             g_free);
         g_hash_table_insert (self->priv->config_table,
                              (gpointer)g_strdup (group),
                              (gpointer)group_table);
@@ -405,7 +379,7 @@ tlm_config_set_string (
 
     g_hash_table_insert (group_table,
                          (gpointer) g_strdup (key),
-                         g_variant_new_string (value));
+                         (gpointer) g_strdup (value));
 
 }
 /**
