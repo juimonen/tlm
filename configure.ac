@@ -38,13 +38,23 @@ AC_SUBST(TLM_CFLAGS)
 AC_SUBST(TLM_LIBS)
 
 # Enable debug
-AC_ARG_ENABLE(debug, [ --enable-debug enable debug features], , 
-                     [enable_debug=$enable_debug])
-echo -n "enable debug features... "
-echo $enable_debug
+AC_ARG_ENABLE(debug, [ --enable-debug enable debug features],  
+                     [enable_debug=$enable_debug], [enable_debug="yes"])
 if test "x$enable_debug" = "xyes" ; then
     AC_DEFINE(ENABLE_DEBUG, [1], [Enable debug features])
+    AC_ARG_ENABLE(tests, [ --enable-tests build unit tests],
+                  [enable_tests=$enable_tests], [enable_tests="yes"])
+    if test "x$enable_tests" = "xyes" ; then
+        AC_DEFINE(ENABLE_TESTS, [1], [Build unit tests], [enable_tests=yes])
+        PKG_CHECK_MODULES([CHECK], [check >= 0.9.4])
+    fi
+else
+    AC_MSG_WARN("Tests can't be enabled without debug features")
+    enable_tests=no
 fi
+AC_SUBST(CHECK_CFLAGS)
+AC_SUBST(CHECK_LIBS)
+AM_CONDITIONAL(ENABLE_TESTS, [test "x$enable_tests" = "xyes"])
 
 # Enable gum
 PKG_CHECK_MODULES([LIBGUM], [libgum], [have_libgum=yes], [have_libgum=no])
@@ -57,12 +67,6 @@ AC_SUBST(LIBGUM_CFLAGS)
 AC_SUBST(LIBGUM_LIBS)
 AM_CONDITIONAL(HAVE_LIBGUM, [test x$enable_gum = xyes])
 
-# Checks for header files.
-
-# Checks for typedefs, structures, and compiler characteristics.
-
-# Checks for library functions.
-
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
@@ -74,5 +78,13 @@ data/Makefile
 AM_COND_IF([HAVE_LIBGUM],
            AC_CONFIG_FILES([src/plugins/gumd/Makefile]))
 
+AM_COND_IF([ENABLE_TESTS],
+           AC_CONFIG_FILES([tests/Makefile]))
+
 AC_OUTPUT
 
+echo ""
+echo "Enabled debug features : "$enable_debug
+echo "Building tests         : "$enable_tests
+echo "Enabled Gumd           : "$enable_gum
+echo ""
