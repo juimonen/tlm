@@ -415,7 +415,12 @@ _session_on_session_created (
 
     /* this is child process here onwards */
 
-    _set_terminal (priv);
+    if (tlm_config_get_boolean (priv->config,
+                                TLM_CONFIG_GENERAL,
+                                TLM_CONFIG_GENERAL_SETUP_TERMINAL,
+                                TRUE)) {
+        _set_terminal (priv);
+    }
 
     setsid ();
     uid_t target_uid = tlm_user_get_uid (priv->username);

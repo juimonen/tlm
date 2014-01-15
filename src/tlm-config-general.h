@@ -99,4 +99,11 @@
  */
 #define TLM_CONFIG_GENERAL_DEFAULT_USER     "DEFAULT_USER"
 
+/**
+ * TLM_CONFIG_GENERAL_SETUP_TERMINAL
+ *
+ * Setup terminal while creating session : TRUE/FALSE
+ */
+#define TLM_CONFIG_GENERAL_SETUP_TERMINAL   "SETUP_TERMINAL"
+
 #endif /* __TLM_GENERAL_CONFIG_H_ */
