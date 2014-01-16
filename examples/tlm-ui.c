@@ -38,6 +38,162 @@
 
 static Evas_Object *user_label = NULL;
 
+static Evas_Object*
+_add_entry (
+        Evas_Object *window,
+        Evas_Object *container,
+        const gchar *label_text)
+{
+    Evas_Object *frame = NULL;
+    Evas_Object *entry = NULL;
+
+    if (label_text) {
+        frame = elm_frame_add(window);
+
+        elm_object_text_set(frame, label_text);
+        evas_object_size_hint_weight_set(frame, 0.0, 0.0);
+        evas_object_size_hint_align_set(frame, EVAS_HINT_FILL, EVAS_HINT_FILL);
+        elm_box_pack_end(container, frame);
+        evas_object_show(frame);
+    }
+
+    entry = elm_entry_add (window);
+    elm_entry_single_line_set (entry, EINA_TRUE);
+    elm_entry_scrollable_set (entry, EINA_TRUE);
+    evas_object_size_hint_min_set (entry, 150, 80);
+    evas_object_size_hint_align_set (entry,  EVAS_HINT_FILL, EVAS_HINT_FILL);
+    evas_object_size_hint_weight_set(entry, EVAS_HINT_EXPAND, 0.0);
+    frame ? elm_object_content_set (frame, entry)
+            : elm_box_pack_end (container, entry);
+
+    return entry;
+}
+
+static void
+_close_dialog (
+        Evas_Object *dialog)
+{
+    if (dialog) evas_object_hide (dialog);
+}
+
+static void
+_on_close_dialog_clicked (
+        void *data,
+        Evas_Object *obj,
+        void *event_info)
+{
+    Evas_Object *dialog = data;
+    _close_dialog (dialog);
+}
+
+static void
+_on_ok_dialog_clicked (
+        void *data,
+        Evas_Object *obj,
+        void *event_info)
+{
+    Evas_Object *dialog = data;
+    _close_dialog (dialog);
+}
+
+static Evas_Object *
+_create_dialog (
+        const gchar *username)
+{
+    Evas_Object *dialog, *bg, *box, *frame, *content_box, *username_entry,
+    *password_entry;
+    Evas_Object *button_frame, *pad_frame, *button_box;
+    Evas_Object *cancel_button, *ok_button;
+
+    /* main window */
+    dialog = elm_win_add (NULL, "dialog", ELM_WIN_BASIC);
+    elm_win_title_set (dialog, "Enter user password");
+    elm_win_center (dialog, EINA_TRUE, EINA_TRUE);
+    evas_object_smart_callback_add (dialog, "delete,request",
+            _on_close_dialog_clicked, dialog);
+
+    /* window background */
+    bg = elm_bg_add (dialog);
+    evas_object_size_hint_weight_set (bg, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+    evas_object_show (bg);
+    elm_win_resize_object_add (dialog, bg);
+
+    box = elm_box_add (dialog);
+    evas_object_size_hint_min_set (box, 200, 200);
+    evas_object_size_hint_weight_set (box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+    evas_object_show (box);
+    elm_win_resize_object_add (dialog, box);
+
+    frame = elm_frame_add (dialog);
+    elm_object_style_set (frame, "pad_small");
+    evas_object_size_hint_weight_set (frame, EVAS_HINT_EXPAND,
+            EVAS_HINT_EXPAND);
+    evas_object_size_hint_align_set (frame, EVAS_HINT_FILL, EVAS_HINT_FILL);
+    evas_object_show (frame);
+    elm_box_pack_start (box, frame);
+
+    content_box = elm_box_add (dialog);
+    elm_box_padding_set (content_box, 0, 3);
+    evas_object_size_hint_weight_set (content_box, EVAS_HINT_EXPAND,
+            EVAS_HINT_EXPAND);
+    evas_object_size_hint_align_set (content_box, 0.0, 0.0);
+    evas_object_show (content_box);
+    elm_object_part_content_set (frame, NULL, content_box);
+
+    username_entry = _add_entry (dialog, content_box, "Username:");
+    elm_entry_entry_set (username_entry, username);
+    elm_entry_editable_set (username_entry, EINA_FALSE);
+
+    password_entry = _add_entry (dialog, content_box, "Password:");
+    elm_entry_password_set (password_entry, EINA_TRUE);
+    elm_entry_editable_set (password_entry, EINA_TRUE);
+
+    button_frame = elm_frame_add (dialog);
+    elm_object_style_set (button_frame, "outdent_bottom");
+    evas_object_size_hint_weight_set (button_frame, 0.0, 0.0);
+    evas_object_size_hint_align_set (button_frame, EVAS_HINT_FILL,
+            EVAS_HINT_FILL);
+    evas_object_show (button_frame);
+    elm_box_pack_end (box, button_frame);
+
+    pad_frame = elm_frame_add (dialog);
+    elm_object_style_set (pad_frame, "pad_medium");
+    evas_object_show (pad_frame);
+    elm_object_part_content_set (button_frame, NULL, pad_frame);
+
+    button_box = elm_box_add (dialog);
+    elm_box_horizontal_set (button_box, 1);
+    elm_box_homogeneous_set (button_box, 1);
+    evas_object_show (button_box);
+    elm_object_part_content_set (pad_frame, NULL, button_box);
+
+    /* Cancel button */
+    cancel_button = elm_button_add (dialog);
+    elm_object_text_set (cancel_button, "Cancel");
+    evas_object_size_hint_weight_set (cancel_button,
+            EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+    evas_object_size_hint_align_set (cancel_button,
+            EVAS_HINT_FILL, EVAS_HINT_FILL);
+    evas_object_smart_callback_add (cancel_button, "clicked",
+            _on_ok_dialog_clicked, dialog);
+    evas_object_show (cancel_button);
+    elm_box_pack_end (button_box, cancel_button);
+
+    /* OK button */
+    ok_button = elm_button_add (dialog);
+    elm_object_text_set (ok_button, "OK");
+    evas_object_size_hint_weight_set (ok_button,
+            EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+    evas_object_size_hint_align_set (ok_button,
+            EVAS_HINT_FILL, EVAS_HINT_FILL);
+    evas_object_smart_callback_add (ok_button, "clicked", _on_ok_dialog_clicked,
+            dialog);
+    evas_object_show (ok_button);
+    elm_box_pack_end (button_box, ok_button);
+
+    return dialog;
+}
+
 static void
 _set_list_title (
         Evas_Object *obj,
@@ -58,6 +214,10 @@ _on_selected (
     if (item) {
         DBG("%s", elm_object_item_text_get(item));
         _set_list_title (obj, item);
+        Evas_Object *dialog = _create_dialog (elm_object_item_text_get(item));
+        if (dialog) {
+            evas_object_show (dialog);
+        }
     }
 }
 
@@ -129,7 +289,7 @@ _populate_users (Evas_Object *users_list)
     setpwent ();
     while ((pent = getpwent ()) != NULL) {
         if (g_strcmp0 ("x", pent->pw_passwd) == 0 &&
-            _is_valid_user (pent)) {
+                _is_valid_user (pent)) {
             elm_hoversel_item_add(users_list, pent->pw_name, NULL,
                     ELM_ICON_NONE, NULL, NULL);
         }
@@ -154,7 +314,8 @@ _add_checkbox (
     checkbox = elm_check_add(win);
     elm_object_text_set(checkbox, "NFC Authentication");
     elm_check_state_pointer_set(checkbox, &value);
-    evas_object_smart_callback_add(checkbox, "changed", _on_cbox_changed, &value);
+    evas_object_smart_callback_add(checkbox, "changed", _on_cbox_changed,
+            &value);
     elm_box_pack_end (box, checkbox);
     evas_object_show(checkbox);
 
@@ -167,7 +328,6 @@ _add_user_list (
 {
     Evas_Object *box = NULL, *main_box, *label, *users_list, *cb;
     box = elm_box_add (win);
-    //evas_object_size_hint_max_set (box, 50, 50);
     evas_object_size_hint_weight_set (box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show (box);
     elm_win_resize_object_add (win, box);
@@ -175,12 +335,10 @@ _add_user_list (
 
     label = elm_label_add(win);
     elm_object_text_set(label, "Switch User");
-    //evas_object_move(label, 0, 10);
     elm_box_pack_end (box, label);
     evas_object_show(label);
 
     users_list = elm_hoversel_add(win);
-    //elm_hoversel_hover_parent_set(users_list, box);
     elm_hoversel_horizontal_set(users_list, EINA_FALSE);
     elm_object_text_set(users_list, "Select User From the List");
 
