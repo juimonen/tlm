@@ -1,4 +1,4 @@
-SUBDIRS= src data
+SUBDIRS= src data docs
 
 if ENABLE_EXAMPLES
 SUBDIRS += examples

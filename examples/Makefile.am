@@ -4,8 +4,8 @@ bin_PROGRAMS = tlm-ui
 
 tlm_ui_SOURCES = tlm-ui.c
 tlm_ui_CPPFLAGS = \
-    -I$(top_builddir)/src \
-    -I$(top_srcdir)/src \
+    -I$(top_builddir)/src/common \
+    -I$(top_srcdir)/src/common \
     $(GLIB_CFLAGS) \
     $(GIO_CFLAGS) \
     $(GMODULE_CFLAGS) \

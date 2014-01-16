@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.68])
 AC_INIT([tlm], [0.0.1], [])
-AC_CONFIG_SRCDIR([src/tlm-main.c])
+AC_CONFIG_SRCDIR([src/daemon/tlm-main.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -12,6 +12,9 @@ AM_INIT_AUTOMAKE([1.11 silent-rules subdir-objects tar-pax -Wno-portability])
 #libtool
 LT_PREREQ([2.2])
 LT_INIT([disable-static])
+
+#gtk-doc
+GTK_DOC_CHECK([1.18],[--flavour no-tmpl])
 
 # Checks for programs.
 AC_PROG_CC
@@ -84,7 +87,10 @@ AM_CONDITIONAL(HAVE_LIBGUM, [test x$enable_gum = xyes])
 
 AC_CONFIG_FILES([
 Makefile
+docs/Makefile
 src/Makefile
+src/common/Makefile
+src/daemon/Makefile
 src/plugins/Makefile
 src/plugins/default/Makefile
 data/Makefile
