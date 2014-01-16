@@ -36,6 +36,7 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 G_DEFINE_TYPE (TlmManager, tlm_manager, G_TYPE_OBJECT);
@@ -347,12 +348,17 @@ tlm_manager_init (TlmManager *manager)
 }
 
 static gchar *
-_build_user_name (const gchar *template, const gchar *seat_id, int seat_num)
+_build_user_name (const gchar *template, const gchar *seat_id)
 {
+    int seat_num = 0;
     const char *pptr;
     gchar *out;
     GString *str;
 
+    if (strncmp (seat_id, "seat", 4) == 0)
+        seat_num = atoi (seat_id + 4);
+    else
+        WARN ("unercognized seat id format");
     pptr = template;
     str = g_string_sized_new (16);
     while (*pptr != '\0') {
@@ -416,8 +422,7 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
                                            TLM_CONFIG_GENERAL,
                                            TLM_CONFIG_GENERAL_DEFAULT_USER);
     }
-    // FIXME: pass also seat number
-    gchar *default_user = _build_user_name (name_tmpl, seat_id, 0);
+    gchar *default_user = _build_user_name (name_tmpl, seat_id);
     TlmSeat *seat = tlm_seat_new (manager->priv->config,
                                   seat_id,
                                   seat_path,
