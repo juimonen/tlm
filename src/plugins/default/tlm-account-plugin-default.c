@@ -179,7 +179,7 @@ _plugin_get_property (GObject *object,
 
     switch (prop_id) {
         case PROP_CONFIG:
-            g_object_set_boxed (value, self->config);
+            g_value_set_boxed (value, self->config);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
