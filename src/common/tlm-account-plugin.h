@@ -46,25 +46,11 @@ typedef struct _TlmAccountPluginInterface TlmAccountPluginInterface;
 struct _TlmAccountPluginInterface {
    GTypeInterface parent;
 
-   /*
-    * ACCOUNT METHODS/SIGNALS
-    */
-   /* 
-    * Create/setup a user account
-    * Called by tlm for every seat
-    */
     gboolean (*setup_guest_user_account) (TlmAccountPlugin *self,
                                           const gchar *user_name);
-    /**
-     * Check if user is existing with given name
-     */
     gboolean (*is_valid_user) (TlmAccountPlugin *self,
                                const gchar *user_name);
-    
-   /*
-    * Cleanup guest user
-    * Called by tlm when a guest user logs out
-    */
+
    gboolean  (*cleanup_guest_user) (TlmAccountPlugin *self,
                                     const gchar *guest_user,
                                     gboolean delete_account);
@@ -74,7 +60,7 @@ struct _TlmAccountPluginInterface {
 GType tlm_account_plugin_get_type (void);
 
 gboolean
-tlm_account_plugin_setup_guest_user (TlmAccountPlugin   *self,
+tlm_account_plugin_setup_guest_user_account (TlmAccountPlugin   *self,
                              const gchar *user_name);
 
 gboolean

@@ -705,7 +705,7 @@ tlm_manager_setup_guest_user (TlmManager *manager, const gchar *user_name)
     }
     else {
         DBG("Asking plugin to setup guest user '%s'", user_name); 
-        return tlm_account_plugin_setup_guest_user (
+        return tlm_account_plugin_setup_guest_user_account (
                     manager->priv->account_plugin, user_name);
     }
 }
