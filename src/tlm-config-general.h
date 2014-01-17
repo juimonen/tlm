@@ -74,15 +74,36 @@
 /**
  * TLM_CONFIG_GENERAL_AUTO_LOGIN_GUEST
  *
- * Autologin to guest on a seat : TRUE/FALSE
+ * Autologin to default user : TRUE/FALSE
  */
-#define TLM_CONFIG_GENERAL_AUTO_RELOGIN "AUTO_RELOGIN"
+#define TLM_CONFIG_GENERAL_AUTO_LOGIN       "AUTO_LOGIN"
+
+/**
+ * TLM_CONFIG_GENERAL_PREPARE_DEFAULT
+ *
+ * Prepare default user before auto-login: TRUE/FALSE
+ */
+#define TLM_CONFIG_GENERAL_PREPARE_DEFAULT  "PREPARE_DEFAULT"
 
 /**
  * TLM_CONFIG_GENERAL_PAM_SERVICE:
  *
- * pam service file to use
+ * PAM service file to use
  */ 
 #define TLM_CONFIG_GENERAL_PAM_SERVICE      "PAM_SERVICE"
+
+/**
+ * TLM_CONFIG_GENERAL_DEFAULT_USER:
+ *
+ * Default username for autologin
+ */
+#define TLM_CONFIG_GENERAL_DEFAULT_USER     "DEFAULT_USER"
+
+/**
+ * TLM_CONFIG_GENERAL_SETUP_TERMINAL
+ *
+ * Setup terminal while creating session : TRUE/FALSE
+ */
+#define TLM_CONFIG_GENERAL_SETUP_TERMINAL   "SETUP_TERMINAL"
 
 #endif /* __TLM_GENERAL_CONFIG_H_ */

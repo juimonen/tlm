@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
  *          Amarnath Valluri <amarnath.valluri@linux.intel.com>
@@ -36,12 +36,11 @@
 /**
  * SECTION:tlm-config
  * @short_description: tlm configuration information
- * @include: tlm/common/tlm-config.h
+ * @include: tlm-config.h
  *
  * #TlmConfig holds configuration information as a set of keys and values
  * (integer or strings). The key names are defined in
- * <link linkend="tlmd-General-configuration">General config keys</link>,
- * and <link linkend="tlmd-DBus-configuration">DBus config keys</link>.
+ * <link linkend="tlmd-General-configuration">General config keys</link>.
  *
  * The configuration is retrieved from the tlm configuration file. See below
  * for where the file is searched for.
@@ -52,7 +51,7 @@
  *
  * TlmConfig* config = tlm_config_new ();
  * const gchar *str = tlm_config_get_string (config,
- *  TLM_CONFIG_GENERAL_SKEL_DIR, 0);
+ *  TLM_CONFIG_GENERAL, TLM_CONFIG_GENERAL_PAM_SERVICE, 0);
  * g_object_unref(config);
  *
  * ]|
@@ -62,7 +61,7 @@
  *
  * If tlm has been compiled with --enable-debug, then these locations are used,
  * in decreasing order of priority:
- * - UM_CONF_FILE environment variable
+ * - TLM_CONF_FILE environment variable
  * - g_get_user_config_dir() + "tlm.conf"
  * - each of g_get_system_config_dirs() + "tlm.conf"
  *
@@ -72,7 +71,7 @@
  * <refsect1><title>Example configuration file</title></refsect1>
  *
  * See example configuration file here:
- * <ulink url="https://github.com/01org/tlmd/blob/master/src/common/tlm.conf.in">
+ * <ulink url="https://github.com/01org/tlm/blob/master/data/tlm.conf.in">
  * tlm configuration file</ulink>
  *
  */
@@ -193,7 +192,7 @@ _load_config (
                                g_str_hash,
                                g_str_equal,
                                g_free,
-                               (GDestroyNotify)g_variant_unref);
+                               (GDestroyNotify)g_free);
 
         for (j = 0; j < n_keys; j++) {
             gchar *value = g_key_file_get_value (settings,
@@ -211,7 +210,7 @@ _load_config (
 
             g_hash_table_insert (group_table,
                                  (gpointer)g_strdup (keys[j]),
-                                 (gpointer)g_variant_new_string (value));
+                                 (gpointer)value);
 
         }
 
@@ -258,9 +257,9 @@ _set_defaults (
 {
 
     /* plugins dir => TLM_PLUGINS_DIR <=> $(pkglibdir)/plugins */
-    if (!tlm_config_get_string (self, 
-                                TLM_CONFIG_GENERAL,
-                                TLM_CONFIG_GENERAL_PLUGINS_DIR)) {
+    if (!tlm_config_has_key (self, 
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_PLUGINS_DIR)) {
         tlm_config_set_string (self,
                                TLM_CONFIG_GENERAL, 
                                TLM_CONFIG_GENERAL_PLUGINS_DIR,
@@ -268,15 +267,34 @@ _set_defaults (
     }
 
     /* accounts plugin => default */
-    if (!tlm_config_get_string (self,
-                                TLM_CONFIG_GENERAL,
-                                TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN)) {
+    if (!tlm_config_has_key (self,
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN)) {
         tlm_config_set_string (self,
                                TLM_CONFIG_GENERAL,
                                TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN,
                                "default");
     }
 
+    /* default PAM service => tlm-login */
+    if (!tlm_config_has_key (self,
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_PAM_SERVICE)) {
+        tlm_config_set_string (self,
+                               TLM_CONFIG_GENERAL,
+                               TLM_CONFIG_GENERAL_PAM_SERVICE,
+                               "tlm-login");
+    }
+
+    /* default user => guest */
+    if (!tlm_config_has_key (self,
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_DEFAULT_USER)) {
+        tlm_config_set_string (self,
+                               TLM_CONFIG_GENERAL,
+                               TLM_CONFIG_GENERAL_DEFAULT_USER,
+                               "guest");
+    }
 }
 
 /**
@@ -302,32 +320,6 @@ tlm_config_get_group (
 }
 
 /**
- * tlm_config_get_value:
- * @self: (transfer none): an instance of #TlmConfig
- * @group: (transfer none): the group name, NULL refers to General
- * @key: (transfer none): the key name
- *
- * Get the configuration value stored for #key in #group.
- *
- * Returns: the value corresponding to the key and group. If the
- * key does not exist, NULL is returned.
- */
-GVariant *
-tlm_config_get_value (
-        TlmConfig *self,
-        const gchar *group,
-        const gchar *key)
-{
-    g_return_val_if_fail (self && TLM_IS_CONFIG(self), NULL);
-    g_return_val_if_fail (key && key[0], NULL);
-
-    GHashTable *group_table = tlm_config_get_group (self, group);
-    if (!group_table) return NULL;
-
-    return (GVariant *) g_hash_table_lookup (group_table, key);
-}
-
-/**
  * tlm_config_get_string:
  * @self: (transfer none): an instance of #TlmConfig
  * @group: (transfer none): the group name, NULL refers to General
@@ -347,10 +339,10 @@ tlm_config_get_string (
     g_return_val_if_fail (self && TLM_IS_CONFIG (self), NULL);
     g_return_val_if_fail (key && key[0], NULL);
 
-    GVariant* value = tlm_config_get_value (self, group, key);
-    if (!value) return NULL;
+    GHashTable *group_table = tlm_config_get_group (self, group);
+    if (!group_table) return NULL;
 
-    return g_variant_get_string (value, NULL);
+    return (const gchar *) g_hash_table_lookup (group_table, key);
 }
 
 /**
@@ -379,7 +371,7 @@ tlm_config_set_string (
         group_table = g_hash_table_new_full (g_str_hash,
                                              g_str_equal,
                                              g_free,
-                                             (GDestroyNotify)g_variant_unref);
+                                             g_free);
         g_hash_table_insert (self->priv->config_table,
                              (gpointer)g_strdup (group),
                              (gpointer)group_table);
@@ -387,7 +379,7 @@ tlm_config_set_string (
 
     g_hash_table_insert (group_table,
                          (gpointer) g_strdup (key),
-                         g_variant_new_string (value));
+                         (gpointer) g_strdup (value));
 
 }
 /**
@@ -516,13 +508,16 @@ tlm_config_get_boolean (
     g_return_val_if_fail (self && TLM_IS_CONFIG (self), retval);
     
     str_value = tlm_config_get_string (self, group, key);
-    g_return_val_if_fail (str_value, retval);
-
-    if (g_ascii_strncasecmp (str_value, "false", 5) == 0)
+    if (!str_value)
         return retval;
 
-    if (g_ascii_strncasecmp (str_value, "true", 4) == 0)
-        return retval;
+    if (g_ascii_strncasecmp (str_value, "false", 5) == 0 ||
+        g_ascii_strncasecmp (str_value, "no", 2) == 0)
+        return FALSE;
+
+    if (g_ascii_strncasecmp (str_value, "true", 4) == 0 ||
+        g_ascii_strncasecmp (str_value, "yes", 3) == 0)
+        return TRUE;
 
     if (sscanf (str_value, "%d", &value) <= 0)
         return retval;

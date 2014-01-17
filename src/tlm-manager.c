@@ -36,6 +36,7 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 G_DEFINE_TYPE (TlmManager, tlm_manager, G_TYPE_OBJECT);
@@ -346,17 +347,92 @@ tlm_manager_init (TlmManager *manager)
     _load_auth_plugins (manager);
 }
 
+static gchar *
+_build_user_name (const gchar *template, const gchar *seat_id)
+{
+    int seat_num = 0;
+    const char *pptr;
+    gchar *out;
+    GString *str;
+
+    if (strncmp (seat_id, "seat", 4) == 0)
+        seat_num = atoi (seat_id + 4);
+    else
+        WARN ("unercognized seat id format");
+    pptr = template;
+    str = g_string_sized_new (16);
+    while (*pptr != '\0') {
+        if (*pptr == '%') {
+            pptr++;
+            switch (*pptr) {
+                case 'S':
+                    g_string_append_printf (str, "%d", seat_num);
+                    break;
+                case 'I':
+                    g_string_append (str, seat_id);
+                    break;
+                default:
+                    ;
+            }
+        } else {
+            g_string_append_c (str, *pptr);
+        }
+        pptr++;
+    }
+    out = g_string_free (str, FALSE);
+    return out;
+}
+
+static void
+_prepare_user_cb (TlmSeat *seat, const gchar *user_name, gpointer user_data)
+{
+    TlmManager *manager = TLM_MANAGER(user_data);
+
+    g_return_if_fail (user_data && TLM_IS_MANAGER(manager));
+
+    if (tlm_config_get_boolean (manager->priv->config,
+                                TLM_CONFIG_GENERAL,
+                                TLM_CONFIG_GENERAL_PREPARE_DEFAULT,
+                                FALSE)) {
+        DBG ("prepare for '%s'", user_name);
+        if (!tlm_manager_setup_guest_user (manager, user_name)) {
+            WARN ("failed to prepare for '%s'", user_name);
+        }
+    }
+}
+
 static void
 _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
 {
     g_return_if_fail (manager && TLM_IS_MANAGER (manager));
 
-    // FIXME: set correct guest service and user
+    const gchar *pam_service = tlm_config_get_string (manager->priv->config,
+                                                      seat_id,
+                                                      TLM_CONFIG_GENERAL_PAM_SERVICE);
+    if (!pam_service) {
+        pam_service = tlm_config_get_string (manager->priv->config,
+                                             TLM_CONFIG_GENERAL,
+                                             TLM_CONFIG_GENERAL_PAM_SERVICE);
+    }
+    const gchar *name_tmpl = tlm_config_get_string (manager->priv->config,
+                                                    seat_id,
+                                                    TLM_CONFIG_GENERAL_DEFAULT_USER);
+    if (!name_tmpl) {
+        name_tmpl = tlm_config_get_string (manager->priv->config,
+                                           TLM_CONFIG_GENERAL,
+                                           TLM_CONFIG_GENERAL_DEFAULT_USER);
+    }
+    gchar *default_user = _build_user_name (name_tmpl, seat_id);
     TlmSeat *seat = tlm_seat_new (manager->priv->config,
                                   seat_id,
                                   seat_path,
-                                  "tlm-login",
-                                  "guest_seat0");
+                                  pam_service,
+                                  default_user);
+    g_free (default_user);
+    g_signal_connect (seat,
+                      "prepare-user",
+                      G_CALLBACK (_prepare_user_cb),
+                      manager);
 
     g_hash_table_insert (manager->priv->seats, g_strdup (seat_id), seat);
 

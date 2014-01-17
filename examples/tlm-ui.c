@@ -35,6 +35,7 @@
 #define BUFLEN 8096
 #define UID_MIN "UID_MIN"
 #define UID_MAX "UID_MAX"
+#define TLM_LOGINDEFS_PATH "/etc/login.defs"
 
 static Evas_Object *user_label = NULL;
 static gboolean use_nfc_tag = FALSE;
