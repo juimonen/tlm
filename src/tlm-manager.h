@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -58,7 +58,7 @@ struct _TlmManagerClass
 
 GType tlm_manager_get_type (void);
 
-TlmManager * tlm_manager_new ();
+TlmManager * tlm_manager_new (const gchar *initial_user);
 
 gboolean
 tlm_manager_start(TlmManager *manager);

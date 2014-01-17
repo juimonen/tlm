@@ -506,7 +506,7 @@ tlm_config_get_boolean (
     const gchar *str_value = NULL;
     gint value = 0;
     g_return_val_if_fail (self && TLM_IS_CONFIG (self), retval);
-    
+
     str_value = tlm_config_get_string (self, group, key);
     if (!str_value)
         return retval;

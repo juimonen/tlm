@@ -14,10 +14,12 @@ ACCOUNTS_PLUGIN=@TLM_ACCOUNTS_PLUGIN@
 #PLUGINS_DIR=@TLM_PLUGINS_DIR@
 #
 # Auto-login default user
-#AUTO_LOGIN=1
+# Default: off
+AUTO_LOGIN=1
 #
 # Prepare default/guest users before auto-login
-#PREPARE_DEFAULT=0
+# Default: off
+PREPARE_DEFAULT=1
 #
 # PAM service file to use
 PAM_SERVICE=tlm-login
@@ -25,6 +27,7 @@ PAM_SERVICE=tlm-login
 # Default (guest) username or template to use
 #  %S - seat number
 #  %I - seat id string
+# Default: "guest"
 #DEFAULT_USER=guest
 #
 # Session command : The command run after successfull login
@@ -33,7 +36,8 @@ PAM_SERVICE=tlm-login
 #SESSION_CMD=systemd --user
 #
 # Setup terminal for session
-#SETUP_TERMINAL=0
+# Default: on
+SETUP_TERMINAL=0
 #
 #
 # Seat specific settings where the group name is seat id
