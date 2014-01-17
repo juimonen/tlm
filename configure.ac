@@ -30,6 +30,10 @@ PKG_CHECK_MODULES([GMODULE], [gmodule-2.0])
 AC_SUBST(GMODULE_CFLAGS)
 AC_SUBST(GMODULE_LIBS)
 
+# Check for libtlm-nfc
+PKG_CHECK_MODULES([LIBTLM_NFC], [libtlm-nfc], [have_libtlm_nfc=yes], [have_libtlm_nfc=no])
+AM_CONDITIONAL(HAVE_LIBTLM_NFC, [test x$have_libtlm_nfc = xyes])
+
 AC_CHECK_HEADERS([security/pam_appl.h],,[AC_MSG_ERROR("pam-devel is required")])
 
 TLM_CFLAGS="$GLIB_CFLAGS $GIO_CFLAGS $GMODULE_CFLAGS -Wall -Werror"
@@ -88,6 +92,8 @@ data/Makefile
 
 AM_COND_IF([HAVE_LIBGUM],
            AC_CONFIG_FILES([src/plugins/gumd/Makefile]))
+AM_COND_IF([HAVE_LIBTLM_NFC],
+           AC_CONFIG_FILES([src/plugins/nfc/Makefile]))
 
 AM_COND_IF([ENABLE_TESTS],
            AC_CONFIG_FILES([tests/Makefile]))
