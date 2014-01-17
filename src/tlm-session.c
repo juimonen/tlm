@@ -272,7 +272,7 @@ _set_terminal (TlmSessionPrivate *priv)
     tty_dev = ttyname (0);
     DBG ("trying to setup TTY '%s'", tty_dev);
     if (!tty_dev) {
-        WARN ("no TTY");
+        WARN ("No TTY");
         return FALSE;
     }
     if (access (tty_dev, R_OK|W_OK)) {
@@ -286,7 +286,7 @@ _set_terminal (TlmSessionPrivate *priv)
     if (tty_stat.st_nlink > 1 ||
         !S_ISCHR (tty_stat.st_mode) ||
         strncmp (tty_dev, "/dev/", 5)) {
-        WARN ("invalid TTY");
+        WARN ("Invalid TTY");
         return FALSE;
     }
 
@@ -552,7 +552,10 @@ tlm_session_terminate (TlmSession *session)
 {
     g_return_if_fail (session && TLM_IS_SESSION(session));
 
-    if (kill(session->priv->child_pid, SIGTERM) < 0)
+    if (kill (session->priv->child_pid, SIGHUP) < 0)
+        WARN ("kill(%u, SIGHUP): %s",
+              session->priv->child_pid, strerror(errno));
+    if (kill (session->priv->child_pid, SIGTERM) < 0)
         WARN ("kill(%u, SIGTERM): %s",
               session->priv->child_pid, strerror(errno));
 }

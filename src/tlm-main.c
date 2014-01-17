@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -63,36 +63,6 @@ _setup_unix_signal_handlers (GMainLoop *loop)
     g_unix_signal_add (SIGHUP, _on_sighup_cb, (gpointer)loop);
 }
 
-static void
-_on_seat_added (TlmManager *manager, TlmSeat *seat, gpointer data)
-{
-    gchar *uname = g_strdup((gchar *) data);
-
-    // FIXME: manager should handle this instead of main
-
-    /*if (!uname) {
-        uname = g_strdup_printf ("%s_%s",
-                                 tlm_config_get_string (manager->priv->config,
-                                                        TLM_CONFIG_GENERAL,
-                                                        TLM_CONFIG_GENERAL_DEFAULT_USER),
-                                 tlm_seat_get_id (seat));
-        DBG ("%s Seat Added", tlm_seat_get_id (seat));
-        if (!tlm_manager_setup_guest_user (manager, uname)) {
-            WARN ("Failed to setup guest user");
-            g_free (uname);
-            exit (0);
-        }
-    }*/
-
-    DBG ("starting auth session for user %s", uname);
-    if (!tlm_seat_create_session (seat, "tlm-login", uname, NULL)) {
-        WARN ("Failed to start session");
-        g_free (uname);
-        exit (0);
-    }
-    g_free (uname);
-}
-
 int main(int argc, char *argv[])
 {
     GError *error = 0;
@@ -148,11 +118,7 @@ int main(int argc, char *argv[])
 
     _setup_unix_signal_handlers (main_loop);
 
-    manager = tlm_manager_new ();
-
-    // FIXME: this should be internal business to the manager
-    g_signal_connect(manager, "seat-added", 
-            G_CALLBACK(_on_seat_added), username);
+    manager = tlm_manager_new (username);
 
     tlm_manager_start (manager);
 

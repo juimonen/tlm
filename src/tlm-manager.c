@@ -31,6 +31,7 @@
 #include "tlm-auth-plugin.h"
 #include "tlm-config.h"
 #include "tlm-config-general.h"
+#include "tlm-utils.h"
 #include "config.h"
 
 #include <glib.h>
@@ -53,13 +54,21 @@ struct _TlmManagerPrivate
     GDBusConnection *connection;
     TlmConfig *config;
     GHashTable *seats; /* { gchar*:TlmSeat* } */
-    TlmAccountPlugin  *account_plugin;
-    GList      *auth_plugins;
+    TlmAccountPlugin *account_plugin;
+    GList *auth_plugins;
     gboolean is_started;
+    gchar *initial_user;
 
     guint seat_added_id;
     guint seat_removed_id;
 };
+
+enum {
+    PROP_0,
+    PROP_INITIAL_USER,
+    N_PROPERTIES
+};
+static GParamSpec *pspecs[N_PROPERTIES];
 
 enum {
     SIG_SEAT_ADDED,
@@ -100,6 +109,8 @@ tlm_manager_dispose (GObject *self)
     	g_list_free_full(manager->priv->auth_plugins, _unref_auth_plugins);
     }
 
+    g_clear_string (&manager->priv->initial_user);
+
     G_OBJECT_CLASS (tlm_manager_parent_class)->dispose (self);
 }
 
@@ -107,6 +118,40 @@ static void
 tlm_manager_finalize (GObject *self)
 {
     G_OBJECT_CLASS (tlm_manager_parent_class)->finalize (self);
+}
+
+static void
+_manager_set_property (GObject *obj,
+                       guint property_id,
+                       const GValue *value,
+                       GParamSpec *pspec)
+{
+    TlmManager *manager = TLM_MANAGER (obj);
+
+    switch (property_id) {
+        case PROP_INITIAL_USER:
+            manager->priv->initial_user = g_value_dup_string (value);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
+    }
+}
+
+static void
+_manager_get_property (GObject *obj,
+                       guint property_id,
+                       GValue *value,
+                       GParamSpec *pspec)
+{
+    TlmManager *manager = TLM_MANAGER (obj);
+
+    switch (property_id) {
+        case PROP_INITIAL_USER:
+            g_value_set_string (value, manager->priv->initial_user);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
+    }
 }
 
 static GObject *
@@ -133,6 +178,16 @@ tlm_manager_class_init (TlmManagerClass *klass)
     g_klass->constructor = tlm_manager_constructor;    
     g_klass->dispose = tlm_manager_dispose ;
     g_klass->finalize = tlm_manager_finalize;
+    g_klass->set_property = _manager_set_property;
+    g_klass->get_property = _manager_get_property;
+
+    pspecs[PROP_INITIAL_USER] =
+        g_param_spec_string ("initial-user",
+                             "initial user",
+                             "User name for initial auto-login",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 
     signals[SIG_SEAT_ADDED] =  g_signal_new ("seat-added",
                 TLM_TYPE_MANAGER,
@@ -358,7 +413,7 @@ _build_user_name (const gchar *template, const gchar *seat_id)
     if (strncmp (seat_id, "seat", 4) == 0)
         seat_num = atoi (seat_id + 4);
     else
-        WARN ("unercognized seat id format");
+        WARN ("Unrecognized seat id format");
     pptr = template;
     str = g_string_sized_new (16);
     while (*pptr != '\0') {
@@ -406,38 +461,56 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
 {
     g_return_if_fail (manager && TLM_IS_MANAGER (manager));
 
-    const gchar *pam_service = tlm_config_get_string (manager->priv->config,
+    TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
+
+    const gchar *pam_service = tlm_config_get_string (priv->config,
                                                       seat_id,
                                                       TLM_CONFIG_GENERAL_PAM_SERVICE);
     if (!pam_service) {
-        pam_service = tlm_config_get_string (manager->priv->config,
+        pam_service = tlm_config_get_string (priv->config,
                                              TLM_CONFIG_GENERAL,
                                              TLM_CONFIG_GENERAL_PAM_SERVICE);
     }
-    const gchar *name_tmpl = tlm_config_get_string (manager->priv->config,
+    const gchar *name_tmpl = tlm_config_get_string (priv->config,
                                                     seat_id,
                                                     TLM_CONFIG_GENERAL_DEFAULT_USER);
     if (!name_tmpl) {
-        name_tmpl = tlm_config_get_string (manager->priv->config,
+        name_tmpl = tlm_config_get_string (priv->config,
                                            TLM_CONFIG_GENERAL,
                                            TLM_CONFIG_GENERAL_DEFAULT_USER);
     }
     gchar *default_user = _build_user_name (name_tmpl, seat_id);
-    TlmSeat *seat = tlm_seat_new (manager->priv->config,
+    TlmSeat *seat = tlm_seat_new (priv->config,
                                   seat_id,
                                   seat_path,
                                   pam_service,
                                   default_user);
-    g_free (default_user);
     g_signal_connect (seat,
                       "prepare-user",
                       G_CALLBACK (_prepare_user_cb),
                       manager);
 
-    g_hash_table_insert (manager->priv->seats, g_strdup (seat_id), seat);
+    g_hash_table_insert (priv->seats, g_strdup (seat_id), seat);
 
     g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);
 
+    gchar *auto_user = priv->initial_user;
+    if (!auto_user && tlm_config_get_boolean (priv->config,
+                                              TLM_CONFIG_GENERAL,
+                                              TLM_CONFIG_GENERAL_AUTO_LOGIN,
+                                              FALSE)) {
+        auto_user = default_user;
+    }
+    if (auto_user) {
+        DBG("intial auto-login for user '%s'", auto_user);
+        if (!tlm_seat_create_session (seat,
+                                      pam_service,
+                                      priv->initial_user ? priv->initial_user : default_user,
+                                      NULL))
+            WARN("Failed to create session for default user");
+    }
+
+    g_free (default_user);
 }
 
 static void
@@ -638,8 +711,10 @@ tlm_manager_setup_guest_user (TlmManager *manager, const gchar *user_name)
 }
 
 TlmManager *
-tlm_manager_new ()
+tlm_manager_new (const gchar *initial_user)
 {
-    return g_object_new (TLM_TYPE_MANAGER, NULL);
+    return g_object_new (TLM_TYPE_MANAGER,
+                         "initial-user", initial_user,
+                         NULL);
 }
 
