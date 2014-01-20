@@ -33,6 +33,29 @@
 #include "tlm-auth-plugin-default.h"
 #include "tlm-log.h"
 
+/**
+ * SECTION:tlm-auth-plugin-default
+ * @short_description: an default authentication plugin
+ *
+ * #TlmAuthPluginDefault issues #TlmAuthPlugin::authenticate signals when it receives
+ * a SIGUSR1 signal. Username and password are set to NULL, and seat is
+ * set to default.
+ *
+ * This has the effect of logging in a guest user when TLM receives a SIGUSR1 signal.
+ */
+
+/**
+ * TlmAuthPluginDefault:
+ *
+ * Opaque data structure
+ */
+/**
+ * TlmAuthPluginDefaultClass:
+ * @parent_class: a reference to a parent class
+ *
+ * The class structure for the #TlmAuthPluginDefault objects,
+ */
+
 struct _TlmAuthPluginDefault
 {
     GObject parent;
