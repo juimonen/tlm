@@ -29,12 +29,39 @@
 #include <string.h>
 #include <glib.h>
 
-#include <gum/gum-user.h>
-#include <gum/common/gum-user-types.h>
-#include <gum/common/gum-file.h>
+#include <gum-user.h>
+#include <common/gum-user-types.h>
+#include <common/gum-file.h>
 
 #include "tlm-plugin-gumd.h"
 #include "tlm-log.h"
+
+/**
+ * SECTION:tlm-plugin-gumd
+ * @short_description: a GUM account plugin
+ *
+ * #TlmAccountPluginGumd provides an implementation of user account
+ * operations that is utiziling gumd daemon API to perform them:
+ * <ulink url="https://github.com/01org/gumd">
+ * https://github.com/01org/gumd</ulink>.
+ */
+
+/**
+ * TlmAccountPluginGumd:
+ *
+ * Opaque data structure
+ */
+/**
+ * TlmAccountPluginGumdClass:
+ * @parent_class: a reference to a parent class
+ *
+ * The class structure for the #TlmAccountPluginGumd objects,
+ */
+
+enum {
+    PROP_0,
+    PROP_CONFIG
+};
 
 static gboolean
 _setup_guest_account (
@@ -145,11 +172,68 @@ G_DEFINE_TYPE_WITH_CODE (
 
 
 static void
+_plugin_finalize (GObject *self)
+{
+    TlmAccountPluginGumd *plugin = TLM_ACCOUNT_PLUGIN_GUMD(self);
+
+    if (plugin->config) g_hash_table_unref (plugin->config);
+
+    G_OBJECT_CLASS (tlm_account_plugin_gumd_parent_class)->finalize(self);
+}
+
+static void
+_plugin_set_property (GObject      *object,
+                      guint         prop_id,
+                      const GValue *value,
+                      GParamSpec   *pspec)
+{
+    TlmAccountPluginGumd *self = TLM_ACCOUNT_PLUGIN_GUMD (object);
+
+    switch (prop_id) {
+        case PROP_CONFIG: {
+            gpointer p = g_value_get_boxed (value);
+            if (p)
+                self->config = g_hash_table_ref ((GHashTable *)p);
+            break;
+        }
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+            break;
+    }
+}
+
+static void
+_plugin_get_property (GObject *object,
+                      guint    prop_id,
+                      GValue  *value,
+                      GParamSpec *pspec)
+{
+    TlmAccountPluginGumd *self = TLM_ACCOUNT_PLUGIN_GUMD (object);
+
+    switch (prop_id) {
+        case PROP_CONFIG:
+            g_value_set_boxed (value, self->config);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+            break;
+    }
+}
+
+
+static void
 tlm_account_plugin_gumd_class_init (
         TlmAccountPluginGumdClass *kls)
 {
-    (void)kls;
+    GObjectClass *g_class = G_OBJECT_CLASS (kls);
+
+    g_class->set_property = _plugin_set_property;
+    g_class->get_property = _plugin_get_property;
+    g_class->finalize = _plugin_finalize;
+
+    g_object_class_override_property (g_class, PROP_CONFIG, "config");
 }
+
 
 static void
 tlm_account_plugin_gumd_init (

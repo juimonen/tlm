@@ -6,12 +6,12 @@ libtlm_plugin_gumd_la_SOURCES = \
 	tlm-plugin-gumd.c
 
 libtlm_plugin_gumd_la_CFLAGS = \
-	-I$(abs_top_builddir)/src \
+	-I$(abs_top_builddir)/src/common \
 	-DG_LOG_DOMAIN=\"TLM_PLUGIN_GUMD\" \
 	$(LIBGUM_CFLAGS)
 
 libtlm_plugin_gumd_la_LDFLAGS = -avoid-version
 
 libtlm_plugin_gumd_la_LIBADD = \
-	$(abs_top_builddir)/src/libtlm-plugin.la \
+	$(abs_top_builddir)/src/common/libtlm-plugin.la \
     $(LIBGUM_LIBS)

@@ -23,9 +23,8 @@ DOC_MAIN_SGML_FILE=$(DOC_MODULE)-docs.sgml
 # for inline comments documenting functions and macros.
 # e.g. DOC_SOURCE_DIR=$(top_srcdir)/gtk $(top_srcdir)/gdk
 DOC_SOURCE_DIR=$(top_srcdir)/src/common $(top_srcdir)/src/plugins/default
-if HAVE_LIBGUM
-    DOC_SOURCE_DIR += $(top_srcdir)/src/plugins/gum
-endif
+DOC_SOURCE_DIR += $(top_srcdir)/src/plugins/gumd
+DOC_SOURCE_DIR += $(top_srcdir)/src/plugins/nfc
 
 # Extra options to pass to gtkdoc-scangobj. Not normally needed.
 SCANGOBJ_OPTIONS=
@@ -85,6 +84,9 @@ GTKDOC_CFLAGS=
 GTKDOC_LIBS=$(GLIB_LIBS) \
             $(top_builddir)/src/common/libtlm-plugin.la \
             $(top_builddir)/src/plugins/default/libtlm-plugin-default.la
+
+GTKDOC_LIBS += $(LIBGUM_LIBS) $(top_builddir)/src/plugins/gumd/libtlm-plugin-gumd.la
+GTKDOC_LIBS += $(LIBGUM_LIBS) $(top_builddir)/src/plugins/nfc/libtlm-plugin-nfc.la
 
 # This includes the standard gtk-doc make rules, copied by gtkdocize.
 include $(top_srcdir)/gtk-doc.make

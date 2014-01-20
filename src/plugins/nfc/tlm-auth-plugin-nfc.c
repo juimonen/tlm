@@ -29,6 +29,35 @@
 #include "tlm-log.h"
 #include <gtlm-nfc.h>
 
+/**
+ * SECTION:tlm-auth-plugin-nfc
+ * @short_description: a NFC authentication plugin
+ *
+ * #TlmAuthPluginNfc issues a #TlmAuthPlugin::authenticate signal when a
+ * user taps an NFC tag with his username and password on an NFC reader.
+ * The plugin is utilizing
+ * <ulink url="https://github.com/01org/libtlm-nfc">
+ * libtlm-nfc</ulink> for NFC functionality.
+ */
+
+/**
+ * TlmAuthPluginNfc:
+ *
+ * Opaque data structure
+ */
+/**
+ * TlmAuthPluginNfcClass:
+ * @parent_class: a reference to a parent class
+ *
+ * The class structure for the #TlmAuthPluginNfc objects,
+ */
+
+
+enum {
+    PROP_0,
+    PROP_CONFIG
+};
+
 struct _TlmAuthPluginNfc
 {
     GObject parent;
@@ -75,10 +104,60 @@ _plugin_finalize (GObject *self)
 }
 
 static void
+_plugin_set_property (GObject      *object,
+                      guint         prop_id,
+                      const GValue *value,
+                      GParamSpec   *pspec)
+{
+    TlmAuthPluginNfc *self = TLM_AUTH_PLUGIN_NFC (object);
+
+    switch (prop_id) {
+        case PROP_CONFIG: {
+            gpointer p = g_value_get_boxed (value);
+            if (p) {
+                //do nothing; we have no use for config ATM
+                //self->config = g_hash_table_ref ((GHashTable *)p);
+            }
+            break;
+        }
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+            break;
+    }
+}
+
+static void
+_plugin_get_property (GObject *object,
+                      guint    prop_id,
+                      GValue  *value,
+                      GParamSpec *pspec)
+{
+    TlmAuthPluginNfc *self = TLM_AUTH_PLUGIN_NFC (object);
+
+    switch (prop_id) {
+        case PROP_CONFIG:
+            //we don't use the config ATM
+            //g_value_set_boxed (value, self->config);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+            break;
+    }
+}
+
+
+
+static void
 tlm_auth_plugin_nfc_class_init (TlmAuthPluginNfcClass *kls)
 {
-    G_OBJECT_CLASS (kls)->finalize  = _plugin_finalize;
-    G_OBJECT_CLASS (kls)->dispose = _plugin_dispose;
+    GObjectClass *g_class = G_OBJECT_CLASS (kls);
+
+    g_class->set_property = _plugin_set_property;
+    g_class->get_property = _plugin_get_property;
+    g_class->dispose = _plugin_dispose;
+    g_class->finalize = _plugin_finalize;
+
+    g_object_class_override_property (g_class, PROP_CONFIG, "config");
 }
 
 static void _nfc_record_found(GTlmNfc* tlm_nfc,

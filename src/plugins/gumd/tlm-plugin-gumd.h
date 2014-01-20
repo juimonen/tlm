@@ -49,6 +49,7 @@ typedef struct _TlmAccountPluginGumdClass TlmAccountPluginGumdClass;
 struct _TlmAccountPluginGumd
 {
     GObject parent;
+    GHashTable *config;
 };
 
 struct _TlmAccountPluginGumdClass

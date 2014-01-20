@@ -15,20 +15,23 @@
   </bookinfo>
 
   <chapter>
+    <title>Tlm plugins reference</title>
+    <xi:include href="xml/tlm-account-plugin.xml"/>
+    <xi:include href="xml/tlm-account-plugin-default.xml"/>
+    <xi:include href="xml/tlm-plugin-gumd.xml"/>
+    <xi:include href="xml/tlm-auth-plugin.xml"/>
+    <xi:include href="xml/tlm-auth-plugin-default.xml"/>
+    <xi:include href="xml/tlm-auth-plugin-nfc.xml"/>
+
+  </chapter>
+
+    <chapter>
     <title>Tlm miscellaneous</title>
     <xi:include href="xml/tlm-log.xml"/>
 
   </chapter>
 
-  <chapter>
-    <title>Tlm plugins reference</title>
-    <xi:include href="xml/tlm-account-plugin.xml"/>
-    <xi:include href="xml/tlm-account-plugin-default.xml"/>
-    <xi:include href="xml/tlm-auth-plugin.xml"/>
-    <xi:include href="xml/tlm-auth-plugin-default.xml"/>
-
-  </chapter>
-  <chapter id="object-tree">
+    <chapter id="object-tree">
     <title>Object Hierarchy</title>
      <xi:include href="xml/tree_index.sgml"/>
   </chapter>

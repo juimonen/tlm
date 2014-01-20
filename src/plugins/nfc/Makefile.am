@@ -6,7 +6,7 @@ libtlm_plugin_nfc_la_SOURCES = \
 	tlm-auth-plugin-nfc.c
 
 libtlm_plugin_nfc_la_CFLAGS = \
-	-I$(abs_top_builddir)/src \
+	-I$(abs_top_builddir)/src/common \
 	-DG_LOG_DOMAIN=\"TLM_PLUGIN_NFC\" \
 	$(LIBTLM_NFC_CFLAGS) \
 	$(GLIB_CFLAGS)
@@ -14,6 +14,6 @@ libtlm_plugin_nfc_la_CFLAGS = \
 libtlm_plugin_nfc_la_LDFLAGS = -avoid-version
 
 libtlm_plugin_nfc_la_LIBADD = \
-	$(abs_top_builddir)/src/libtlm-plugin.la \
+	$(abs_top_builddir)/src/common/libtlm-plugin.la \
 	$(LIBTLM_NFC_LIBS) \
 	$(GLIB_LIBS)
