@@ -32,6 +32,33 @@
 #include "tlm-account-plugin-default.h"
 #include "tlm-log.h"
 
+/**
+ * SECTION:tlm-account-plugin-default
+ * @short_description: an default plugin for user account operation
+ *
+ * #TlmAccountPluginDefault provides a default implementation of user account
+ * operations:
+ * - setting up guest account is performed by running 'useradd'
+ * - cleaning up guest account is performed by running 'rm -rf' on the account's
+ * home directory
+ * - check the account validity is done using getpwnam().
+ *
+ * It is recommended to use a GUM plugin instead: see #TlmAccountPluginGumd.
+ *
+ */
+
+/**
+ * TlmAccountPluginDefault:
+ *
+ * Opaque data structure
+ */
+/**
+ * TlmAccountPluginDefaultClass:
+ * @parent_class: a reference to a parent class
+ *
+ * The class structure for the #TlmAccountPluginDefault objects,
+ */
+
 enum {
     PROP_0,
     PROP_CONFIG
