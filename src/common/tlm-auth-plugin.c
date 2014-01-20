@@ -25,6 +25,43 @@
 
 #include "tlm-auth-plugin.h"
 
+/**
+ * SECTION:tlm-auth-plugin
+ * @short_description: an interface for implementing tlm authentication plugins
+ * @include: tlm-auth-plugin.h
+ *
+ * #TlmAuthPlugin is an interface for implementing tlm authentication plugins.
+ *
+ * <refsect1><title>The plugin API</title></refsect1>
+ *
+ * Tlm authentication plugins provide authentication events: when they detect a user's
+ * intention to login, they issue a signal, containing user's credentials. Tlm
+ * acts upon this signal, by checking the credentials and starting a new session.
+ *
+ * <refsect1><title>Example plugins</title></refsect1>
+ *
+ * See example plugin implementation here:
+ * <ulink url="https://github.com/01org/tlm/tree/master/src/plugins/default">
+ * https://github.com/01org/tlm/tree/master/src/plugins/default</ulink> and here:
+ * <ulink url="https://github.com/01org/tlm/tree/master/src/plugins/nfc">
+ * https://github.com/01org/tlm/tree/master/src/plugins/nfc</ulink>.
+ *
+ */
+
+
+/**
+ * TlmAuthPluginInterface:
+ * @parent: parent interface type.
+ *
+ * #TlmAuthPluginInterface interface.
+ */
+
+/**
+ * TlmAuthPlugin:
+ *
+ * Opaque #TlmAuthPlugin data structure.
+ */
+
 G_DEFINE_INTERFACE (TlmAuthPlugin, tlm_auth_plugin, 0)
 
 enum {
@@ -38,16 +75,14 @@ static void
 tlm_auth_plugin_default_init (TlmAuthPluginInterface *g_class)
 {
     /**
-     * TlmAuthPlugin:authenticate:
+     * TlmAuthPlugin::authenticate:
      * @plugin: the plugin which emitted the signal
-     * @seat: seat id
-     * @service: pam service to be used
-     * @username: username to authenticate
+     * @seat_id: seat id
+     * @pam_service: pam service to be used
+     * @user_name: username to authenticate
      * @password: password to use
      *
-     * The signal is used by the plugin, when it needs to start a new 
-     * authentication session on a seat
-     * 
+     * The signal is issued by the plugin, when a new authentication session should be started.
      */
     _signals[AUTHENTICATE] = g_signal_new ("authenticate",
             G_TYPE_FROM_CLASS (g_class), G_SIGNAL_RUN_LAST,
@@ -56,8 +91,9 @@ tlm_auth_plugin_default_init (TlmAuthPluginInterface *g_class)
 
     /**
      * TlmAuthPlugin:config:
-     * 
+     *
      * This property holds a list of key-value pairs of plugin configuration
+     * taken from tlm.conf configuration file.
      */
     g_object_interface_install_property (g_class, g_param_spec_boxed (
             "config", "Config", "Config parameters",
@@ -66,9 +102,20 @@ tlm_auth_plugin_default_init (TlmAuthPluginInterface *g_class)
 
 }
 
+/**
+ * tlm_auth_plugin_start_authentication:
+ * @self: a plugin instance
+ * @seat_id: seat id
+ * @pam_service: PAM service
+ * @user_name: user name
+ * @password: password
+ *
+ * This method should be used by plugin implementations to issue TlmAuthPlugin::authenticate
+ * signal.
+ */
 gboolean
 tlm_auth_plugin_start_authentication (TlmAuthPlugin   *self,
-                                      const gchar *seat,
+                                      const gchar *seat_id,
                                       const gchar *pam_service,
                                       const gchar *user_name,
                                       const gchar *password)
@@ -76,7 +123,7 @@ tlm_auth_plugin_start_authentication (TlmAuthPlugin   *self,
     gboolean res = FALSE;
 
     g_signal_emit(self, _signals[AUTHENTICATE], 0, 
-            seat, pam_service, user_name, password, &res);
+            seat_id, pam_service, user_name, password, &res);
 
     return res;
 }
