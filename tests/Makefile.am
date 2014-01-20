@@ -9,11 +9,11 @@ configtest_SOURCES = config.c
 configtest_CFLAGS = \
 	$(TLM_CFLAGS) $(CHECK_CFLAGS) \
 	-I$(top_builddir) \
-	-I$(top_builddir)/src
+	-I$(top_builddir)/src/daemon
 
 configtest_LDADD = \
 	$(TLM_LIBS) \
 	$(CHECK_LIBS) \
-	$(top_builddir)/src/tlm-tlm-config.o
+	$(top_builddir)/src/daemon/tlm-tlm-config.o
 
 endif

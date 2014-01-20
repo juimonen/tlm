@@ -8,6 +8,7 @@ libtlm_plugin_default_la_SOURCES = \
     tlm-auth-plugin-default.c
 
 libtlm_plugin_default_la_CFLAGS = \
+	-I$(abs_top_builddir)/src/common \
 	-I$(abs_top_builddir)/src \
 	-DG_LOG_DOMAIN=\"TLM_PLUGIN_DEFAULT\" \
 	$(GLIB_CFLAGS)
@@ -15,5 +16,5 @@ libtlm_plugin_default_la_CFLAGS = \
 libtlm_plugin_default_la_LDFLAGS = -avoid-version
 
 libtlm_plugin_default_la_LIBADD = \
-	$(abs_top_builddir)/src/libtlm-plugin.la \
+	$(abs_top_builddir)/src/common/libtlm-plugin.la \
 	$(GLIB_LIBS)

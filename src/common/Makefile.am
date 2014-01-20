@@ -1,0 +1,28 @@
+lib_LTLIBRARIES = libtlm-plugin.la
+BUILT_SOURCES =
+
+libtlm_plugin_la_includedir = $(includedir)/tlm
+libtlm_plugin_la_include_HEADERS = \
+	tlm-account-plugin.h \
+	tlm-auth-plugin.h \
+	tlm-log.h \
+	$(NULL)
+
+libtlm_plugin_la_SOURCES = \
+	$(BUILT_SOURCES) \
+	tlm-account-plugin.c \
+	tlm-auth-plugin.c \
+	tlm-log.c \
+	$(NULL)
+
+libtlm_plugin_la_CFLAGS = \
+	-I$(abs_top_builddir) \
+	-I$(abs_top_srcdir)/src \
+	-DG_LOG_DOMAIN=\"TLM_PLUGIN\" \
+	$(GLIB_CFLAGS) \
+	$(NULL)
+
+libtlm_plugin_la_LIBADD = \
+	$(GLIB_LIBS) \
+	$(NULL)
+
