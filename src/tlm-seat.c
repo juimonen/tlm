@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -51,6 +51,7 @@ static GParamSpec *pspecs[N_PROPERTIES];
 
 enum {
     SIG_PREPARE_USER,
+    SIG_SESSION_TERMINATED,
     SIG_MAX
 };
 static guint signals[SIG_MAX];
@@ -77,7 +78,6 @@ tlm_seat_dispose (GObject *self)
 
     DBG("disposing seat: %s", seat->priv->id);
 
-    // TODO: fix
     g_clear_object (&seat->priv->session);
 
     G_OBJECT_CLASS (tlm_seat_parent_class)->dispose (self);
@@ -229,6 +229,16 @@ tlm_seat_class_init (TlmSeatClass *klass)
                                               G_TYPE_NONE,
                                               1,
                                               G_TYPE_STRING);
+    signals[SIG_SESSION_TERMINATED] = g_signal_new ("session-terminated",
+                                                    TLM_TYPE_SEAT,
+                                                    G_SIGNAL_RUN_LAST,
+                                                    0,
+                                                    NULL,
+                                                    NULL,
+                                                    NULL,
+                                                    G_TYPE_BOOLEAN,
+                                                    1,
+                                                    G_TYPE_STRING);
 }
 
 static gboolean
@@ -239,6 +249,7 @@ _notify_handler (GIOChannel *channel,
     TlmSeat *seat = TLM_SEAT(user_data);
     TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
     pid_t notify_pid = 0;
+    gboolean cont = TRUE;
 
     if (read (priv->notify_fd[0],
               &notify_pid, sizeof (notify_pid)) < (ssize_t) sizeof (notify_pid))
@@ -246,6 +257,16 @@ _notify_handler (GIOChannel *channel,
 
     DBG ("handling session termination for pid %u", notify_pid);
     g_clear_object (&priv->session);
+
+    g_signal_emit (seat,
+                   signals[SIG_SESSION_TERMINATED],
+                   0,
+                   priv->id,
+                   &cont);
+    if (!cont) {
+        g_clear_object (&seat->priv->session);
+        return cont;
+    }
 
     if (tlm_config_get_boolean (priv->config,
                                 TLM_CONFIG_GENERAL,
@@ -260,6 +281,8 @@ _notify_handler (GIOChannel *channel,
                                  seat->priv->next_service,
                                  seat->priv->next_user,
                                  seat->priv->next_password);
+    } else {
+        g_clear_object (&seat->priv->session);
     }
 
     return TRUE;
@@ -345,6 +368,21 @@ tlm_seat_create_session (TlmSeat *seat,
     return TRUE;
 }
 
+gboolean
+tlm_seat_terminate_session (TlmSeat *seat)
+{
+    g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
+    g_return_val_if_fail (seat->priv, FALSE);
+
+    if (!seat->priv->session)
+        return FALSE;
+    tlm_session_terminate (seat->priv->session);
+
+    return TRUE;
+}
+
+
+// FIXME: remove default service/user, these can be read from config
 TlmSeat *
 tlm_seat_new (TlmConfig *config,
               const gchar *id,

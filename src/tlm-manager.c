@@ -73,6 +73,7 @@ static GParamSpec *pspecs[N_PROPERTIES];
 enum {
     SIG_SEAT_ADDED,
     SIG_SEAT_REMOVED,
+    SIG_MANAGER_STOPPED,
     SIG_MAX,
 };
 
@@ -190,26 +191,35 @@ tlm_manager_class_init (TlmManagerClass *klass)
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 
     signals[SIG_SEAT_ADDED] =  g_signal_new ("seat-added",
-                TLM_TYPE_MANAGER,
-                G_SIGNAL_RUN_LAST,
-                0,
-                NULL,
-                NULL,
-                NULL,
-                G_TYPE_NONE,
-                1,
-                TLM_TYPE_SEAT);
+                                             TLM_TYPE_MANAGER,
+                                             G_SIGNAL_RUN_LAST,
+                                             0,
+                                             NULL,
+                                             NULL,
+                                             NULL,
+                                             G_TYPE_NONE,
+                                             1,
+                                             TLM_TYPE_SEAT);
 
     signals[SIG_SEAT_REMOVED] =  g_signal_new ("seat-removed",
-                TLM_TYPE_MANAGER,
-                G_SIGNAL_RUN_LAST,
-                0,
-                NULL,
-                NULL,
-                NULL,
-                G_TYPE_NONE,
-                1,
-                G_TYPE_STRING);
+                                               TLM_TYPE_MANAGER,
+                                               G_SIGNAL_RUN_LAST,
+                                               0,
+                                               NULL,
+                                               NULL,
+                                               NULL,
+                                               G_TYPE_NONE,
+                                               1,
+                                               G_TYPE_STRING);
+    signals[SIG_MANAGER_STOPPED] = g_signal_new ("manager-stopped",
+                                                 TLM_TYPE_MANAGER,
+                                                 G_SIGNAL_RUN_LAST,
+                                                 0,
+                                                 NULL,
+                                                 NULL,
+                                                 NULL,
+                                                 G_TYPE_NONE,
+                                                 0);
 }
 
 static gboolean
@@ -678,12 +688,47 @@ tlm_manager_start (TlmManager *manager)
     return TRUE;
 }
 
+
+static gboolean
+_session_terminated_cb (TlmManager *manager, const gchar *seat_id,
+                        gpointer user_data)
+{
+    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
+
+    g_hash_table_remove (manager->priv->seats, seat_id);
+    if (g_hash_table_size (manager->priv->seats) == 0)
+        g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
+
+    return FALSE;
+}
+
 gboolean
 tlm_manager_stop (TlmManager *manager)
 {
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
 
     _manager_unsubsribe_seat_changes (manager);
+
+    GHashTableIter iter;
+    gpointer key, value;
+    gboolean delayed = FALSE;
+
+    g_hash_table_iter_init (&iter, manager->priv->seats);
+    while (g_hash_table_iter_next (&iter, &key, &value)) {
+        DBG ("terminate seat '%s'", (const gchar *) key);
+        g_signal_connect_swapped ((TlmSeat *) value,
+                                  "session-terminated",
+                                  G_CALLBACK (_session_terminated_cb),
+                                  manager);
+        if (!tlm_seat_terminate_session ((TlmSeat *) value)) {
+            g_hash_table_remove (manager->priv->seats, key);
+            g_hash_table_iter_init (&iter, manager->priv->seats);
+        } else {
+            delayed = TRUE;
+        }
+    }
+    if (!delayed)
+        g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
     
     manager->priv->is_started = FALSE;
 

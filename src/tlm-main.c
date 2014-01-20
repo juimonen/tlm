@@ -38,11 +38,28 @@
 #include "tlm-config-general.h"
 
 
+static GMainLoop *main_loop = NULL;
+
+
+static void
+_on_manager_stopped_cb (TlmManager *manager, gpointer user_data)
+{
+    DBG ("manager stopped - quit mainloop");
+    g_main_loop_quit (main_loop);
+}
+
 static gboolean
 _on_sigterm_cb (gpointer data)
 {
-    DBG("SIGTERM/SIGINT");
-    g_main_loop_quit ((GMainLoop*)data);
+    DBG ("SIGTERM/SIGINT");
+
+    TlmManager *manager = TLM_MANAGER(data);
+
+    g_signal_connect (manager,
+                      "manager-stopped",
+                      G_CALLBACK (_on_manager_stopped_cb),
+                      main_loop);
+    tlm_manager_stop (manager);
 
     return FALSE;
 }
@@ -50,23 +67,22 @@ _on_sigterm_cb (gpointer data)
 static gboolean
 _on_sighup_cb (gpointer data)
 {
-    DBG("SIGHUP");
+    DBG ("SIGHUP");
     /* FIXME: Do something, may be reload configuration  */
     return FALSE;
 }
 
 static void
-_setup_unix_signal_handlers (GMainLoop *loop)
+_setup_unix_signal_handlers (TlmManager *manager)
 {
-    g_unix_signal_add (SIGTERM, _on_sigterm_cb, (gpointer)loop);
-    g_unix_signal_add (SIGINT, _on_sigterm_cb, (gpointer)loop);
-    g_unix_signal_add (SIGHUP, _on_sighup_cb, (gpointer)loop);
+    g_unix_signal_add (SIGTERM, _on_sigterm_cb, (gpointer) manager);
+    g_unix_signal_add (SIGINT, _on_sigterm_cb, (gpointer) manager);
+    g_unix_signal_add (SIGHUP, _on_sighup_cb, (gpointer) manager);
 }
 
 int main(int argc, char *argv[])
 {
     GError *error = 0;
-    GMainLoop *main_loop = 0;
     TlmManager *manager = 0;
 
     gboolean show_version = FALSE;
@@ -116,15 +132,12 @@ int main(int argc, char *argv[])
 
     main_loop = g_main_loop_new (NULL, FALSE);
 
-    _setup_unix_signal_handlers (main_loop);
-
     manager = tlm_manager_new (username);
-
+    _setup_unix_signal_handlers (manager);
     tlm_manager_start (manager);
 
     g_main_loop_run (main_loop);
 
-    tlm_manager_stop (manager);
     g_object_unref (G_OBJECT(manager));
 
     DBG ("clean shutdown");

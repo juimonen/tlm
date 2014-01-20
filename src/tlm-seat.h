@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -83,6 +83,8 @@ tlm_seat_create_session (TlmSeat *seat,
                          const gchar *username,
                          const gchar *password);
 
+gboolean
+tlm_seat_terminate_session (TlmSeat *seat);
 
 G_END_DECLS
 
