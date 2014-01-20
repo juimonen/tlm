@@ -28,6 +28,65 @@
 
 #include <syslog.h>
 
+
+/**
+ * SECTION:tlm-log
+ * @short_description: logging utilities
+ * @include: tlm-log.h
+ *
+ * This section describes various logging utilities that TLM plugins can use.
+ */
+
+/**
+ * CRITICAL:
+ * @frmt: log message format
+ * @...: arguments
+ *
+ * Logs a critical message
+ */
+
+
+/**
+ * DBG:
+ * @frmt: log message format
+ * @...: arguments
+ *
+ * Logs a debugging message
+ */
+
+/**
+ * INFO:
+ * @frmt: log message format
+ * @...: arguments
+ *
+ * Logs an info message
+ */
+
+/**
+ * ERR:
+ * @frmt: log message format
+ * @...: arguments
+ *
+ * Logs an error message
+ */
+
+/**
+ * WARN:
+ * @frmt: log message format
+ * @...: arguments
+ *
+ * Logs a warning message
+ */
+
+/**
+ * EXPAND_LOG_MSG:
+ * @frmt: log message format
+ * @...: arguments
+ *
+ * Internal macro; do not use.
+ */
+
+
 static gboolean _initialized = FALSE;
 static int _log_levels_enabled = (G_LOG_LEVEL_ERROR |
                                  G_LOG_LEVEL_CRITICAL |
@@ -75,6 +134,12 @@ _log_handler (const gchar *log_domain,
     }
 }
 
+/**
+ * tlm_log_init:
+ * @domain: log message domain
+ *
+ * Call this function before logging any messages to initialize the logging system.
+ */
 void tlm_log_init (const gchar *domain)
 {
 
@@ -107,6 +172,12 @@ static void _remove_log_handler (gpointer key, gpointer value, gpointer udata)
         g_log_remove_handler ((const gchar *)key, GPOINTER_TO_UINT(value));
 }
 
+/**
+ * tlm_log_close:
+ * @domain: log message domain
+ *
+ * Call this function to clean up the logging system (e.g. in an object destructor).
+ */
 void tlm_log_close (const gchar *domain)
 {
     if (_log_handlers) {
