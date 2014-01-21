@@ -1,3 +1,5 @@
+ACLOCAL_AMFLAGS = -I m4
+
 SUBDIRS= src data docs
 
 if ENABLE_EXAMPLES

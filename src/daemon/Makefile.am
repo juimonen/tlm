@@ -1,4 +1,5 @@
 include $(top_srcdir)/common.mk
+SUBDIRS = dbus
 
 bin_PROGRAMS = tlm
 BUILT_SOURCES =
@@ -21,7 +22,6 @@ tlm_CFLAGS = \
 	-I$(abs_top_builddir) \
 	-I$(abs_top_srcdir)/src \
 	-I$(abs_top_srcdir)/src/common \
-	-D_GNU_SOURCE \
 	-DG_LOG_DOMAIN=\"TLM\" \
 	$(TLM_CFLAGS) \
 	$(NULL)
@@ -30,6 +30,7 @@ tlm_CFLAGS = \
 tlm_LDADD = \
 	$(TLM_LIBS) \
 	$(abs_top_builddir)/src/common/libtlm-plugin.la \
+    $(abs_top_builddir)/src/daemon/dbus/libtlm-dbus.la \
 	-lpam \
 	$(NULL)
 

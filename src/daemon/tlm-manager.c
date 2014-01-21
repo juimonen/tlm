@@ -31,6 +31,8 @@
 #include "tlm-auth-plugin.h"
 #include "tlm-config.h"
 #include "tlm-config-general.h"
+#include "dbus/tlm-dbus-server-interface.h"
+#include "dbus/tlm-dbus-server-p2p.h"
 #include "tlm-utils.h"
 #include "config.h"
 
@@ -53,6 +55,7 @@ struct _TlmManagerPrivate
     GDBusConnection *connection;
     TlmConfig *config;
     GHashTable *seats; /* { gchar*:TlmSeat* } */
+    TlmDbusServer *dbus_server; /* dbus server accessed by root only */
     TlmAccountPlugin *account_plugin;
     GList *auth_plugins;
     gboolean is_started;
@@ -92,6 +95,11 @@ tlm_manager_dispose (GObject *self)
     TlmManager *manager = TLM_MANAGER(self);
 
     DBG("disposing manager");
+
+    if (manager->priv->dbus_server) {
+        g_object_unref (manager->priv->dbus_server);
+        manager->priv->dbus_server = NULL;
+    }
 
     if (manager->priv->is_started) {
         tlm_manager_stop (manager);
@@ -409,6 +417,10 @@ tlm_manager_init (TlmManager *manager)
     
     _load_accounts_plugin (manager, act_plugin_name);
     _load_auth_plugins (manager);
+
+    priv->dbus_server = TLM_DBUS_SERVER (tlm_dbus_server_p2p_new (
+            TLM_DBUS_ROOT_SOCKET_ADDRESS, getuid ()));
+    tlm_dbus_server_start (priv->dbus_server);
 }
 
 static void

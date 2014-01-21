@@ -1,3 +1,5 @@
+SUBDIRS = dbus
+
 lib_LTLIBRARIES = libtlm-plugin.la
 BUILT_SOURCES =
 
@@ -22,10 +24,10 @@ libtlm_plugin_la_CFLAGS = \
 	-DG_LOG_DOMAIN=\"TLM_PLUGIN\" \
 	-DTLM_PLUGINS_DIR='"$(pluginsdir)"' \
 	-DTLM_SYSCONF_DIR='"$(sysconfdir)"' \
-	$(GLIB_CFLAGS) \
+	$(TLM_CFLAGS) \
 	$(NULL)
 
 libtlm_plugin_la_LIBADD = \
-	$(GLIB_LIBS) \
+	$(TLM_LIBS) \
 	$(NULL)
 

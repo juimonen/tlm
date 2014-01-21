@@ -29,11 +29,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "config.h"
+
 #include "tlm-seat.h"
 #include "tlm-session.h"
 #include "tlm-log.h"
 #include "tlm-utils.h"
 #include "tlm-config-general.h"
+#include "dbus/tlm-dbus-server-interface.h"
+#include "dbus/tlm-dbus-server-p2p.h"
 
 G_DEFINE_TYPE (TlmSeat, tlm_seat, G_TYPE_OBJECT);
 
@@ -65,9 +69,37 @@ struct _TlmSeatPrivate
     gchar *next_user;
     gchar *next_password;
     TlmSession *session;
+    TlmDbusServer *dbus_server; /* dbus server accessed only by user who has
+    active session */
     gint notify_fd[2];
     GIOChannel *notify_channel;
 };
+
+static void
+_stop_dbus (TlmSeatPrivate *priv)
+{
+    if (priv->dbus_server) {
+        tlm_dbus_server_stop (priv->dbus_server);
+        g_object_unref (priv->dbus_server);
+        priv->dbus_server = NULL;
+    }
+}
+
+static gboolean
+_start_dbus (
+        TlmSeatPrivate *priv,
+        const gchar *username)
+{
+    _stop_dbus (priv);
+
+    gchar *address = g_strdup_printf ("unix:path=%s/%s", TLM_DBUS_SOCKET_PATH,
+            priv->id);
+    priv->dbus_server = TLM_DBUS_SERVER (tlm_dbus_server_p2p_new (address,
+            tlm_user_get_uid (username)));
+    g_free (address);
+
+    return tlm_dbus_server_start (priv->dbus_server);
+}
 
 static void
 tlm_seat_dispose (GObject *self)
@@ -75,6 +107,8 @@ tlm_seat_dispose (GObject *self)
     TlmSeat *seat = TLM_SEAT(self);
 
     DBG("disposing seat: %s", seat->priv->id);
+
+    _stop_dbus (seat->priv);
 
     g_clear_object (&seat->priv->session);
 
@@ -297,9 +331,9 @@ tlm_seat_switch_user (TlmSeat *seat,
     g_free (priv->next_user);
     priv->next_user = g_strdup (username);
     g_free (priv->next_password);
-    tlm_session_terminate (priv->session);
+    priv->next_password = g_strdup (password);
 
-    return TRUE;
+    return tlm_seat_terminate_session (seat);
 }
 
 static gchar *
@@ -387,7 +421,8 @@ tlm_seat_create_session (TlmSeat *seat,
     if (!priv->session)
         return FALSE;
 
-    return TRUE;
+
+    return _start_dbus (priv, default_user ? default_user : username);
 }
 
 gboolean
@@ -396,13 +431,17 @@ tlm_seat_terminate_session (TlmSeat *seat)
     g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
     g_return_val_if_fail (seat->priv, FALSE);
 
-    if (!seat->priv->session)
+    _stop_dbus (seat->priv);
+
+    if (!seat->priv->session) {
+        WARN ("No active session to terminate");
         return FALSE;
+    }
+
     tlm_session_terminate (seat->priv->session);
 
     return TRUE;
 }
-
 
 TlmSeat *
 tlm_seat_new (TlmConfig *config,

@@ -39,7 +39,7 @@ AM_CONDITIONAL(HAVE_LIBTLM_NFC, [test x$have_libtlm_nfc = xyes])
 
 AC_CHECK_HEADERS([security/pam_appl.h],,[AC_MSG_ERROR("pam-devel is required")])
 
-TLM_CFLAGS="$GLIB_CFLAGS $GIO_CFLAGS $GMODULE_CFLAGS -Wall -Werror"
+TLM_CFLAGS="$GLIB_CFLAGS $GIO_CFLAGS $GMODULE_CFLAGS -D_POSIX_C_SOURCE=\"200809L\" -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -Wall -Werror"
 TLM_LIBS="$GLIB_LIBS $GIO_LIBS $GMODULE_LIBS"
 AC_SUBST(TLM_CFLAGS)
 AC_SUBST(TLM_LIBS)
@@ -74,6 +74,18 @@ if test "x$enable_examples" = "xyes" ; then
     AC_SUBST(ELEMENTARY_LIBS)
 fi
 
+# Define socket path
+AC_ARG_ENABLE(sockets-path,
+          [  --enable-sockets-path=path  enable dbus sockets path at location'
+           "path" instead of default "/var/run/tlm"], 
+          [enable_sockets_path=$enableval],
+          [enable_sockets_path="/var/run/tlm"])
+AC_DEFINE_UNQUOTED(TLM_DBUS_SOCKET_PATH, ["$enable_sockets_path"],
+         [Path for dbus sockets])
+AC_DEFINE_UNQUOTED(TLM_DBUS_ROOT_SOCKET_ADDRESS,
+         ["unix:path=$enable_sockets_path/dbus-sock"], [Address for dbus socket
+         accessed by root only])
+
 # Enable gum
 PKG_CHECK_MODULES([LIBGUM], [libgum], [have_libgum=yes], [have_libgum=no])
 AC_ARG_ENABLE(gum, [  --enable-gum build for gumd plugin], ,
@@ -90,7 +102,10 @@ Makefile
 docs/Makefile
 src/Makefile
 src/common/Makefile
+src/common/dbus/Makefile
 src/daemon/Makefile
+src/daemon/dbus/Makefile
+src/daemon/tlm.pc
 src/plugins/Makefile
 src/plugins/default/Makefile
 data/Makefile

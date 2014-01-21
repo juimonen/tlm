@@ -16,10 +16,12 @@ aclocal.m4
 autom4te.cache
 config.log
 config.status
+gtk-doc.make
 depcomp
 install-sh
 missing
 *.deps
+*dbus*gen*
 stamp-h1
 config.guess
 config.sub
@@ -30,3 +32,4 @@ m4/
 src/tlm-plugin-types.*
 examples/tlm-ui
 data/tlm.conf
+src/daemon/tlm
