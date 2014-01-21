@@ -113,5 +113,6 @@ echo ""
 echo "Enabled debug features : "$enable_debug
 echo "Building tests         : "$enable_tests
 echo "Enabled Gumd           : "$enable_gum
+echo "Enabled NFC            : "$have_libtlm_nfc
 echo "Enabled examples       : "$enable_examples
 echo ""

@@ -22,9 +22,7 @@ DOC_MAIN_SGML_FILE=$(DOC_MODULE)-docs.sgml
 # gtk-doc will search all .c and .h files beneath these paths
 # for inline comments documenting functions and macros.
 # e.g. DOC_SOURCE_DIR=$(top_srcdir)/gtk $(top_srcdir)/gdk
-DOC_SOURCE_DIR=$(top_srcdir)/src/common $(top_srcdir)/src/plugins/default
-DOC_SOURCE_DIR += $(top_srcdir)/src/plugins/gumd
-DOC_SOURCE_DIR += $(top_srcdir)/src/plugins/nfc
+DOC_SOURCE_DIR=$(top_srcdir)/src/common $(top_srcdir)/src/plugins/
 
 # Extra options to pass to gtkdoc-scangobj. Not normally needed.
 SCANGOBJ_OPTIONS=
