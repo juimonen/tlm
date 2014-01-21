@@ -37,7 +37,6 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 G_DEFINE_TYPE (TlmManager, tlm_manager, G_TYPE_OBJECT);
@@ -412,42 +411,6 @@ tlm_manager_init (TlmManager *manager)
     _load_auth_plugins (manager);
 }
 
-static gchar *
-_build_user_name (const gchar *template, const gchar *seat_id)
-{
-    int seat_num = 0;
-    const char *pptr;
-    gchar *out;
-    GString *str;
-
-    if (strncmp (seat_id, "seat", 4) == 0)
-        seat_num = atoi (seat_id + 4);
-    else
-        WARN ("Unrecognized seat id format");
-    pptr = template;
-    str = g_string_sized_new (16);
-    while (*pptr != '\0') {
-        if (*pptr == '%') {
-            pptr++;
-            switch (*pptr) {
-                case 'S':
-                    g_string_append_printf (str, "%d", seat_num);
-                    break;
-                case 'I':
-                    g_string_append (str, seat_id);
-                    break;
-                default:
-                    ;
-            }
-        } else {
-            g_string_append_c (str, *pptr);
-        }
-        pptr++;
-    }
-    out = g_string_free (str, FALSE);
-    return out;
-}
-
 static void
 _prepare_user_cb (TlmSeat *seat, const gchar *user_name, gpointer user_data)
 {
@@ -473,28 +436,9 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
 
     TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
 
-    const gchar *pam_service = tlm_config_get_string (priv->config,
-                                                      seat_id,
-                                                      TLM_CONFIG_GENERAL_PAM_SERVICE);
-    if (!pam_service) {
-        pam_service = tlm_config_get_string (priv->config,
-                                             TLM_CONFIG_GENERAL,
-                                             TLM_CONFIG_GENERAL_PAM_SERVICE);
-    }
-    const gchar *name_tmpl = tlm_config_get_string (priv->config,
-                                                    seat_id,
-                                                    TLM_CONFIG_GENERAL_DEFAULT_USER);
-    if (!name_tmpl) {
-        name_tmpl = tlm_config_get_string (priv->config,
-                                           TLM_CONFIG_GENERAL,
-                                           TLM_CONFIG_GENERAL_DEFAULT_USER);
-    }
-    gchar *default_user = _build_user_name (name_tmpl, seat_id);
     TlmSeat *seat = tlm_seat_new (priv->config,
                                   seat_id,
-                                  seat_path,
-                                  pam_service,
-                                  default_user);
+                                  seat_path);
     g_signal_connect (seat,
                       "prepare-user",
                       G_CALLBACK (_prepare_user_cb),
@@ -504,23 +448,18 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
 
     g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);
 
-    gchar *auto_user = priv->initial_user;
-    if (!auto_user && tlm_config_get_boolean (priv->config,
-                                              TLM_CONFIG_GENERAL,
-                                              TLM_CONFIG_GENERAL_AUTO_LOGIN,
-                                              FALSE)) {
-        auto_user = default_user;
-    }
-    if (auto_user) {
-        DBG("intial auto-login for user '%s'", auto_user);
+    if (tlm_config_get_boolean (priv->config,
+                                TLM_CONFIG_GENERAL,
+                                TLM_CONFIG_GENERAL_AUTO_LOGIN,
+                                TRUE) ||
+        priv->initial_user) {
+        DBG("intial auto-login for user '%s'", priv->initial_user);
         if (!tlm_seat_create_session (seat,
-                                      pam_service,
-                                      priv->initial_user ? priv->initial_user : default_user,
+                                      NULL,
+                                      priv->initial_user ? priv->initial_user : NULL,
                                       NULL))
             WARN("Failed to create session for default user");
     }
-
-    g_free (default_user);
 }
 
 static void

@@ -24,6 +24,8 @@
  * 02110-1301 USA
  */
 
+#include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -43,8 +45,6 @@ enum {
     PROP_CONFIG,
     PROP_ID,
     PROP_PATH,
-    PROP_DEFAULT_SERVICE,
-    PROP_DEFAULT_USER,
     N_PROPERTIES
 };
 static GParamSpec *pspecs[N_PROPERTIES];
@@ -99,8 +99,6 @@ tlm_seat_finalize (GObject *self)
 
     g_clear_string (&priv->id);
     g_clear_string (&priv->path);
-    g_clear_string (&priv->default_service);
-    g_clear_string (&priv->default_user);
 
     _reset_next (priv);
 
@@ -133,12 +131,6 @@ _seat_set_property (GObject *obj,
         case PROP_PATH:
             priv->path = g_value_dup_string (value);
             break;
-        case PROP_DEFAULT_SERVICE:
-            priv->default_service = g_value_dup_string (value);
-            break;
-        case PROP_DEFAULT_USER:
-            priv->default_user = g_value_dup_string (value);
-            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
     }
@@ -162,12 +154,6 @@ _seat_get_property (GObject *obj,
             break;
         case PROP_PATH:
             g_value_set_string (value, priv->path);
-            break;
-        case PROP_DEFAULT_SERVICE:
-            g_value_set_string (value, priv->default_service);
-            break;
-        case PROP_DEFAULT_USER:
-            g_value_set_string (value, priv->default_user);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
@@ -204,19 +190,6 @@ tlm_seat_class_init (TlmSeatClass *klass)
                              "Seat Object path at logind",
                              NULL,
                              G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
-    pspecs[PROP_DEFAULT_SERVICE] =
-        g_param_spec_string ("default-service",
-                             "default service",
-                             "Default PAM service for auto-login",
-                             NULL,
-                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
-    pspecs[PROP_DEFAULT_USER] =
-        g_param_spec_string ("default-user",
-                             "default user name",
-                             "Default user name for auto-login",
-                             NULL,
-                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
-
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 
     signals[SIG_PREPARE_USER] = g_signal_new ("prepare-user",
@@ -263,10 +236,8 @@ _notify_handler (GIOChannel *channel,
                    0,
                    priv->id,
                    &cont);
-    if (!cont) {
-        g_clear_object (&seat->priv->session);
+    if (!cont)
         return cont;
-    }
 
     if (tlm_config_get_boolean (priv->config,
                                 TLM_CONFIG_GENERAL,
@@ -281,8 +252,7 @@ _notify_handler (GIOChannel *channel,
                                  seat->priv->next_service,
                                  seat->priv->next_user,
                                  seat->priv->next_password);
-    } else {
-        g_clear_object (&seat->priv->session);
+        _reset_next (priv);
     }
 
     return TRUE;
@@ -328,17 +298,50 @@ tlm_seat_switch_user (TlmSeat *seat,
         return tlm_seat_create_session (seat, service, username, password);
     }
 
-    if (priv->next_service)
-        g_free (priv->next_service);
+    g_free (priv->next_service);
     priv->next_service = g_strdup (service);
-    if (priv->next_user)
-        g_free (priv->next_user);
+    g_free (priv->next_user);
     priv->next_user = g_strdup (username);
-    if (priv->next_password)
-        g_free (priv->next_password);
+    g_free (priv->next_password);
     tlm_session_terminate (priv->session);
 
     return TRUE;
+}
+
+static gchar *
+_build_user_name (const gchar *template, const gchar *seat_id)
+{
+    int seat_num = 0;
+    const char *pptr;
+    gchar *out;
+    GString *str;
+
+    if (strncmp (seat_id, "seat", 4) == 0)
+        seat_num = atoi (seat_id + 4);
+    else
+        WARN ("Unrecognized seat id format");
+    pptr = template;
+    str = g_string_sized_new (16);
+    while (*pptr != '\0') {
+        if (*pptr == '%') {
+            pptr++;
+            switch (*pptr) {
+                case 'S':
+                    g_string_append_printf (str, "%d", seat_num);
+                    break;
+                case 'I':
+                    g_string_append (str, seat_id);
+                    break;
+                default:
+                    ;
+            }
+        } else {
+            g_string_append_c (str, *pptr);
+        }
+        pptr++;
+    }
+    out = g_string_free (str, FALSE);
+    return out;
 }
 
 gboolean
@@ -348,21 +351,41 @@ tlm_seat_create_session (TlmSeat *seat,
                          const gchar *password)
 {
     g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
-    g_return_val_if_fail (seat->priv->session == NULL, FALSE);
-
     TlmSeatPrivate *priv = TLM_SEAT_PRIV (seat);
+    g_return_val_if_fail (priv->session == NULL, FALSE);
 
+    gchar *default_user = NULL;
+
+    if (!service) {
+        service = tlm_config_get_string (priv->config,
+                                         priv->id,
+                                         TLM_CONFIG_GENERAL_PAM_SERVICE);
+        if (!service)
+            service = tlm_config_get_string (priv->config,
+                                             TLM_CONFIG_GENERAL,
+                                             TLM_CONFIG_GENERAL_PAM_SERVICE);
+    }
+    if (!username) {
+        const gchar *name_tmpl =
+            tlm_config_get_string (priv->config,
+                                   priv->id,
+                                   TLM_CONFIG_GENERAL_DEFAULT_USER);
+        if (!name_tmpl)
+            name_tmpl = tlm_config_get_string (priv->config,
+                                               TLM_CONFIG_GENERAL,
+                                               TLM_CONFIG_GENERAL_DEFAULT_USER);
+        default_user = _build_user_name (name_tmpl, priv->id);
+    }
     if (!priv->session) {
         priv->session =
             tlm_session_new (priv->config,
-                             (service) ? service : priv->default_service,
-                             seat->priv->notify_fd[1],
-                             (username) ? username : priv->default_user,
+                             service,
+                             priv->notify_fd[1],
+                             default_user ? default_user : username,
                              password,
                              priv->id);
-        _reset_next (priv);
     }
-    if (!seat->priv->session)
+    if (!priv->session)
         return FALSE;
 
     return TRUE;
@@ -382,20 +405,15 @@ tlm_seat_terminate_session (TlmSeat *seat)
 }
 
 
-// FIXME: remove default service/user, these can be read from config
 TlmSeat *
 tlm_seat_new (TlmConfig *config,
               const gchar *id,
-              const gchar *path,
-              const gchar *default_service,
-              const gchar *default_user)
+              const gchar *path)
 {
     return g_object_new (TLM_TYPE_SEAT,
                          "config", config,
                          "id", id,
                          "path", path,
-                         "default-service", default_service,
-                         "default-user", default_user,
                          NULL);
 }
 
