@@ -41,6 +41,8 @@
  * #TlmConfig holds configuration information as a set of keys and values
  * (integer or strings). The key names are defined in
  * <link linkend="tlm-General-configuration">General config keys</link>.
+ * Note that authentication and account plugins may use plugin-specific
+ * configuration keys; see plugins' documentation for specifics.
  *
  * The configuration is retrieved from the tlm configuration file. See below
  * for where the file is searched for.
