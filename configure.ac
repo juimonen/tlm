@@ -94,18 +94,11 @@ src/daemon/Makefile
 src/plugins/Makefile
 src/plugins/default/Makefile
 data/Makefile
+src/plugins/gumd/Makefile
+src/plugins/nfc/Makefile
+tests/Makefile
+examples/Makefile
 ])
-
-AM_COND_IF([HAVE_LIBGUM],
-           AC_CONFIG_FILES([src/plugins/gumd/Makefile]))
-AM_COND_IF([HAVE_LIBTLM_NFC],
-           AC_CONFIG_FILES([src/plugins/nfc/Makefile]))
-
-AM_COND_IF([ENABLE_TESTS],
-           AC_CONFIG_FILES([tests/Makefile]))
-
-AM_COND_IF([ENABLE_EXAMPLES],
-           AC_CONFIG_FILES([examples/Makefile]))
 
 AC_OUTPUT
 
