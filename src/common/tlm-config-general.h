@@ -46,63 +46,89 @@
 /**
  * TLM_CONFIG_GENERAL_PLUGINS_DIR:
  *
- * Plugins directory path
+ * Plugins directory path. Default value: $(pkglibdir)/plugins
+ * If Tlm has been configured with --enable-debug, the
+ * value can be overriden with TLM_PLUGINS_DIR environment variable.
+ *
+ * Plugins should be named "libtlm-plugin-&lt;plugin_name&gt;.so" and they should
+ * contain a "tlm_&lt;plugin_type&gt;_plugin_&lt;plugin_name&gt;_get_type" symbol
+ * that is a function that returns a #GType of the plugin object. plugin_type
+ * is "auth" for authentication plugins and "account" for account plugins.
+ *
+ * See #TlmAuthPlugin and #TlmAccountPlugin for more information and examples.
  */
 #define TLM_CONFIG_GENERAL_PLUGINS_DIR      "PLUGINS_DIR"
 
 /**
  * TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN:
  *
- * Accounts plugin to use
+ * Accounts plugin (implementation of #TlmAccountPlugin) to use.
+ * Default value: "default". If Tlm has been configured with --enable-debug, the
+ * value can be overriden with TLM_ACCOUNT_PLUGIN environment variable.
  */
 #define TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN  "ACCOUNTS_PLUGIN"
 
 /**
  * TLM_CONFIG_GENERAL_SESSION_CMD:
  *
- * Session command line
+ * Session command line: the command run after successfull login. If the value
+ * is not defined in the config file, user's shell from /etc/passwd is used,
+ * and if that is not defined, the fallback is "systemd --user"
  */
 #define TLM_CONFIG_GENERAL_SESSION_CMD      "SESSION_CMD"
 
 /**
  * TLM_CONFIG_GENERAL_SESSION_PATH:
  *
- * Default session search PATH
+ * Default value for PATH environment variable in user's session. If not set,
+ * "/usr/local/bin:/usr/bin:/bin" is used.
  */
 #define TLM_CONFIG_GENERAL_SESSION_PATH     "SESSION_PATH"
 
 /**
- * TLM_CONFIG_GENERAL_AUTO_LOGIN_GUEST
+ * TLM_CONFIG_GENERAL_AUTO_LOGIN
  *
- * Autologin to default user : TRUE/FALSE
+ * Autologin to default user : TRUE/FALSE. TRUE if value is not set
+ *
+ * Whether to automatically log in the default user on startup and when another
+ * user session has been terminated.
+ *
  */
 #define TLM_CONFIG_GENERAL_AUTO_LOGIN       "AUTO_LOGIN"
 
 /**
  * TLM_CONFIG_GENERAL_PREPARE_DEFAULT
  *
- * Prepare default user before auto-login: TRUE/FALSE
+ * Prepare default user before auto-login: TRUE/FALSE (FALSE if value not set).
+ *
+ * If set to TRUE, methods of #TlmAccountPlugin are used to set up the default
+ * user's account before auto-login.
  */
 #define TLM_CONFIG_GENERAL_PREPARE_DEFAULT  "PREPARE_DEFAULT"
 
 /**
  * TLM_CONFIG_GENERAL_PAM_SERVICE:
  *
- * PAM service file to use
+ * PAM service file to use for authentication and session setup. Default value: "tlm-login".
  */ 
 #define TLM_CONFIG_GENERAL_PAM_SERVICE      "PAM_SERVICE"
 
 /**
  * TLM_CONFIG_GENERAL_DEFAULT_USER:
  *
- * Default username for autologin
+ * Default username for autologin. Default value: "guest".
+ *
+ * The value can include: \%S - seat number, \%I - seat id string.
  */
 #define TLM_CONFIG_GENERAL_DEFAULT_USER     "DEFAULT_USER"
 
 /**
  * TLM_CONFIG_GENERAL_SETUP_TERMINAL
  *
- * Setup terminal while creating session : TRUE/FALSE
+ * Setup terminal while creating session : TRUE/FALSE. (TRUE if not set).
+ *
+ * Whether to connect the standard input, output and error streams for a newly
+ * created session to the terminal device.
  */
 #define TLM_CONFIG_GENERAL_SETUP_TERMINAL   "SETUP_TERMINAL"
 

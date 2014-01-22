@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+               "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+]>
+<refentry id="tlm-intro">
+  <refmeta>
+    <refentrytitle>Introduction</refentrytitle>
+  </refmeta>
+
+  <refsect1>
+    <title>What is TLM?</title>
+    <para>
+        TLM is a daemon that handles user logins in a multi-user, multi-seat system by
+        authenticating the users through PAM, and setting up, launching, and tracking user
+        sessions.
+    </para>
+    <para>
+        TLM daemon itself does not include any UI for interacting with
+        the users; any such interaction is handled through TLM's authentication plugin system (see
+            <link linkend="TlmAuthPlugin">TlmAuthPlugin</link>.
+        TLM can be configured to log-in a default ("guest") user when no other
+        user is logged in at a specific seat.
+    </para>
+    <para>
+        FIXME: add a paragraph about DBus API.
+    </para>
+    <para>
+        FIXME: add a paragraph about examples/.
+    </para>
+  </refsect1>
+</refentry>
