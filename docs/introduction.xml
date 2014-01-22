@@ -17,7 +17,7 @@
     <para>
         TLM daemon itself does not include any UI for interacting with
         the users; any such interaction is handled through TLM's authentication plugin system (see
-            <link linkend="TlmAuthPlugin">TlmAuthPlugin</link>.
+            <link linkend="TlmAuthPlugin">TlmAuthPlugin</link>).
         TLM can be configured to log-in a default ("guest") user when no other
         user is logged in at a specific seat.
     </para>
