@@ -13,12 +13,15 @@ libtlm_plugin_la_SOURCES = \
 	tlm-account-plugin.c \
 	tlm-auth-plugin.c \
 	tlm-log.c \
+	tlm-config.c \
 	$(NULL)
 
 libtlm_plugin_la_CFLAGS = \
 	-I$(abs_top_builddir) \
 	-I$(abs_top_srcdir)/src \
 	-DG_LOG_DOMAIN=\"TLM_PLUGIN\" \
+	-DTLM_PLUGINS_DIR='"$(pluginsdir)"' \
+	-DTLM_SYSCONF_DIR='"$(sysconfdir)"' \
 	$(GLIB_CFLAGS) \
 	$(NULL)
 
