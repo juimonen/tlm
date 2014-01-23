@@ -61,8 +61,6 @@ struct _TlmSeatPrivate
     TlmConfig *config;
     gchar *id;
     gchar *path;
-    gchar *default_service;
-    gchar *default_user;
     gchar *next_service;
     gchar *next_user;
     gchar *next_password;
@@ -243,11 +241,6 @@ _notify_handler (GIOChannel *channel,
                                 TLM_CONFIG_GENERAL,
                                 TLM_CONFIG_GENERAL_AUTO_LOGIN,
                                 TRUE)) {
-        if (!priv->next_user)
-            g_signal_emit (seat,
-                           signals[SIG_PREPARE_USER],
-                           0,
-                           priv->default_user);
         tlm_seat_create_session (seat,
                                  seat->priv->next_service,
                                  seat->priv->next_user,
@@ -375,6 +368,10 @@ tlm_seat_create_session (TlmSeat *seat,
                                                TLM_CONFIG_GENERAL,
                                                TLM_CONFIG_GENERAL_DEFAULT_USER);
         default_user = _build_user_name (name_tmpl, priv->id);
+        g_signal_emit (seat,
+                       signals[SIG_PREPARE_USER],
+                       0,
+                       default_user);
     }
     if (!priv->session) {
         priv->session =

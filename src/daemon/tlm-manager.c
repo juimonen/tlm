@@ -456,7 +456,7 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
         DBG("intial auto-login for user '%s'", priv->initial_user);
         if (!tlm_seat_create_session (seat,
                                       NULL,
-                                      priv->initial_user ? priv->initial_user : NULL,
+                                      priv->initial_user,
                                       NULL))
             WARN("Failed to create session for default user");
     }
