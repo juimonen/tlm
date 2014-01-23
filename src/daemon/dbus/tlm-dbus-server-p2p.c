@@ -54,6 +54,7 @@ struct _TlmDbusServerP2PPrivate
     GHashTable *login_object_adapters;
     GDBusServer *bus_server;
     gchar *address;
+    uid_t uid;
 };
 
 static void
@@ -237,6 +238,7 @@ tlm_dbus_server_p2p_init (
     self->priv = TLM_DBUS_SERVER_P2P_GET_PRIV(self);
     self->priv->bus_server = NULL;
     self->priv->address = NULL;
+    self->priv->uid = 0;
     self->priv->login_object_adapters = g_hash_table_new_full (g_direct_hash,
             g_direct_equal, NULL, g_object_unref);
 }
@@ -322,6 +324,9 @@ _tlm_dbus_server_p2p_start (
         g_dbus_server_start (server->priv->bus_server);
         path = g_strstr_len(server->priv->address, -1, "unix:path=") + 10;
         if (path) {
+            if (chown (path, server->priv->uid, -1) < 0) {
+                WARN("Unable to set ownership");
+            }
             g_chmod (path, S_IRUSR | S_IWUSR);
         }
     }
@@ -408,6 +413,7 @@ tlm_dbus_server_p2p_new (
     if (!server || uid < 0) {
         return NULL;
     }
+    server->priv->uid = uid;
 
     if (g_str_has_prefix(address, "unix:path=")) {
         const gchar *file_path = g_strstr_len (address, -1, "unix:path=")
@@ -424,10 +430,6 @@ tlm_dbus_server_p2p_new (
         }
         g_free (base_path);
 
-        if (creat (file_path, S_IRUSR | S_IWUSR) < 0 ||
-            chown (file_path, uid, -1) < 0) {
-            WARN("Unable to set ownership");
-        }
     }
 
     return server;
