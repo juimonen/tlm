@@ -51,6 +51,11 @@
                 <tp:docstring>password to be used for user login.
                 </tp:docstring>
             </arg>
+
+            <arg name="environ" type="a{sv}" direction="in">
+                <tp:docstring>key-value pairs of environment variables.
+                </tp:docstring>
+            </arg>
         </method>
         
         <method name="logoutUser" tp:name-for-bindings="logoutUser">
@@ -66,7 +71,6 @@
                 <tp:docstring>name of the user
                 </tp:docstring>
             </arg>
-            
         </method>
                
         <method name="switchUser" tp:name-for-bindings="switchUser">
@@ -87,6 +91,11 @@
             
             <arg name="password" type="s" direction="in">
                 <tp:docstring>password to be used for user to login.
+                </tp:docstring>
+            </arg>
+
+            <arg name="environ" type="a{sv}" direction="in">
+                <tp:docstring>key-value pairs of environment variables.
                 </tp:docstring>
             </arg>
         </method>
