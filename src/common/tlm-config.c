@@ -40,7 +40,9 @@
  *
  * #TlmConfig holds configuration information as a set of keys and values
  * (integer or strings). The key names are defined in
- * <link linkend="tlmd-General-configuration">General config keys</link>.
+ * <link linkend="tlm-General-configuration">General config keys</link>.
+ * Note that authentication and account plugins may use plugin-specific
+ * configuration keys; see plugins' documentation for specifics.
  *
  * The configuration is retrieved from the tlm configuration file. See below
  * for where the file is searched for.
@@ -304,7 +306,7 @@ _set_defaults (
  *
  * Retrives the configuration in given #group as #GHashTable
  *
- * Returns: (tranfer none): the key, value paired dictionary if found,
+ * Returns: (transfer none): the key, value paired dictionary if found,
  * NULL otherwise.
  */
 GHashTable *
@@ -435,7 +437,7 @@ tlm_config_set_int (
 /**
  * tlm_config_get_uint:
  * @self: (transfer none): an instance of #TlmConfig
- * @group: (trnsfer none): the group name
+ * @group: (transfer none): the group name
  * @key: (transfer none): the key name
  * @retval: value to be returned in case key is not found
  *
@@ -487,7 +489,7 @@ tlm_config_set_uint (
 /**
  * tlm_config_get_boolean:
  * @self: (transfer none): an instance of #TlmConfig
- * @group: (trnsfer none): the group name
+ * @group: (transfer none): the group name
  * @key: (transfer none): the key name
  * @retval: value to be returned in case key is not found
  *

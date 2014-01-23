@@ -137,7 +137,7 @@ tlm_config_has_key (
 GHashTable *
 tlm_config_get_group (
         TlmConfig *self,
-        const gchar *key);
+        const gchar *group);
 
 G_END_DECLS
 
