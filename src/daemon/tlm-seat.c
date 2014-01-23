@@ -376,11 +376,12 @@ tlm_seat_create_session (TlmSeat *seat,
     if (!priv->session) {
         priv->session =
             tlm_session_new (priv->config,
+                             priv->id,
                              service,
-                             priv->notify_fd[1],
                              default_user ? default_user : username,
                              password,
-                             priv->id);
+                             NULL,  // TODO: pass environment hash table here
+                             priv->notify_fd[1]);
     }
     if (!priv->session)
         return FALSE;

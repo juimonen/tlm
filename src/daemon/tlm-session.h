@@ -63,16 +63,12 @@ GType tlm_session_get_type(void);
 
 TlmSession *
 tlm_session_new (TlmConfig *config,
+                 const gchar *seat_id,
                  const gchar *service,
-                 gint notify_fd,
                  const gchar *username,
                  const gchar *password,
-                 const gchar *seat_id);
-
-gboolean
-tlm_session_putenv (TlmSession *session,
-                    const gchar *var,
-                    const gchar *val);
+                 GHashTable *environment,
+                 gint notify_fd);
 
 void
 tlm_session_terminate (TlmSession *session);

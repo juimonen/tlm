@@ -53,6 +53,7 @@ enum {
     PROP_SERVICE,
     PROP_NOTIFY_FD,
     PROP_USERNAME,
+    PROP_ENVIRONMENT,
     N_PROPERTIES
 };
 static GParamSpec *pspecs[N_PROPERTIES];
@@ -122,7 +123,11 @@ _session_set_property (GObject *obj,
         case PROP_USERNAME:
             priv->username = g_value_dup_string (value);
             break;
-
+        case PROP_ENVIRONMENT:
+            priv->env_hash = (GHashTable *) g_value_get_pointer (value);
+            if (priv->env_hash)
+                g_hash_table_ref (priv->env_hash);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
     }
@@ -150,7 +155,9 @@ _session_get_property (GObject *obj,
         case PROP_USERNAME:
             g_value_set_string (value, priv->username);
             break;
-
+        case PROP_ENVIRONMENT:
+            g_value_set_pointer (value, priv->env_hash);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, property_id, pspec);
     }
@@ -187,13 +194,18 @@ tlm_session_class_init (TlmSessionClass *klass)
                           0,
                           INT_MAX,
                           0,
-                          G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
+                          G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
     pspecs[PROP_USERNAME] =
         g_param_spec_string ("username",
                              "user name",
                              "Unix user name of user to login",
                              NULL,
                              G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_ENVIRONMENT] =
+        g_param_spec_pointer ("environment",
+                              "environment variables",
+                              "Environment variables for the session",
+                              G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 }
@@ -204,10 +216,7 @@ tlm_session_init (TlmSession *session)
     TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
     
     priv->service = NULL;
-    priv->env_hash = g_hash_table_new_full (g_str_hash,
-                                            g_str_equal,
-                                            g_free,
-                                            g_free);
+    priv->env_hash = NULL;
     priv->auth_session = NULL;
 
     session->priv = priv;
@@ -219,25 +228,12 @@ tlm_session_init (TlmSession *session)
     }
 }
 
-gboolean
-tlm_session_putenv (TlmSession *session, const gchar *var, const gchar *val)
-{
-    g_return_val_if_fail (session && TLM_IS_SESSION (session), FALSE);
-    if (!session->priv->auth_session) {
-        g_hash_table_insert (session->priv->env_hash, 
-                                g_strdup (var), g_strdup (val));
-        return TRUE;
-    }
-
-    return tlm_auth_session_putenv (session->priv->auth_session, var, val);
-}
-
 static void
-_putenv_to_auth_session (gpointer key, gpointer val, gpointer user_data)
+_setenv_to_session (gpointer key, gpointer val, gpointer user_data)
 {
-    TlmAuthSession *auth_session = TLM_AUTH_SESSION (user_data);
+    /*TlmSessionPrivate *priv = (TlmSessionPrivate *) user_data;*/
 
-    tlm_auth_session_putenv(auth_session, (const gchar*)key, (const gchar*)val);
+    setenv ((const char *) key, (const char *) val, 1);
 }
 
 static void
@@ -338,6 +334,11 @@ _set_environment (TlmSessionPrivate *priv)
     setenv ("LOGNAME", priv->username, 1);
     setenv ("HOME", tlm_user_get_home_dir (priv->username), 1);
     setenv ("SHELL", tlm_user_get_shell (priv->username), 1);
+
+    if (priv->env_hash)
+        g_hash_table_foreach (priv->env_hash,
+                              _setenv_to_session,
+                              priv);
 
     return TRUE;
 }
@@ -501,36 +502,37 @@ _session_on_session_created (
 }
 
 static gboolean
-_start_session (TlmSession *session, const gchar *password)
+_start_session (TlmSession *session,
+                const gchar *password,
+                const gchar *seat_id)
 {
     g_return_val_if_fail (session && TLM_IS_SESSION(session), FALSE);
+    TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
 
-    session->priv->auth_session = 
-        tlm_auth_session_new (session->priv->service,
-                              session->priv->username,
+    priv->auth_session =
+        tlm_auth_session_new (priv->service,
+                              priv->username,
                               password);
 
-    if (!session->priv->auth_session) return FALSE;
+    if (!priv->auth_session) return FALSE;
 
-    g_signal_connect (session->priv->auth_session, "auth-error", 
+    g_signal_connect (priv->auth_session, "auth-error",
                 G_CALLBACK(_session_on_auth_error), (gpointer)session);
-    g_signal_connect (session->priv->auth_session, "session-created",
+    g_signal_connect (priv->auth_session, "session-created",
                 G_CALLBACK(_session_on_session_created), (gpointer)session);
-    g_signal_connect (session->priv->auth_session, "session-error",
+    g_signal_connect (priv->auth_session, "session-error",
                 G_CALLBACK (_session_on_session_error), (gpointer)session);
 
-    g_hash_table_foreach (session->priv->env_hash, 
-                          _putenv_to_auth_session,
-                          session->priv->auth_session);
+    tlm_auth_session_putenv(priv->auth_session, "XDG_SEAT", seat_id);
 
-    return tlm_auth_session_start (session->priv->auth_session);
+    return tlm_auth_session_start (priv->auth_session);
 }
 
 TlmSession *
 tlm_session_new (TlmConfig *config,
-                 const gchar *service, gint notify_fd,
+                 const gchar *seat_id, const gchar *service,
                  const gchar *username, const gchar *password,
-                 const gchar *seat_id)
+                 GHashTable *environment, gint notify_fd)
 {
     TlmSession *session =
         g_object_new (TLM_TYPE_SESSION,
@@ -539,8 +541,7 @@ tlm_session_new (TlmConfig *config,
                       "notify-fd", notify_fd,
                       "username", username,
                       NULL);
-    tlm_session_putenv (session, "XDG_SEAT", seat_id);
-    if (!_start_session (session, password)) {
+    if (!_start_session (session, password, seat_id)) {
         g_object_unref (session);
         return NULL;
     }
