@@ -18,3 +18,8 @@ libtlm_plugin_default_la_LDFLAGS = -avoid-version
 libtlm_plugin_default_la_LIBADD = \
 	$(abs_top_builddir)/src/common/libtlm-plugin.la \
 	$(GLIB_LIBS)
+
+all-local: slink
+
+slink:
+	ln -sf $(abs_top_builddir)/src/plugins/default/.libs/libtlm-plugin-default.so ../.libs/libtlm-plugin-default.so

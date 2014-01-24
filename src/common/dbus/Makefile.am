@@ -17,7 +17,7 @@ tlm-dbus-login-gen.c tlm-dbus-login-gen.h : $(INTERFACES_DIR)/org.tizen.Tlm.Logi
        --generate-c-code  tlm-dbus-login-gen     \
        --generate-docbook tlm-dbus-login-doc-gen \
        $<
-       
+
 noinst_LTLIBRARIES = libtlm-dbus-glue.la
 
 libtlm_dbus_glue_la_CPPFLAGS = \

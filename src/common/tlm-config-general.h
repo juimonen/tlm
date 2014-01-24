@@ -44,6 +44,7 @@
 #define TLM_CONFIG_GENERAL                  "General"
 
 /**
+ * FIXME: move to correct place
  * TLM_CONFIG_GENERAL_PLUGINS_DIR:
  *
  * Plugins directory path. Default value: $(pkglibdir)/plugins
@@ -57,7 +58,7 @@
  *
  * See #TlmAuthPlugin and #TlmAccountPlugin for more information and examples.
  */
-#define TLM_CONFIG_GENERAL_PLUGINS_DIR      "PLUGINS_DIR"
+
 
 /**
  * TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN:

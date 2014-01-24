@@ -296,6 +296,17 @@ _load_plugin_file (const gchar *file_path,
     return plugin;
 }
 
+static const gchar*
+_get_plugins_path ()
+{
+    const gchar *e_val = NULL;
+
+    e_val = g_getenv ("TLM_PLUGINS_DIR");
+    if (!e_val) return TLM_PLUGINS_DIR;
+
+    return e_val;
+}
+
 static void
 _load_accounts_plugin (TlmManager *self, const gchar *name)
 {
@@ -304,9 +315,7 @@ _load_accounts_plugin (TlmManager *self, const gchar *name)
     gchar *plugin_file_name = NULL;
     GHashTable *accounts_config = NULL;
 
-    plugins_path = tlm_config_get_string (self->priv->config,
-                                          TLM_CONFIG_GENERAL,
-                                          TLM_CONFIG_GENERAL_PLUGINS_DIR);
+    plugins_path = _get_plugins_path ();
 
     accounts_config = tlm_config_get_group (self->priv->config, name);
 
@@ -328,10 +337,9 @@ _load_auth_plugins (TlmManager *self)
     GDir  *plugins_dir = NULL;
     GError *error = NULL;
 
-    plugins_path = tlm_config_get_string (self->priv->config,
-                                          TLM_CONFIG_GENERAL,
-                                          TLM_CONFIG_GENERAL_PLUGINS_DIR);
+    plugins_path = _get_plugins_path ();
     
+    DBG("plugins_path : %s", plugins_path);
     plugins_dir = g_dir_open (plugins_path, 0, &error);
     if (!plugins_dir) {
         WARN ("Failed to open pluins folder '%s' : %s", plugins_path,

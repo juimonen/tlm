@@ -23,6 +23,7 @@ tlm_CFLAGS = \
 	-I$(abs_top_srcdir)/src \
 	-I$(abs_top_srcdir)/src/common \
 	-DG_LOG_DOMAIN=\"TLM\" \
+	-DTLM_PLUGINS_DIR='"$(pluginsdir)"' \
 	$(TLM_CFLAGS) \
 	$(NULL)
 

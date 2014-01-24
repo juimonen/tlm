@@ -105,7 +105,7 @@ static void
 _get_property (
         GObject *object,
         guint property_id,
-        GValue *value, 
+        GValue *value,
         GParamSpec *pspec)
 {
     TlmDbusServerP2P *self = TLM_DBUS_SERVER_P2P (object);
@@ -416,8 +416,7 @@ tlm_dbus_server_p2p_new (
     server->priv->uid = uid;
 
     if (g_str_has_prefix(address, "unix:path=")) {
-        const gchar *file_path = g_strstr_len (address, -1, "unix:path=")
-        		+ 10;
+        const gchar *file_path = g_strstr_len (address, -1, "unix:path=") + 10;
 
         if (g_file_test(file_path, G_FILE_TEST_EXISTS)) {
             g_unlink (file_path);

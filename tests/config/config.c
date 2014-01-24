@@ -1,7 +1,7 @@
 /* vi: set et sw=4 ts=4 cino=t0,(0: */
 /* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
- * This file is part of gsignond
+ * This file is part of tlm
  *
  * Copyright (C) 2014 Intel Corporation.
  *
@@ -75,7 +75,7 @@ START_TEST(test_config)
 
     /* int */
     tmp_int = tlm_config_get_int (config, TLM_GROUP, INT_KEY, -1);
-    fail_if (tmp_int != INT_VALUE, "Failed to read key '%s/%s' : %d", 
+    fail_if (tmp_int != INT_VALUE, "Failed to read key '%s/%s' : %d",
                                     TLM_GROUP, INT_KEY, tmp_int);
 
 
@@ -87,7 +87,7 @@ START_TEST(test_config)
     /* boolean */
     tmp_bool = tlm_config_get_boolean (config, TLM_GROUP, BOOL_KEY, FALSE);
     fail_if (tmp_bool == FALSE, "Failed to read key : '%s/%s' : %d",
-                                TLM_GROUP, BOOL_KEY, tmp_bool); 
+                                TLM_GROUP, BOOL_KEY, tmp_bool);
 
     /* group */
     len = sizeof(tmp_group_table)/sizeof(struct _Group);

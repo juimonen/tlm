@@ -6,6 +6,7 @@ libtlm_dbus_la_CPPFLAGS = \
     -I$(top_builddir)/src \
     -I$(top_srcdir)/src \
     $(TLM_CFLAGS) \
+    -DG_LOG_DOMAIN=\"TLM\" \
     $(NULL)
 
 libtlm_dbus_la_LIBADD = \

@@ -46,7 +46,7 @@ tlm_dbus_server_start (
         TlmDbusServer *self)
 {
     g_return_val_if_fail (TLM_IS_DBUS_SERVER (self), FALSE);
-    
+
     return TLM_DBUS_SERVER_GET_INTERFACE (self)->start (self);
 }
 

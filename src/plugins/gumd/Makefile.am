@@ -15,3 +15,8 @@ libtlm_plugin_gumd_la_LDFLAGS = -avoid-version
 libtlm_plugin_gumd_la_LIBADD = \
 	$(abs_top_builddir)/src/common/libtlm-plugin.la \
     $(LIBGUM_LIBS)
+
+all-local: slink
+
+slink:
+	ln -sf $(abs_top_builddir)/src/plugins/gumd/.libs/libtlm-plugin-gumd.so ../.libs/libtlm-plugin-gumd.so

@@ -17,3 +17,8 @@ libtlm_plugin_nfc_la_LIBADD = \
 	$(abs_top_builddir)/src/common/libtlm-plugin.la \
 	$(LIBTLM_NFC_LIBS) \
 	$(GLIB_LIBS)
+
+all-local: slink
+
+slink:
+	ln -sf $(abs_top_builddir)/src/plugins/nfc/.libs/libtlm-plugin-nfc.so ../.libs/libtlm-plugin-nfc.so

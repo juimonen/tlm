@@ -33,3 +33,5 @@ src/tlm-plugin-types.*
 examples/tlm-ui
 data/tlm.conf
 src/daemon/tlm
+tests/config/configtest
+tests/daemon/daemontest

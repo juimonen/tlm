@@ -198,7 +198,7 @@ _handle_login_user (
         g_dbus_method_invocation_return_gerror (invocation, error);
         g_error_free (error);
     }
-    
+
     return TRUE;
 }
 

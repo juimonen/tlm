@@ -237,14 +237,6 @@ _load_environment (
 {
     const gchar *e_val = 0;
     
-    e_val = g_getenv ("TLM_PLUGINS_DIR");
-    if (e_val)
-        tlm_config_set_string (self, 
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_PLUGINS_DIR,
-                               e_val);
-
-
     e_val = g_getenv("TLM_ACCOUNT_PLUGIN");
     if (e_val)
         tlm_config_set_string (self, 
@@ -257,16 +249,6 @@ static void
 _set_defaults (
         TlmConfig *self)
 {
-
-    /* plugins dir => TLM_PLUGINS_DIR <=> $(pkglibdir)/plugins */
-    if (!tlm_config_has_key (self, 
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_PLUGINS_DIR)) {
-        tlm_config_set_string (self,
-                               TLM_CONFIG_GENERAL, 
-                               TLM_CONFIG_GENERAL_PLUGINS_DIR,
-                               TLM_PLUGINS_DIR);
-    }
 
     /* accounts plugin => default */
     if (!tlm_config_has_key (self,

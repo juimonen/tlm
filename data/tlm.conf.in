@@ -8,10 +8,7 @@
 [General]
 #
 # Name of the account plugin to use to manage(add/remove) guest user accounts
-ACCOUNTS_PLUGIN=@TLM_ACCOUNTS_PLUGIN@
-#
-# Base path where tlm plugins are located.
-#PLUGINS_DIR=@TLM_PLUGINS_DIR@
+ACCOUNTS_PLUGIN=@ACCOUNT_PLUGIN_NAME@
 #
 # Auto-login default user
 # Default: off

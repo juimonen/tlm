@@ -77,7 +77,7 @@ fi
 # Define socket path
 AC_ARG_ENABLE(sockets-path,
           [  --enable-sockets-path=path  enable dbus sockets path at location'
-           "path" instead of default "/var/run/tlm"], 
+           "path" instead of default "/var/run/tlm"],
           [enable_sockets_path=$enableval],
           [enable_sockets_path="/var/run/tlm"])
 AC_DEFINE_UNQUOTED(TLM_DBUS_SOCKET_PATH, ["$enable_sockets_path"],
@@ -97,6 +97,12 @@ AC_SUBST(LIBGUM_CFLAGS)
 AC_SUBST(LIBGUM_LIBS)
 AM_CONDITIONAL(HAVE_LIBGUM, [test x$enable_gum = xyes])
 
+if test "x$enable_gum" = "xyes" ; then
+    AC_SUBST(ACCOUNT_PLUGIN_NAME, [gumd])
+else
+    AC_SUBST(ACCOUNT_PLUGIN_NAME, [default])
+fi
+
 AC_CONFIG_FILES([
 Makefile
 docs/Makefile
@@ -109,9 +115,12 @@ src/daemon/tlm.pc
 src/plugins/Makefile
 src/plugins/default/Makefile
 data/Makefile
+data/tlm.conf
 src/plugins/gumd/Makefile
 src/plugins/nfc/Makefile
 tests/Makefile
+tests/config/Makefile
+tests/daemon/Makefile
 examples/Makefile
 ])
 
