@@ -220,7 +220,7 @@ _notify_handler (GIOChannel *channel,
     TlmSeat *seat = TLM_SEAT(user_data);
     TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
     pid_t notify_pid = 0;
-    gboolean cont = TRUE;
+    gboolean stop = FALSE;
 
     if (read (priv->notify_fd[0],
               &notify_pid, sizeof (notify_pid)) < (ssize_t) sizeof (notify_pid))
@@ -233,14 +233,15 @@ _notify_handler (GIOChannel *channel,
                    signals[SIG_SESSION_TERMINATED],
                    0,
                    priv->id,
-                   &cont);
-    if (!cont)
-        return cont;
+                   &stop);
+    if (stop)
+        return stop;
 
     if (tlm_config_get_boolean (priv->config,
                                 TLM_CONFIG_GENERAL,
                                 TLM_CONFIG_GENERAL_AUTO_LOGIN,
                                 TRUE)) {
+        DBG ("auto re-login with '%s'", seat->priv->next_user);
         tlm_seat_create_session (seat,
                                  seat->priv->next_service,
                                  seat->priv->next_user,

@@ -632,13 +632,13 @@ static gboolean
 _session_terminated_cb (TlmManager *manager, const gchar *seat_id,
                         gpointer user_data)
 {
-    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
+    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), TRUE);
 
     g_hash_table_remove (manager->priv->seats, seat_id);
     if (g_hash_table_size (manager->priv->seats) == 0)
         g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
 
-    return FALSE;
+    return TRUE;
 }
 
 gboolean
