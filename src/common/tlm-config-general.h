@@ -86,6 +86,14 @@
 #define TLM_CONFIG_GENERAL_SESSION_PATH     "SESSION_PATH"
 
 /**
+ * TLM_CONFIG_GENERAL_DATA_DIRS:
+ *
+ * Default value for XDG_DATA_DIRS environment variable. If not set,
+ * "/usr/share:/usr/local/share" is used.
+ */
+#define TLM_CONFIG_GENERAL_DATA_DIRS        "XDG_DATA_DIRS"
+
+/**
  * TLM_CONFIG_GENERAL_AUTO_LOGIN
  *
  * Autologin to default user : TRUE/FALSE. TRUE if value is not set

@@ -50,6 +50,7 @@ G_DEFINE_TYPE (TlmSession, tlm_session, G_TYPE_OBJECT);
 enum {
     PROP_0,
     PROP_CONFIG,
+    PROP_SEAT,
     PROP_SERVICE,
     PROP_NOTIFY_FD,
     PROP_USERNAME,
@@ -63,6 +64,7 @@ struct _TlmSessionPrivate
     TlmConfig *config;
     gint notify_fd;
     pid_t child_pid;
+    gchar *seat_id;
     gchar *service;
     gchar *username;
     GHashTable *env_hash;
@@ -92,6 +94,7 @@ tlm_session_finalize (GObject *self)
 {
     TlmSession *session = TLM_SESSION(self);
 
+    g_clear_string (&session->priv->seat_id);
     g_clear_string (&session->priv->service);
     g_clear_string (&session->priv->username);
 
@@ -113,6 +116,10 @@ _session_set_property (GObject *obj,
     switch (property_id) {
         case PROP_CONFIG:
             priv->config = g_value_dup_object (value);
+            break;
+        case PROP_SEAT:
+            g_free (priv->seat_id);
+            priv->seat_id = g_value_dup_string (value);
             break;
         case PROP_SERVICE: 
             priv->service = g_value_dup_string (value);
@@ -145,6 +152,9 @@ _session_get_property (GObject *obj,
     switch (property_id) {
         case PROP_CONFIG:
             g_value_set_object (value, priv->config);
+            break;
+        case PROP_SEAT:
+            g_value_set_string (value, priv->seat_id);
             break;
         case PROP_SERVICE: 
             g_value_set_string (value, priv->service);
@@ -181,6 +191,12 @@ tlm_session_class_init (TlmSessionClass *klass)
                              "Configuration object",
                              TLM_TYPE_CONFIG,
                              G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_SEAT] =
+        g_param_spec_string ("seat",
+                             "seat id",
+                             "Seat id string",
+                             NULL,
+                             G_PARAM_READWRITE|G_PARAM_STATIC_STRINGS);
     pspecs[PROP_SERVICE] =
         g_param_spec_string ("service",
                              "authentication service",
@@ -311,7 +327,6 @@ _set_terminal (TlmSessionPrivate *priv)
 static gboolean
 _set_environment (TlmSessionPrivate *priv)
 {
-    const gchar *path;
 	gchar **envlist = tlm_auth_session_get_envlist(priv->auth_session);
 
     if (envlist) {
@@ -324,16 +339,31 @@ _set_environment (TlmSessionPrivate *priv)
     	g_free (envlist);
     }
 
-    path = tlm_config_get_string (priv->config,
-                                  TLM_CONFIG_GENERAL,
-                                  TLM_CONFIG_GENERAL_SESSION_PATH);
+    const gchar *path = tlm_config_get_string (priv->config,
+                                               TLM_CONFIG_GENERAL,
+                                               TLM_CONFIG_GENERAL_SESSION_PATH);
     if (!path)
         path = "/usr/local/bin:/usr/bin:/bin";
     setenv ("PATH", path, 1);
+
     setenv ("USER", priv->username, 1);
     setenv ("LOGNAME", priv->username, 1);
     setenv ("HOME", tlm_user_get_home_dir (priv->username), 1);
     setenv ("SHELL", tlm_user_get_shell (priv->username), 1);
+    setenv ("XDG_SEAT", priv->seat_id, 1);
+
+    // FIXME: does the prefix need to be configured somewhere?
+    gchar *runtime_dir = g_strdup_printf ("/run/user/%u", getuid());
+    setenv ("XDG_RUNTIME_DIR", runtime_dir, 1);
+    g_free (runtime_dir);
+
+    const gchar *xdg_data_dirs =
+        tlm_config_get_string (priv->config,
+                               TLM_CONFIG_GENERAL,
+                               TLM_CONFIG_GENERAL_DATA_DIRS);
+    if (!xdg_data_dirs)
+        xdg_data_dirs = "/usr/share:/usr/local/share";
+    setenv ("XDG_DATA_DIRS", xdg_data_dirs, 1);
 
     if (priv->env_hash)
         g_hash_table_foreach (priv->env_hash,
@@ -503,8 +533,7 @@ _session_on_session_created (
 
 static gboolean
 _start_session (TlmSession *session,
-                const gchar *password,
-                const gchar *seat_id)
+                const gchar *password)
 {
     g_return_val_if_fail (session && TLM_IS_SESSION(session), FALSE);
     TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
@@ -523,7 +552,7 @@ _start_session (TlmSession *session,
     g_signal_connect (priv->auth_session, "session-error",
                 G_CALLBACK (_session_on_session_error), (gpointer)session);
 
-    tlm_auth_session_putenv(priv->auth_session, "XDG_SEAT", seat_id);
+    tlm_auth_session_putenv(priv->auth_session, "XDG_SEAT", priv->seat_id);
 
     return tlm_auth_session_start (priv->auth_session);
 }
@@ -537,11 +566,12 @@ tlm_session_new (TlmConfig *config,
     TlmSession *session =
         g_object_new (TLM_TYPE_SESSION,
                       "config", config,
+                      "seat", seat_id,
                       "service", service,
                       "notify-fd", notify_fd,
                       "username", username,
                       NULL);
-    if (!_start_session (session, password, seat_id)) {
+    if (!_start_session (session, password)) {
         g_object_unref (session);
         return NULL;
     }
