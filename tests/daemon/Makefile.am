@@ -23,6 +23,7 @@ daemontest_CFLAGS = \
 daemontest_LDADD = \
     $(TLM_LIBS) \
     $(CHECK_LIBS) \
+    $(top_builddir)/src/daemon/tlm-tlm-utils.o \
     $(top_builddir)/src/common/dbus/libtlm-dbus-glue.la
 
 CLEANFILES = *.gcno *.gcda

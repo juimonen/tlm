@@ -40,6 +40,7 @@
 #include "common/tlm-log.h"
 #include "common/tlm-config.h"
 #include "common/dbus/tlm-dbus-login-gen.h"
+#include "daemon/tlm-utils.h"
 
 static gchar *exe_name = 0;
 static GPid daemon_pid = 0;
@@ -121,6 +122,7 @@ START_TEST (test_login_user)
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
     GHashTable *environ = NULL;
+    GVariant *venv = NULL;
 
     connection = _get_bus_connection (&error);
     fail_if (connection == NULL, "failed to get bus connection : %s",
@@ -134,12 +136,14 @@ START_TEST (test_login_user)
             (GEqualFunc)g_str_equal,
             (GDestroyNotify)g_free,
             (GDestroyNotify)g_free);
-    g_hash_table_insert (environ, "KEY1", "VALUE1");
+    g_hash_table_insert (environ, g_strdup ("KEY1"), g_strdup ("VALUE1"));
 
-    fail_if (tlm_dbus_login_call_login_user_sync (login_object,
-            "seat0", "test0", "test1", environ, NULL, &error) == TRUE);
+    venv = tlm_utils_hash_table_to_variant (environ);
 
     g_hash_table_unref (environ);
+
+    fail_if (tlm_dbus_login_call_login_user_sync (login_object,
+            "seat0", "test0", "test1", venv, NULL, &error) == FALSE);
 
     if (error) {
         g_error_free (error);

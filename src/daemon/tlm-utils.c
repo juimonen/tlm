@@ -108,7 +108,7 @@ _tlm_utils_hash_table_to_variant_builder (GHashTable *dict)
 
     g_return_val_if_fail (dict != NULL, NULL);
 
-    builder = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
+    builder = g_variant_builder_new (((const GVariantType *) "a{ss}"));
 
     g_hash_table_iter_init (&iter, dict);
     while (g_hash_table_iter_next (&iter, (gpointer)&key, (gpointer)&value))

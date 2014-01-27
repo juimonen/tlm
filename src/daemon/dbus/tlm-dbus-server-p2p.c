@@ -255,7 +255,7 @@ _on_connection_closed (
             server->priv->login_object_adapters, connection);
     if  (login_object) {
         _clear_login_object_watchers (connection, login_object, user_data);
-        DBG("P2P dbus connection(%p) user service closed (peer vanished : %d)"
+        DBG("P2P dbus connection(%p) closed (peer vanished : %d)"
                 " with error: %s", connection, remote_peer_vanished,
                 error ? error->message : "NONE");
         g_hash_table_remove (server->priv->login_object_adapters, connection);

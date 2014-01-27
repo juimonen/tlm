@@ -196,7 +196,7 @@ _handle_login_user (
 
 
     if (1) {
-
+        tlm_dbus_login_complete_login_user (self->priv->dbus_obj, invocation);
     } else {
         g_dbus_method_invocation_return_gerror (invocation, error);
         g_error_free (error);
@@ -216,10 +216,10 @@ _handle_switch_user (
         gpointer user_data)
 {
     GError *error = NULL;
-    TlmDbusLoginAdapter *dbus_user = NULL;
 
     DBG ("");
-    if (dbus_user) {
+    if (1) {
+        tlm_dbus_login_complete_switch_user (self->priv->dbus_obj, invocation);
     } else {
         if (!error) {
             //error = GUM_GET_ERROR_FOR_ID (GUM_ERROR_USER_NOT_FOUND,
@@ -243,10 +243,10 @@ _handle_logout_user (
         gpointer user_data)
 {
     GError *error = NULL;
-    TlmDbusLoginAdapter *dbus_user = NULL;
 
     DBG ("");
-    if (dbus_user) {
+    if (1) {
+        tlm_dbus_login_complete_logout_user (self->priv->dbus_obj, invocation);
     } else {
         if (!error) {
             //error = GUM_GET_ERROR_FOR_ID (GUM_ERROR_USER_NOT_FOUND,
