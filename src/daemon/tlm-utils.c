@@ -98,3 +98,65 @@ tlm_user_get_shell (const gchar *username)
     return pwent->pw_shell;
 }
 
+GVariantBuilder *
+_tlm_utils_hash_table_to_variant_builder (GHashTable *dict)
+{
+    GVariantBuilder *builder;
+    GHashTableIter iter;
+    const gchar *key = NULL;
+    const gchar *value = NULL;
+
+    g_return_val_if_fail (dict != NULL, NULL);
+
+    builder = g_variant_builder_new (G_VARIANT_TYPE_VARDICT);
+
+    g_hash_table_iter_init (&iter, dict);
+    while (g_hash_table_iter_next (&iter, (gpointer)&key, (gpointer)&value))
+    {
+        g_variant_builder_add (builder, "{ss}", key, value);
+    }
+
+    return builder;
+}
+
+GVariant *
+tlm_utils_hash_table_to_variant (GHashTable *dict)
+{
+    GVariantBuilder *builder = NULL;
+    GVariant *vdict = NULL;
+
+    g_return_val_if_fail (dict != NULL, NULL);
+
+    builder = _tlm_utils_hash_table_to_variant_builder (dict);
+    if (!builder) return NULL;
+
+    vdict = g_variant_builder_end (builder);
+
+    g_variant_builder_unref (builder);
+
+    return vdict;
+}
+
+GHashTable *
+tlm_utils_hash_table_from_variant (GVariant *variant)
+{
+    GHashTable *dict = NULL;
+    GVariantIter iter;
+    gchar *key = NULL;
+    GVariant *value = NULL;
+
+    g_return_val_if_fail (variant != NULL, NULL);
+
+    dict = g_hash_table_new_full ((GHashFunc)g_str_hash,
+            (GEqualFunc)g_str_equal,
+            (GDestroyNotify)g_free,
+            (GDestroyNotify)g_free);
+    g_variant_iter_init (&iter, variant);
+    while (g_variant_iter_next (&iter, "{ss}", &key, &value))
+    {
+        g_hash_table_insert (dict, key, value);
+    }
+
+    return dict;
+}
+

@@ -59,6 +59,7 @@ _handle_login_user (
         const gchar *seat_id,
         const gchar *username,
         const gchar *password,
+        const GVariant *environ,
         gpointer user_data);
 
 static gboolean
@@ -68,6 +69,7 @@ _handle_switch_user (
         const gchar *seat_id,
         const gchar *username,
         const gchar *password,
+        const GVariant *environ,
         gpointer user_data);
 
 static gboolean
@@ -183,6 +185,7 @@ _handle_login_user (
         const gchar *seat_id,
         const gchar *username,
         const gchar *password,
+        const GVariant *environ,
         gpointer user_data)
 {
     GError *error = NULL;
@@ -209,6 +212,7 @@ _handle_switch_user (
         const gchar *seat_id,
         const gchar *username,
         const gchar *password,
+        const GVariant *environ,
         gpointer user_data)
 {
     GError *error = NULL;

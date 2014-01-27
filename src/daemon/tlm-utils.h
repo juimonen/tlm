@@ -32,17 +32,29 @@
 
 G_BEGIN_DECLS
 
-void g_clear_string (gchar **);
+void
+g_clear_string (gchar **);
 
-const gchar * tlm_user_get_name (uid_t user_id);
+const gchar *
+tlm_user_get_name (uid_t user_id);
 
-uid_t tlm_user_get_uid (const gchar *username);
+uid_t
+tlm_user_get_uid (const gchar *username);
 
-gid_t tlm_user_get_gid (const gchar *username);
+gid_t
+tlm_user_get_gid (const gchar *username);
 
-const gchar * tlm_user_get_home_dir (const gchar *username);
+const gchar *
+tlm_user_get_home_dir (const gchar *username);
 
-const gchar * tlm_user_get_shell (const gchar *username);
+const gchar *
+tlm_user_get_shell (const gchar *username);
+
+GVariant *
+tlm_utils_hash_table_to_variant (GHashTable *dict);
+
+GHashTable *
+tlm_utils_hash_table_from_variant (GVariant *variant);
 
 G_END_DECLS
 

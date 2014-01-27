@@ -120,6 +120,7 @@ START_TEST (test_login_user)
     GError *error = NULL;
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
+    GHashTable *environ = NULL;
 
     connection = _get_bus_connection (&error);
     fail_if (connection == NULL, "failed to get bus connection : %s",
@@ -128,6 +129,17 @@ START_TEST (test_login_user)
     login_object = _get_login_object (connection, &error);
     fail_if (login_object == NULL, "failed to get login object: %s",
             error ? error->message : "");
+
+    environ = g_hash_table_new_full ((GHashFunc)g_str_hash,
+            (GEqualFunc)g_str_equal,
+            (GDestroyNotify)g_free,
+            (GDestroyNotify)g_free);
+    g_hash_table_insert (environ, "KEY1", "VALUE1");
+
+    fail_if (tlm_dbus_login_call_login_user_sync (login_object,
+            "seat0", "test0", "test1", environ, NULL, &error) == TRUE);
+
+    g_hash_table_unref (environ);
 
     if (error) {
         g_error_free (error);
