@@ -121,6 +121,7 @@ src/plugins/nfc/Makefile
 tests/Makefile
 tests/config/Makefile
 tests/daemon/Makefile
+tests/tlm-test.conf
 examples/Makefile
 ])
 
