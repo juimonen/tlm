@@ -31,7 +31,7 @@
             <arg name="password" type="s" direction="in">
             </arg>
 
-            <arg name="environ" type="a{sv}" direction="in">
+            <arg name="environ" type="a{ss}" direction="in">
             </arg>
         </method>
 
@@ -47,8 +47,6 @@
             <arg name="seat_id" type="s" direction="in">
             </arg>
 
-            <arg name="username" type="s" direction="in">
-            </arg>
         </method>
 
         <!--
@@ -73,7 +71,7 @@
             <arg name="password" type="s" direction="in">
             </arg>
 
-            <arg name="environ" type="a{sv}" direction="in">
+            <arg name="environ" type="a{ss}" direction="in">
             </arg>
         </method>
 

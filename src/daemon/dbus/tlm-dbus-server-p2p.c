@@ -341,11 +341,10 @@ _tlm_dbus_server_p2p_stop (
 {
     g_return_val_if_fail (TLM_IS_DBUS_SERVER_P2P (self), FALSE);
 
-    DBG("Stop P2P DBus Server");
-
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (self);
 
     if (server->priv->bus_server) {
+        DBG("Stop P2P DBus Server");
         if (g_dbus_server_is_active (server->priv->bus_server))
             g_dbus_server_stop (server->priv->bus_server);
         g_object_unref (server->priv->bus_server);
@@ -428,7 +427,6 @@ tlm_dbus_server_p2p_new (
                     strerror(errno));
         }
         g_free (base_path);
-
     }
 
     return server;
