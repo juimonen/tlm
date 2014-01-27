@@ -108,7 +108,7 @@ _get_login_object (
         GError **error)
 {
     return tlm_dbus_login_proxy_new_sync (connection, G_DBUS_PROXY_FLAGS_NONE,
-            TLM_SERVICE, TLM_LOGIN_OBJECTPATH, NULL, error);
+            NULL, TLM_LOGIN_OBJECTPATH, NULL, error);
 }
 
 /*
