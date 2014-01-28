@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "common/tlm-log.h"
+#include "common/tlm-error.h"
 #include "common/dbus/tlm-dbus.h"
 
 #include "tlm-dbus-login-adapter.h"
@@ -43,6 +44,7 @@ static GParamSpec *properties[N_PROPERTIES];
 struct _TlmDbusLoginAdapterPrivate
 {
     GDBusConnection *connection;
+    TlmDbusServerP2P *server;
     TlmDbusLogin *dbus_obj;
 };
 
@@ -78,7 +80,6 @@ _handle_logout_user (
         GDBusMethodInvocation *invocation,
         const gchar *seat_id,
         const gchar *username,
-        const gchar *password,
         gpointer user_data);
 
 static void
@@ -132,6 +133,11 @@ _dispose (
         self->priv->dbus_obj = NULL;
     }
 
+    if (self->priv->server) {
+        g_object_unref (self->priv->server);
+        self->priv->server = NULL;
+    }
+
     G_OBJECT_CLASS (tlm_dbus_login_adapter_parent_class)->dispose (
             object);
 }
@@ -175,6 +181,7 @@ tlm_dbus_login_adapter_init (TlmDbusLoginAdapter *self)
     self->priv = TLM_DBUS_LOGIN_ADAPTER_GET_PRIV(self);
 
     self->priv->connection = 0;
+    self->priv->server = NULL;
     self->priv->dbus_obj = tlm_dbus_login_skeleton_new ();
 }
 
@@ -194,10 +201,57 @@ _handle_login_user (
     g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self),
             FALSE);
 
+    if (!seat_id || !username || !password) {
+        error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_INVALID_INPUT,
+                "Invalid input");
+        goto _finished;
+    }
 
-    if (1) {
+    tlm_dbus_server_p2p_handle_login_user (self->priv->server, seat_id,
+            username, password, environ, &error);
+
+    if (!error) {
         tlm_dbus_login_complete_login_user (self->priv->dbus_obj, invocation);
-    } else {
+    }
+
+_finished:
+    if (error) {
+        g_dbus_method_invocation_return_gerror (invocation, error);
+        g_error_free (error);
+    }
+
+    return TRUE;
+}
+
+static gboolean
+_handle_logout_user (
+        TlmDbusLoginAdapter *self,
+        GDBusMethodInvocation *invocation,
+        const gchar *seat_id,
+        const gchar *username,
+        gpointer user_data)
+{
+    GError *error = NULL;
+
+    DBG ("");
+    g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self),
+            FALSE);
+
+    if (!seat_id || !username) {
+        error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_INVALID_INPUT,
+                "Invalid input");
+        goto _finished;
+    }
+
+    tlm_dbus_server_p2p_handle_logout_user (self->priv->server, seat_id,
+            username, &error);
+
+    if (!error) {
+        tlm_dbus_login_complete_logout_user (self->priv->dbus_obj, invocation);
+    }
+
+_finished:
+    if (error) {
         g_dbus_method_invocation_return_gerror (invocation, error);
         g_error_free (error);
     }
@@ -218,40 +272,24 @@ _handle_switch_user (
     GError *error = NULL;
 
     DBG ("");
-    if (1) {
-        tlm_dbus_login_complete_switch_user (self->priv->dbus_obj, invocation);
-    } else {
-        if (!error) {
-            //error = GUM_GET_ERROR_FOR_ID (GUM_ERROR_USER_NOT_FOUND,
-            //        "User Not Found");
-        }
-        g_dbus_method_invocation_return_gerror (invocation, error);
-        g_error_free (error);
+    g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self),
+            FALSE);
+
+    if (!seat_id || !username || !password) {
+        error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_INVALID_INPUT,
+                "Invalid input");
+        goto _finished;
     }
 
+    tlm_dbus_server_p2p_handle_switch_user (self->priv->server, seat_id,
+            username, password, environ, &error);
 
-    return TRUE;
-}
+    if (!error) {
+        tlm_dbus_login_complete_switch_user (self->priv->dbus_obj, invocation);
+    }
 
-static gboolean
-_handle_logout_user (
-        TlmDbusLoginAdapter *self,
-        GDBusMethodInvocation *invocation,
-        const gchar *seat_id,
-        const gchar *username,
-        const gchar *password,
-        gpointer user_data)
-{
-    GError *error = NULL;
-
-    DBG ("");
-    if (1) {
-        tlm_dbus_login_complete_logout_user (self->priv->dbus_obj, invocation);
-    } else {
-        if (!error) {
-            //error = GUM_GET_ERROR_FOR_ID (GUM_ERROR_USER_NOT_FOUND,
-            //        "User Not Found");
-        }
+_finished:
+    if (error) {
         g_dbus_method_invocation_return_gerror (invocation, error);
         g_error_free (error);
     }
@@ -261,7 +299,8 @@ _handle_logout_user (
 
 TlmDbusLoginAdapter *
 tlm_dbus_login_adapter_new_with_connection (
-        GDBusConnection *bus_connection)
+        GDBusConnection *bus_connection,
+        TlmDbusServerP2P *server)
 {
     GError *err = NULL;
     TlmDbusLoginAdapter *adapter = TLM_DBUS_LOGIN_ADAPTER (g_object_new (
@@ -275,15 +314,17 @@ tlm_dbus_login_adapter_new_with_connection (
         g_object_unref (adapter);
         return NULL;
     }
+    adapter->priv->server = g_object_ref (server);;
+
     DBG("(+) started login interface '%p' at path '%s' on connection"
             " '%p'", adapter, TLM_LOGIN_OBJECTPATH, bus_connection);
 
     g_signal_connect_swapped (adapter->priv->dbus_obj,
         "handle-login-user", G_CALLBACK (_handle_login_user), adapter);
     g_signal_connect_swapped (adapter->priv->dbus_obj,
-        "handle-switch-user", G_CALLBACK(_handle_switch_user), adapter);
-    g_signal_connect_swapped (adapter->priv->dbus_obj,
         "handle-logout-user", G_CALLBACK(_handle_logout_user), adapter);
+    g_signal_connect_swapped (adapter->priv->dbus_obj,
+        "handle-switch-user", G_CALLBACK(_handle_switch_user), adapter);
 
     return adapter;
 }

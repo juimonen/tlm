@@ -72,4 +72,29 @@ tlm_dbus_server_p2p_new (
 const gchar *
 tlm_dbus_server_p2p_get_address (TlmDbusServerP2P *server) G_GNUC_CONST;
 
+gboolean
+tlm_dbus_server_p2p_handle_login_user (
+        TlmDbusServerP2P *server,
+        const gchar *seat_id,
+        const gchar *username,
+        const gchar *password,
+        const GVariant *environ,
+        GError **error);
+
+gboolean
+tlm_dbus_server_p2p_handle_logout_user (
+        TlmDbusServerP2P *server,
+        const gchar *seat_id,
+        const gchar *username,
+        GError **error);
+
+gboolean
+tlm_dbus_server_p2p_handle_switch_user (
+        TlmDbusServerP2P *server,
+        const gchar *seat_id,
+        const gchar *username,
+        const gchar *password,
+        const GVariant *environ,
+        GError **error);
+
 #endif /* __TLM_DBUS_SERVER_P2P_H_ */

@@ -159,4 +159,3 @@ tlm_utils_hash_table_from_variant (GVariant *variant)
 
     return dict;
 }
-

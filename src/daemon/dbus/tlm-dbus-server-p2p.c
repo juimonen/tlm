@@ -49,6 +49,16 @@ enum
     N_PROPERTIES
 };
 
+enum {
+    SIG_LOGIN_USER,
+    SIG_LOGOUT_USER,
+    SIG_SWITCH_USER,
+
+    SIG_MAX
+};
+
+static guint signals[SIG_MAX];
+
 struct _TlmDbusServerP2PPrivate
 {
     GHashTable *login_object_adapters;
@@ -229,6 +239,47 @@ tlm_dbus_server_p2p_class_init (
             G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
             G_PARAM_STATIC_STRINGS);
     g_object_class_install_property (object_class, PROP_ADDRESS, address_spec);
+
+    signals[SIG_LOGIN_USER] = g_signal_new ("login-user",
+            TLM_TYPE_DBUS_SERVER_P2P,
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            NULL,
+            G_TYPE_NONE,
+            4,
+            G_TYPE_STRING,
+            G_TYPE_STRING,
+            G_TYPE_STRING,
+            G_TYPE_VARIANT);
+
+    signals[SIG_LOGOUT_USER] = g_signal_new ("logout-user",
+            TLM_TYPE_DBUS_SERVER_P2P,
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            NULL,
+            G_TYPE_NONE,
+            3,
+            G_TYPE_STRING,
+            G_TYPE_STRING,
+            G_TYPE_STRING);
+
+    signals[SIG_SWITCH_USER] = g_signal_new ("switch-user",
+            TLM_TYPE_DBUS_SERVER_P2P,
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            NULL,
+            G_TYPE_NONE,
+            4,
+            G_TYPE_STRING,
+            G_TYPE_STRING,
+            G_TYPE_STRING,
+            G_TYPE_VARIANT);
 }
 
 static void
@@ -272,7 +323,7 @@ _tlm_dbus_server_p2p_add_login_obj (
     DBG("Export interfaces on connection %p", connection);
 
     login_object = tlm_dbus_login_adapter_new_with_connection (
-            g_object_ref (connection));
+            g_object_ref (connection), server);
     _add_login_object_watchers (connection, login_object, server);
 }
 
@@ -389,6 +440,57 @@ _tlm_dbus_server_p2p_interface_init (
     iface->start = _tlm_dbus_server_p2p_start;
     iface->stop = _tlm_dbus_server_p2p_stop;
     iface->get_remote_pid = _tlm_dbus_server_p2p_get_remote_pid;
+}
+
+gboolean
+tlm_dbus_server_p2p_handle_login_user (
+        TlmDbusServerP2P *server,
+        const gchar *seat_id,
+        const gchar *username,
+        const gchar *password,
+        const GVariant *environ,
+        GError **error)
+{
+    DBG ("");
+    g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
+            FALSE);
+
+    g_signal_emit (server, signals[SIG_LOGIN_USER], 0, seat_id, username,
+            password, environ);
+    return TRUE;
+}
+
+gboolean
+tlm_dbus_server_p2p_handle_logout_user (
+        TlmDbusServerP2P *server,
+        const gchar *seat_id,
+        const gchar *username,
+        GError **error)
+{
+    DBG ("");
+    g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
+            FALSE);
+
+    g_signal_emit (server, signals[SIG_LOGOUT_USER], 0, seat_id, username);
+    return TRUE;
+}
+
+gboolean
+tlm_dbus_server_p2p_handle_switch_user (
+        TlmDbusServerP2P *server,
+        const gchar *seat_id,
+        const gchar *username,
+        const gchar *password,
+        const GVariant *environ,
+        GError **error)
+{
+    DBG ("");
+    g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
+            FALSE);
+
+    g_signal_emit (server, signals[SIG_SWITCH_USER], 0, seat_id, username,
+            password, environ);
+    return TRUE;
 }
 
 const gchar *

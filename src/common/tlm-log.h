@@ -34,7 +34,9 @@ G_BEGIN_DECLS
 void tlm_log_init (const gchar *domain);
 void tlm_log_close (const gchar *domain);
 
-#define EXPAND_LOG_MSG(frmt, args...) "%s +%d:" frmt, __FILE__, __LINE__, ##args
+#define EXPAND_LOG_MSG(frmt, args...) "%f %s +%d %s :" frmt, \
+    g_get_monotonic_time()*1.0e-6, __FILE__, __LINE__, __PRETTY_FUNCTION__, \
+    ##args
 
 #define INFO(frmt, args...)     g_print(EXPAND_LOG_MSG(frmt, ##args))
 #define DBG(frmt, args...)      g_debug("debug:"EXPAND_LOG_MSG(frmt, ##args))

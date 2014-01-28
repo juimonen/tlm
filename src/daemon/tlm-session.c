@@ -590,6 +590,7 @@ tlm_session_new (TlmConfig *config,
                       "service", service,
                       "notify-fd", notify_fd,
                       "username", username,
+                      "environment", environment,
                       NULL);
     if (!_start_session (session, password)) {
         g_object_unref (session);

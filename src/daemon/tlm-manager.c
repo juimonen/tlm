@@ -251,7 +251,7 @@ _manager_authenticate_cb (TlmAuthPlugin *plugin,
     }
 
     /* re login with new username */
-    return tlm_seat_switch_user (seat, pam_service, username, password);
+    return tlm_seat_switch_user (seat, pam_service, username, password, NULL);
 }
 
 static GObject *
@@ -397,6 +397,62 @@ _load_auth_plugins (TlmManager *self)
 }
 
 static void
+_handle_login_user (
+        TlmManager *manager,
+        const gchar *seat_id,
+        const gchar *username,
+        const gchar *password,
+        GVariant *environment,
+        gpointer user_data)
+{
+    DBG ("");
+    g_return_if_fail (manager && TLM_IS_MANAGER(manager));
+
+    TlmSeat *seat = g_hash_table_lookup (manager->priv->seats, seat_id);
+    if (seat) {
+        GHashTable *environ = tlm_utils_hash_table_from_variant (environment);
+        tlm_seat_create_session (seat, NULL, username, password, environ);
+        if (environ) g_hash_table_unref (environ);
+    }
+}
+
+static void
+_handle_logout_user (
+        TlmManager *manager,
+        const gchar *seat_id,
+        const gchar *username,
+        gpointer user_data)
+{
+    DBG ("");
+    g_return_if_fail (manager && TLM_IS_MANAGER(manager));
+
+    TlmSeat *seat = g_hash_table_lookup (manager->priv->seats, seat_id);
+    if (seat) {
+        tlm_seat_terminate_session (seat);
+    }
+}
+
+static void
+_handle_switch_user (
+        TlmManager *manager,
+        const gchar *seat_id,
+        const gchar *username,
+        const gchar *password,
+        GVariant *environment,
+        gpointer user_data)
+{
+    DBG ("");
+    g_return_if_fail (manager && TLM_IS_MANAGER(manager));
+
+    TlmSeat *seat = g_hash_table_lookup (manager->priv->seats, seat_id);
+    if (seat) {
+        GHashTable *environ = tlm_utils_hash_table_from_variant (environment);
+        tlm_seat_switch_user (seat, NULL, username, password, environ);
+        if (environ) g_hash_table_unref (environ);
+    }
+}
+
+static void
 tlm_manager_init (TlmManager *manager)
 {
     GError *error = NULL;
@@ -429,6 +485,13 @@ tlm_manager_init (TlmManager *manager)
     priv->dbus_server = TLM_DBUS_SERVER (tlm_dbus_server_p2p_new (
             TLM_DBUS_ROOT_SOCKET_ADDRESS, getuid ()));
     tlm_dbus_server_start (priv->dbus_server);
+
+    g_signal_connect_swapped (G_OBJECT (manager->priv->dbus_server),
+            "login-user", G_CALLBACK (_handle_login_user), manager);
+    g_signal_connect_swapped (G_OBJECT (manager->priv->dbus_server),
+            "logout-user", G_CALLBACK(_handle_logout_user), manager);
+    g_signal_connect_swapped (G_OBJECT (manager->priv->dbus_server),
+            "switch-user", G_CALLBACK(_handle_switch_user), manager);
 }
 
 static void
@@ -477,6 +540,7 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
         if (!tlm_seat_create_session (seat,
                                       NULL,
                                       priv->initial_user,
+                                      NULL,
                                       NULL))
             WARN("Failed to create session for default user");
     }
