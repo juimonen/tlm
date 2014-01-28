@@ -30,7 +30,10 @@
 #include <pwd.h>
 #include <shadow.h>
 
-#include "tlm-log.h"
+#include "common/tlm-log.h"
+#include "common/dbus/tlm-dbus.h"
+#include "common/dbus/tlm-dbus-login-gen.h"
+#include "daemon/tlm-utils.h"
 
 #define BUFLEN 8096
 #define UID_MIN "UID_MIN"
@@ -39,6 +42,134 @@
 
 static Evas_Object *user_label = NULL;
 static gboolean use_nfc_tag = FALSE;
+static Evas_Object *username_entry = NULL;
+static Evas_Object *password_entry = NULL;
+
+GDBusConnection *
+_get_bus_connection (
+        const gchar *seat_id,
+        GError **error)
+{
+    /* get dbus connection for specific user only */
+    gchar address[128];
+    g_snprintf (address, 127, "unix:path=%s/%s", TLM_DBUS_SOCKET_PATH,
+            seat_id);
+    return g_dbus_connection_new_for_address_sync (address,
+            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
+}
+
+GDBusConnection *
+_get_root_socket_bus_connection (
+        GError **error)
+{
+    gchar address[128];
+    g_snprintf (address, 127, TLM_DBUS_ROOT_SOCKET_ADDRESS);
+    return g_dbus_connection_new_for_address_sync (address,
+            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
+}
+
+TlmDbusLogin *
+_get_login_object (
+        GDBusConnection *connection,
+        GError **error)
+{
+    return tlm_dbus_login_proxy_new_sync (connection, G_DBUS_PROXY_FLAGS_NONE,
+            NULL, TLM_LOGIN_OBJECTPATH, NULL, error);
+}
+
+
+static GVariant *
+_get_session_property (
+        GDBusProxy *proxy,
+        const gchar *object_path,
+        const gchar *prop_key)
+{
+    GError *error = NULL;
+    GVariant *result = NULL;
+    GVariant *prop_value = NULL;
+
+    result = g_dbus_connection_call_sync (
+            g_dbus_proxy_get_connection (proxy),
+            g_dbus_proxy_get_name (proxy),
+            object_path,
+            "org.freedesktop.DBus.Properties",
+            "GetAll",
+            g_variant_new ("(s)",  "org.freedesktop.login1.Session"),
+            G_VARIANT_TYPE ("(a{sv})"),
+            G_DBUS_CALL_FLAGS_NONE,
+            -1,
+            NULL,
+            &error);
+    if (error) {
+        printf ("Failed with error %d:%s", error->code, error->message);
+        g_error_free (error);
+        error = NULL;
+        return NULL;
+    }
+
+    if (g_variant_is_of_type (result, G_VARIANT_TYPE ("(a{sv})"))) {
+        GVariantIter *iter = NULL;
+        GVariant *item = NULL;
+        g_variant_get (result, "(a{sv})",  &iter);
+        while ((item = g_variant_iter_next_value (iter)))  {
+            gchar *key;
+            GVariant *value;
+            g_variant_get (item, "{sv}", &key, &value);
+            if (g_strcmp0 (key, prop_key) == 0) {
+                prop_value = value;
+                g_free (key); key = NULL;
+                break;
+            }
+            g_free (key); key = NULL;
+            g_variant_unref (value); value = NULL;
+        }
+    }
+    g_variant_unref (result);
+    return prop_value;
+}
+
+static GVariant *
+_get_property (
+        const gchar *prop_key)
+{
+    GError *error = NULL;
+    GDBusProxy *proxy = NULL;
+    GVariant *res = NULL;
+    GVariant *prop_value = NULL;
+
+    GDBusConnection *connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL,
+            &error);
+    if (error) goto _finished;
+
+    proxy = g_dbus_proxy_new_sync (connection,
+            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES, NULL,
+            "org.freedesktop.login1", //destintation
+            "/org/freedesktop/login1", //path
+            "org.freedesktop.login1.Manager", //interface
+            NULL, &error);
+    if (error) goto _finished;
+
+    res = g_dbus_proxy_call_sync (proxy, "GetSessionByPID",
+            g_variant_new ("(u)", getpid()), G_DBUS_CALL_FLAGS_NONE, -1,
+            NULL, &error);
+    if (res) {
+        gchar *obj_path = NULL;
+        g_variant_get (res, "(o)", &obj_path);
+        prop_value = _get_session_property (proxy, obj_path, prop_key);
+        g_variant_unref (res); res = NULL;
+        g_free (obj_path);
+    }
+
+_finished:
+    if (error) {
+        DBG ("failed to listen for login events: %s", error->message);
+        g_error_free (error);
+    }
+    if (proxy) g_object_unref (proxy);
+    if (connection) g_object_unref (connection);
+
+    return prop_value;
+}
 
 static Evas_Object*
 _add_entry (
@@ -75,7 +206,11 @@ static void
 _close_dialog (
         Evas_Object *dialog)
 {
-    if (dialog) evas_object_hide (dialog);
+    if (dialog) {
+        evas_object_hide (dialog);
+        username_entry = NULL;
+        password_entry = NULL;
+    }
 }
 
 static void
@@ -94,8 +229,102 @@ _on_ok_dialog_clicked (
         Evas_Object *obj,
         void *event_info)
 {
+    GError *error = NULL;
+    GDBusConnection *connection = NULL;
+    TlmDbusLogin *login_object = NULL;
+    const gchar *username = NULL;
+    const gchar *password = NULL;
     Evas_Object *dialog = data;
+    GHashTable *environ = NULL;
+    GVariant *venv = NULL;
+    gchar *seat = NULL;
+    GVariant *vseat = NULL;
+
+    if (username_entry) username = elm_entry_entry_get (username_entry);
+    if (password_entry) password = elm_entry_entry_get (password_entry);
+
     _close_dialog (dialog);
+
+    if (!username || !password) {
+        WARN ("Invalid username/password");
+        goto _finished;
+    }
+
+    connection = _get_root_socket_bus_connection (&error);
+    if (error) goto _finished;
+
+    login_object = _get_login_object (connection, &error);
+    if (error) goto _finished;
+    environ = g_hash_table_new_full ((GHashFunc)g_str_hash,
+                (GEqualFunc)g_str_equal,
+                (GDestroyNotify)g_free,
+                (GDestroyNotify)g_free);
+    venv = tlm_utils_hash_table_to_variant (environ);
+    g_hash_table_unref (environ);
+
+    vseat = _get_property ("Seat");
+    if (!vseat) {
+        WARN ("No seat property exists");
+        goto _finished;
+    }
+    g_variant_get (vseat, "(so)", &seat, NULL);
+    g_variant_unref (vseat);
+
+    tlm_dbus_login_call_switch_user_sync (login_object, seat, username,
+            password, venv, NULL, &error);
+
+_finished:
+    g_free (seat);
+
+    if (error) {
+        DBG("Error %d:%s", error->code, error->message);
+        g_error_free (error);
+        error = NULL;
+    }
+    if (login_object) g_object_unref (login_object);
+    if (connection) g_object_unref (connection);
+}
+
+static void
+_on_logout_clicked (
+        void *data,
+        Evas_Object *obj,
+        void *event_info)
+{
+    GError *error = NULL;
+    GDBusConnection *connection = NULL;
+    TlmDbusLogin *login_object = NULL;
+    GVariant *vseat = NULL;
+    gchar *seat = NULL;
+    const gchar *username = ""; //empty
+
+    vseat = _get_property ("Seat");
+    if (!vseat) {
+        WARN ("No seat property exists");
+        goto _finished;
+    }
+    g_variant_get (vseat, "(so)", &seat, NULL);
+    g_variant_unref (vseat);
+
+    connection = _get_bus_connection (seat, &error);
+    if (error) goto _finished;
+
+    login_object = _get_login_object (connection, &error);
+    if (error) goto _finished;
+
+    tlm_dbus_login_call_logout_user_sync (login_object, seat, username,
+            NULL, &error);
+
+_finished:
+    g_free (seat);
+
+    if (error) {
+        DBG("Error %d:%s", error->code, error->message);
+        g_error_free (error);
+        error = NULL;
+    }
+    if (login_object) g_object_unref (login_object);
+    if (connection) g_object_unref (connection);
 }
 
 static Evas_Object *
@@ -187,8 +416,7 @@ static Evas_Object *
 _create_dialog (
         const gchar *username)
 {
-    Evas_Object *dialog, *bg, *box, *frame, *content_box, *username_entry,
-    *password_entry;
+    Evas_Object *dialog, *bg, *box, *frame, *content_box;
     Evas_Object *button_frame, *pad_frame, *button_box;
     Evas_Object *cancel_button, *ok_button;
 
@@ -459,7 +687,7 @@ static Evas_Object *
 _add_loggedin_box (
         Evas_Object *win)
 {
-    Evas_Object *box = NULL, *label;
+    Evas_Object *box = NULL, *label, *logout_button;
     Eina_Bool value;
 
     box = elm_box_add (win);
@@ -468,6 +696,18 @@ _add_loggedin_box (
     elm_win_resize_object_add (win, box);
     elm_box_horizontal_set (box, EINA_TRUE);
     evas_object_size_hint_align_set (box, 0.1, 0.0);
+
+    /* logout button */
+    logout_button = elm_button_add (win);
+    elm_object_text_set (logout_button, "Logout");
+    evas_object_size_hint_weight_set (logout_button,
+            EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+    evas_object_size_hint_align_set (logout_button,
+            EVAS_HINT_FILL, EVAS_HINT_FILL);
+    evas_object_smart_callback_add (logout_button, "clicked",
+            _on_logout_clicked, win);
+    elm_box_pack_end (box, logout_button);
+    evas_object_show (logout_button);
 
     label = elm_label_add(win);
     elm_object_text_set(label, "Current logged-in user :: ");
@@ -481,97 +721,14 @@ _add_loggedin_box (
     return box;
 }
 
-static gchar *
-_get_loggedin_username (
-        GDBusProxy *proxy,
-        const gchar *object_path)
-{
-    GError *error = NULL;
-    GVariant *result = NULL;
-    gchar *username = NULL;
-
-    result = g_dbus_connection_call_sync (
-            g_dbus_proxy_get_connection (proxy),
-            g_dbus_proxy_get_name (proxy),
-            object_path,
-            "org.freedesktop.DBus.Properties",
-            "GetAll",
-            g_variant_new ("(s)",  "org.freedesktop.login1.Session"),
-            G_VARIANT_TYPE ("(a{sv})"),
-            G_DBUS_CALL_FLAGS_NONE,
-            -1,
-            NULL,
-            &error);
-    if (error) {
-        printf ("Failed with error %d:%s", error->code, error->message);
-        g_error_free (error);
-        error = NULL;
-        return NULL;
-    }
-
-    if (g_variant_is_of_type (result, G_VARIANT_TYPE ("(a{sv})"))) {
-        GVariantIter *iter = NULL;
-        GVariant *item = NULL;
-        g_variant_get (result, "(a{sv})",  &iter);
-        while ((item = g_variant_iter_next_value (iter)))  {
-            gchar *key;
-            GVariant *value;
-            g_variant_get (item, "{sv}", &key, &value);
-            if (g_strcmp0 (key, "Name") == 0) {
-                username = g_strdup (g_variant_get_string(value, NULL));
-                g_free (key); key = NULL;
-                g_variant_unref (value); value = NULL;
-                break;
-            }
-            g_free (key); key = NULL;
-            g_variant_unref (value); value = NULL;
-        }
-    }
-    g_variant_unref (result);
-    return username;
-}
-
 static void
 _set_loggedin_username ()
 {
-    GError *error = NULL;
-    GDBusProxy *proxy = NULL;
-    GVariant *res = NULL;
-
-    GDBusConnection *connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL,
-            &error);
-    if (error) goto _finished;
-
-    proxy = g_dbus_proxy_new_sync (connection,
-            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES, NULL,
-            "org.freedesktop.login1", //destintation
-            "/org/freedesktop/login1", //path
-            "org.freedesktop.login1.Manager", //interface
-            NULL, &error);
-    if (error) goto _finished;
-
-    res = g_dbus_proxy_call_sync (proxy, "GetSessionByPID",
-            g_variant_new ("(u)", getpid()), G_DBUS_CALL_FLAGS_NONE, -1,
-            NULL, &error);
-    if (res) {
-        gchar *obj_path = NULL;
-        g_variant_get (res, "(o)", &obj_path);
-        gchar *name = _get_loggedin_username (proxy, obj_path);
-        if (name && user_label) {
-            elm_object_text_set(user_label, name);
-        }
-        g_free (name);
-        g_variant_unref (res); res = NULL;
-        g_free (obj_path);
+    GVariant *vusername = _get_property ("Name");
+    if (vusername && user_label) {
+        elm_object_text_set(user_label, g_variant_get_string (vusername, NULL));
     }
-
-_finished:
-    if (error) {
-        DBG ("failed to listen for login events: %s", error->message);
-        g_error_free (error);
-    }
-    if (proxy) g_object_unref (proxy);
-    if (connection) g_object_unref (connection);
+    if (vusername) g_variant_unref (vusername);
 }
 
 EAPI_MAIN int

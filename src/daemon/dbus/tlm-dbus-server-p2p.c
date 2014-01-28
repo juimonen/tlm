@@ -524,7 +524,8 @@ tlm_dbus_server_p2p_new (
         }
         gchar *base_path = g_path_get_dirname (file_path);
 
-        if (g_mkdir_with_parents (base_path, S_IRUSR |S_IWUSR |S_IXUSR) == -1) {
+        if (g_mkdir_with_parents (base_path,
+                S_IRUSR |S_IWUSR |S_IXUSR |S_IXGRP |S_IXOTH) == -1) {
             WARN ("Could not create '%s', error: %s", base_path,
                     strerror(errno));
         }
