@@ -21,6 +21,7 @@
         while switchUser() will not.
         -->
         <method name="loginUser">
+            
             <arg name="seat_id" type="s" direction="in">
             </arg>
 
@@ -42,8 +43,6 @@
         Logout the user.
         -->
         <method name="logoutUser">
-            <tp:docstring>Logout the user. 
-            </tp:docstring>
 
             <arg name="seat_id" type="s" direction="in">
             </arg>
