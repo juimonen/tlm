@@ -1,102 +1,79 @@
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
-<node name="/Group"
-  xmlns:tp="http://telepathy.freedesktop.org/wiki/DbusSpec#extensions-v0">
+<node>
 
-    <tp:copyright>Copyright © 2014 Intel Corporation</tp:copyright>
+    <!--
+    org.tizen.Tlm.Login:
+    @short_description: a D-Bus interface to TLM
 
-    <tp:license xmlns="http://www.w3.org/1999/xhtml">
-        <p>This library is free software; you can redistribute it and/or
-        modify it under the terms of the GNU Lesser General Public
-        License as published by the Free Software Foundation; either
-        version 2.1 of the License, or (at your option) any later version.
-        </p>
-
-        <p>This library is distributed in the hope that it will be useful, but
-        WITHOUT ANY WARRANTY; without even the implied warranty of
-        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-        Lesser General Public License for more details.
-        </p>
-
-        <p>You should have received a copy of the GNU Lesser General Public
-        License along with this library; if not, write to the Free Software
-        Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-        02110-1301 USA
-        </p>
-    </tp:license>
-
+    Login object can be used to login, logout and switch users.
+    FIXME: where is the object exported on D-Bus? How is it access controlled?
+    -->
     <interface name="org.tizen.Tlm.Login">
 
-        <tp:docstring xmlns="http://www.w3.org/1999/xhtml">
-            <p>Login object can be used to login, logout and switch user.
-            </p>
-        </tp:docstring>
+        <!--
+        loginUser:
+        @seat_id: id of the seat
+        @username: name of the user
+        @password: password to use for login
+        @environ: key-value pairs of environment variables
 
-        <method name="loginUser" tp:name-for-bindings="loginUser">
-            <tp:docstring>Login the user. 'loginUser' is different from
-            'switchUser' in a way that login will fail if there is already
-            a user who is logged in.
-            </tp:docstring>
-
+        Login the user. loginUser() will fail if the user is already logged in,
+        while switchUser() will not.
+        -->
+        <method name="loginUser">
+            
             <arg name="seat_id" type="s" direction="in">
-                <tp:docstring>id of the seat
-                </tp:docstring>
             </arg>
 
             <arg name="username" type="s" direction="in">
-                <tp:docstring>name of the user
-                </tp:docstring>
             </arg>
 
             <arg name="password" type="s" direction="in">
-                <tp:docstring>password to be used for user login.
-                </tp:docstring>
             </arg>
 
             <arg name="environ" type="a{sv}" direction="in">
-                <tp:docstring>key-value pairs of environment variables.
-                </tp:docstring>
             </arg>
         </method>
 
-        <method name="logoutUser" tp:name-for-bindings="logoutUser">
-            <tp:docstring>Logout the user. 
-            </tp:docstring>
+        <!--
+        logoutUser:
+        @seat_id: id of the seat
+        @username: name of the user
+
+        Logout the user.
+        -->
+        <method name="logoutUser">
 
             <arg name="seat_id" type="s" direction="in">
-                <tp:docstring>id of the seat
-                </tp:docstring>
             </arg>
 
             <arg name="username" type="s" direction="in">
-                <tp:docstring>name of the user
-                </tp:docstring>
             </arg>
         </method>
 
-        <method name="switchUser" tp:name-for-bindings="switchUser">
-            <tp:docstring>Logout the currently logged in user (if any), and
-            login new user. 'loginUser' is different from 'switchUser' in a way
-            that login will fail if there is already a user who is logged in. 
-            </tp:docstring>
+        <!--
+        switchUser:
+        @seat_id: id of the seat
+        @username: name of the user
+        @password: password to use for login
+        @environ: key-value pairs of environment variables
+
+        Logout the currently logged in user (if any), and login new user.
+        loginUser() will fail if the user is already logged in,
+        while switchUser() will not.
+        -->
+        <method name="switchUser">
 
             <arg name="seat_id" type="s" direction="in">
-                <tp:docstring>id of the seat
-                </tp:docstring>
             </arg>
 
             <arg name="username" type="s" direction="in">
-                <tp:docstring>name of the user to be loggedin
-                </tp:docstring>
             </arg>
 
             <arg name="password" type="s" direction="in">
-                <tp:docstring>password to be used for user to login.
-                </tp:docstring>
             </arg>
 
             <arg name="environ" type="a{sv}" direction="in">
-                <tp:docstring>key-value pairs of environment variables.
-                </tp:docstring>
             </arg>
         </method>
 

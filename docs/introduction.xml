@@ -22,7 +22,8 @@
         user is logged in at a specific seat.
     </para>
     <para>
-        FIXME: add a paragraph about DBus API.
+        TLM also exports a <link linkend="gdbus-org.tizen.Tlm.Login">D-Bus API</link>, that can be used to log in, log out and
+        switch users on a seat.
     </para>
     <para>
         FIXME: add a paragraph about examples/.
