@@ -74,10 +74,39 @@ struct _TlmAuthSessionPrivate
 };
 
 static void
+_auth_session_stop (TlmAuthSession *auth_session)
+{
+    int res;
+    g_return_val_if_fail (auth_session &&
+                TLM_IS_AUTH_SESSION (auth_session), FALSE);
+
+    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
+
+    res = pam_setcred (priv->pam_handle, PAM_DELETE_CRED);
+    if (res != PAM_SUCCESS) {
+        WARN ("Failed to remove credentials from pam session: %s",
+              pam_strerror (priv->pam_handle, res));
+    }
+
+    res = pam_end (priv->pam_handle,
+                   pam_close_session (priv->pam_handle, 0));
+    if (res != PAM_SUCCESS) {
+        WARN ("Failed to end pam session: %s",
+            pam_strerror (priv->pam_handle, res));
+    }
+
+    priv->pam_handle = NULL;
+}
+
+static void
 tlm_auth_session_dispose (GObject *self)
 {
-    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION (self)->priv;
-    DBG("disposing auth_session: %s:%s", priv->service, priv->username);
+    TlmAuthSession *auth_session = TLM_AUTH_SESSION (self);
+    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
+    DBG ("disposing auth_session: %s:%s", priv->service, priv->username);
+
+    if (priv->pam_handle)
+        _auth_session_stop (auth_session);
 
     G_OBJECT_CLASS (tlm_auth_session_parent_class)->dispose (self);
 }
@@ -316,7 +345,6 @@ tlm_auth_session_putenv (
 gboolean
 tlm_auth_session_start (TlmAuthSession *auth_session)
 {
-    TlmAuthSessionPrivate *priv = NULL;
     int res;
     const char *pam_tty = NULL;
     const char *pam_ruser = NULL;
@@ -324,25 +352,7 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
     g_return_val_if_fail (auth_session && 
                 TLM_IS_AUTH_SESSION(auth_session), FALSE);
 
-    priv = auth_session->priv;
-
-    if (!priv->pam_handle) {
-        struct pam_conv conv = { _auth_session_pam_conversation_cb,
-                                 auth_session };
-        DBG ("loading pam for service '%s'", priv->service);
-        res = pam_start (priv->service, priv->username,
-                         &conv, &priv->pam_handle);
-        if (res != PAM_SUCCESS) {
-            WARN ("pam initialization failed: %s", pam_strerror (NULL, res));
-            GError *error = g_error_new (TLM_AUTH_SESSION_ERROR,
-                                         TLM_AUTH_SESSION_PAM_ERROR,
-                                         "pam initialization failed : %s",
-                                         pam_strerror (NULL, res));
-            g_signal_emit (auth_session, signals[SIG_AUTH_ERROR], 0, error);
-            g_error_free (error);
-            return FALSE;
-        }
-    }
+    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
     pam_tty = getenv("DISPLAY");
     if (!pam_tty) {
@@ -416,33 +426,6 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
     return TRUE;
 }
 
-gboolean
-tlm_auth_session_stop (TlmAuthSession *auth_session)
-{
-    int res;
-    TlmAuthSessionPrivate *priv = NULL;
-    g_return_val_if_fail (auth_session &&
-                TLM_IS_AUTH_SESSION (auth_session), FALSE);
-
-    priv = auth_session->priv;
-
-    res = pam_setcred (priv->pam_handle, PAM_DELETE_CRED);
-    if (res != PAM_SUCCESS) {
-        WARN ("Failed to remove credentials from pam session: %s",
-              pam_strerror (priv->pam_handle, res));
-    }
-
-    res = pam_end (priv->pam_handle,
-                   pam_close_session (priv->pam_handle, 0));
-    if (res != PAM_SUCCESS) {
-        WARN ("Failed to end pam session: %s",
-            pam_strerror (priv->pam_handle, res));
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
 TlmAuthSession *
 tlm_auth_session_new (const gchar *service,
                       const gchar *username,
@@ -454,16 +437,18 @@ tlm_auth_session_new (const gchar *service,
                       "username", username,
                       "password", password,
                       NULL));
+    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
-    struct pam_conv conv = { _auth_session_pam_conversation_cb,
-                            auth_session };
     int res;
-
-    res = pam_start (service, username,
-                     &conv, &auth_session->priv->pam_handle);
+    struct pam_conv conv = { _auth_session_pam_conversation_cb,
+                             auth_session };
+    DBG ("loading pam for service '%s'", priv->service);
+    res = pam_start (priv->service, priv->username,
+                     &conv, &priv->pam_handle);
     if (res != PAM_SUCCESS) {
-        WARN ("Failed to start pam for service '%s' with user '%s'",
-                service, username);
+        WARN ("pam initialization failed: %s", pam_strerror (NULL, res));
+        g_object_unref (auth_session);
+        return NULL;
     }
 
     return auth_session;

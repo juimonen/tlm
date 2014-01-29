@@ -80,7 +80,6 @@ tlm_session_dispose (GObject *self)
     TlmSession *session = TLM_SESSION(self);
     DBG("disposing session: %s", session->priv->service);
 
-    tlm_auth_session_stop (session->priv->auth_session);
     g_clear_object (&session->priv->auth_session);
     if (session->priv->env_hash) {
         g_hash_table_unref (session->priv->env_hash);

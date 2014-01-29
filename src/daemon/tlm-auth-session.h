@@ -79,9 +79,6 @@ tlm_auth_session_putenv (TlmAuthSession *auth_session,
 gboolean
 tlm_auth_session_start (TlmAuthSession *auth_session);
 
-gboolean
-tlm_auth_session_stop (TlmAuthSession *auth_session);
-
 const gchar *
 tlm_auth_session_get_username (TlmAuthSession *auth_session);
 
