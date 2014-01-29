@@ -262,9 +262,7 @@ tlm_dbus_server_p2p_class_init (
             NULL,
             NULL,
             G_TYPE_NONE,
-            3,
-            G_TYPE_STRING,
-            G_TYPE_STRING,
+            1,
             G_TYPE_STRING);
 
     signals[SIG_SWITCH_USER] = g_signal_new ("switch-user",
@@ -464,14 +462,13 @@ gboolean
 tlm_dbus_server_p2p_handle_logout_user (
         TlmDbusServerP2P *server,
         const gchar *seat_id,
-        const gchar *username,
         GError **error)
 {
     DBG ("");
     g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
             FALSE);
 
-    g_signal_emit (server, signals[SIG_LOGOUT_USER], 0, seat_id, username);
+    g_signal_emit (server, signals[SIG_LOGOUT_USER], 0, seat_id);
     return TRUE;
 }
 

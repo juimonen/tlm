@@ -296,7 +296,6 @@ _on_logout_clicked (
     TlmDbusLogin *login_object = NULL;
     GVariant *vseat = NULL;
     gchar *seat = NULL;
-    const gchar *username = ""; //empty
 
     vseat = _get_property ("Seat");
     if (!vseat) {
@@ -312,8 +311,7 @@ _on_logout_clicked (
     login_object = _get_login_object (connection, &error);
     if (error) goto _finished;
 
-    tlm_dbus_login_call_logout_user_sync (login_object, seat, username,
-            NULL, &error);
+    tlm_dbus_login_call_logout_user_sync (login_object, seat, NULL, &error);
 
 _finished:
     g_free (seat);

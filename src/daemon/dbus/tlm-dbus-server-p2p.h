@@ -85,7 +85,6 @@ gboolean
 tlm_dbus_server_p2p_handle_logout_user (
         TlmDbusServerP2P *server,
         const gchar *seat_id,
-        const gchar *username,
         GError **error);
 
 gboolean

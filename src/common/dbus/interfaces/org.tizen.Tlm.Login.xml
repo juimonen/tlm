@@ -46,7 +46,6 @@
 
             <arg name="seat_id" type="s" direction="in">
             </arg>
-
         </method>
 
         <!--

@@ -74,19 +74,31 @@ struct _TlmSeatPrivate
     active session */
     gint notify_fd[2];
     GIOChannel *notify_channel;
+    guint logout_id;      /* logout source id */
 };
+
+static gboolean
+_session_terminate_idle (
+        gpointer user_data)
+{
+    g_return_val_if_fail (user_data && TLM_IS_SEAT (user_data), FALSE);
+
+    tlm_seat_terminate_session (TLM_SEAT (user_data));
+    return FALSE;
+}
 
 static void
 _handle_logout_user (
         TlmSeat *seat,
         const gchar *seat_id,
-        const gchar *username,
         gpointer user_data)
 {
     DBG ("");
     g_return_if_fail (seat && TLM_IS_SEAT(seat));
 
-    tlm_seat_terminate_session (seat);
+    if (!seat->priv->logout_id) {
+        seat->priv->logout_id = g_idle_add (_session_terminate_idle, seat);
+    }
 }
 
 static void
@@ -126,9 +138,19 @@ tlm_seat_dispose (GObject *self)
 
     DBG("disposing seat: %s", seat->priv->id);
 
+    if (seat->priv->logout_id) {
+        g_source_remove (seat->priv->logout_id);
+        seat->priv->logout_id = 0;
+    }
+
     _stop_dbus (seat);
 
     g_clear_object (&seat->priv->session);
+
+    if (seat->priv->config) {
+        g_object_unref (seat->priv->config);
+        seat->priv->config = NULL;
+    }
 
     G_OBJECT_CLASS (tlm_seat_parent_class)->dispose (self);
 }
@@ -159,9 +181,6 @@ tlm_seat_finalize (GObject *self)
     g_io_channel_unref (priv->notify_channel);
     close (priv->notify_fd[0]);
     close (priv->notify_fd[1]);
-
-    if (priv->config)
-        g_object_unref (priv->config);
 
     G_OBJECT_CLASS (tlm_seat_parent_class)->finalize (self);
 }
@@ -325,6 +344,7 @@ tlm_seat_init (TlmSeat *seat)
                     G_IO_IN,
                     _notify_handler,
                     seat);
+    priv->logout_id = 0;
 }
 
 const gchar *

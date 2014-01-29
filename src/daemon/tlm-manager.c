@@ -417,22 +417,6 @@ _handle_login_user (
 }
 
 static void
-_handle_logout_user (
-        TlmManager *manager,
-        const gchar *seat_id,
-        const gchar *username,
-        gpointer user_data)
-{
-    DBG ("");
-    g_return_if_fail (manager && TLM_IS_MANAGER(manager));
-
-    TlmSeat *seat = g_hash_table_lookup (manager->priv->seats, seat_id);
-    if (seat) {
-        tlm_seat_terminate_session (seat);
-    }
-}
-
-static void
 _handle_switch_user (
         TlmManager *manager,
         const gchar *seat_id,
@@ -488,8 +472,6 @@ tlm_manager_init (TlmManager *manager)
 
     g_signal_connect_swapped (G_OBJECT (manager->priv->dbus_server),
             "login-user", G_CALLBACK (_handle_login_user), manager);
-    g_signal_connect_swapped (G_OBJECT (manager->priv->dbus_server),
-            "logout-user", G_CALLBACK(_handle_logout_user), manager);
     g_signal_connect_swapped (G_OBJECT (manager->priv->dbus_server),
             "switch-user", G_CALLBACK(_handle_switch_user), manager);
 }

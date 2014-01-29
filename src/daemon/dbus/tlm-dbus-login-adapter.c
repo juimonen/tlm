@@ -79,7 +79,6 @@ _handle_logout_user (
         TlmDbusLoginAdapter *self,
         GDBusMethodInvocation *invocation,
         const gchar *seat_id,
-        const gchar *username,
         gpointer user_data);
 
 static void
@@ -228,7 +227,6 @@ _handle_logout_user (
         TlmDbusLoginAdapter *self,
         GDBusMethodInvocation *invocation,
         const gchar *seat_id,
-        const gchar *username,
         gpointer user_data)
 {
     GError *error = NULL;
@@ -237,14 +235,14 @@ _handle_logout_user (
     g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self),
             FALSE);
 
-    if (!seat_id || !username) {
+    if (!seat_id) {
         error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_INVALID_INPUT,
                 "Invalid input");
         goto _finished;
     }
 
     tlm_dbus_server_p2p_handle_logout_user (self->priv->server, seat_id,
-            username, &error);
+            &error);
 
     if (!error) {
         tlm_dbus_login_complete_logout_user (self->priv->dbus_obj, invocation);
