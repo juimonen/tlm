@@ -103,11 +103,30 @@ _handle_logout_user (
 }
 
 static void
+_handle_switch_user (
+        TlmSeat *seat,
+        const gchar *seat_id,
+        const gchar *username,
+        const gchar *password,
+        GVariant *environment,
+        gpointer user_data)
+{
+    DBG ("");
+    g_return_if_fail (seat && TLM_IS_SEAT(seat));
+
+    GHashTable *environ = tlm_utils_hash_table_from_variant (environment);
+    tlm_seat_switch_user (seat, NULL, username, password, environ);
+    if (environ) g_hash_table_unref (environ);
+}
+
+static void
 _stop_dbus (TlmSeat *seat)
 {
     if (seat->priv->dbus_server) {
         g_signal_handlers_disconnect_by_func (G_OBJECT(seat->priv->dbus_server),
                 _handle_logout_user, seat);
+        g_signal_handlers_disconnect_by_func (G_OBJECT(seat->priv->dbus_server),
+                _handle_switch_user, seat);
         tlm_dbus_server_stop (seat->priv->dbus_server);
         g_object_unref (seat->priv->dbus_server);
         seat->priv->dbus_server = NULL;
@@ -128,6 +147,8 @@ _start_dbus (
     g_free (address);
     g_signal_connect_swapped (G_OBJECT (seat->priv->dbus_server),
             "logout-user", G_CALLBACK(_handle_logout_user), seat);
+    g_signal_connect_swapped (G_OBJECT (seat->priv->dbus_server),
+            "switch-user", G_CALLBACK(_handle_switch_user), seat);
 
     return tlm_dbus_server_start (seat->priv->dbus_server);
 }

@@ -250,7 +250,15 @@ _on_ok_dialog_clicked (
         goto _finished;
     }
 
-    connection = _get_root_socket_bus_connection (&error);
+    vseat = _get_property ("Seat");
+    if (!vseat) {
+        WARN ("No seat property exists");
+        goto _finished;
+    }
+    g_variant_get (vseat, "(so)", &seat, NULL);
+    g_variant_unref (vseat);
+
+    connection = _get_bus_connection (seat, &error);
     if (error) goto _finished;
 
     login_object = _get_login_object (connection, &error);
@@ -261,14 +269,6 @@ _on_ok_dialog_clicked (
                 (GDestroyNotify)g_free);
     venv = tlm_utils_hash_table_to_variant (environ);
     g_hash_table_unref (environ);
-
-    vseat = _get_property ("Seat");
-    if (!vseat) {
-        WARN ("No seat property exists");
-        goto _finished;
-    }
-    g_variant_get (vseat, "(so)", &seat, NULL);
-    g_variant_unref (vseat);
 
     tlm_dbus_login_call_switch_user_sync (login_object, seat, username,
             password, venv, NULL, &error);
