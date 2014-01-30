@@ -187,13 +187,6 @@ _dispose (
 {
     TlmDbusServerP2P *self = TLM_DBUS_SERVER_P2P (object);
 
-    if (self->priv->login_object_adapters) {
-        g_hash_table_foreach (self->priv->login_object_adapters,
-                _clear_login_object_watchers, self);
-        g_hash_table_unref (self->priv->login_object_adapters);
-        self->priv->login_object_adapters = NULL;
-    }
-
     _tlm_dbus_server_p2p_stop (TLM_DBUS_SERVER (self));
 
     G_OBJECT_CLASS (tlm_dbus_server_p2p_parent_class)->dispose (object);
@@ -391,6 +384,14 @@ _tlm_dbus_server_p2p_stop (
     g_return_val_if_fail (TLM_IS_DBUS_SERVER_P2P (self), FALSE);
 
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (self);
+
+    if (server->priv->login_object_adapters) {
+        DBG("Cleanup watchers");
+        g_hash_table_foreach (server->priv->login_object_adapters,
+                _clear_login_object_watchers, server);
+        g_hash_table_unref (server->priv->login_object_adapters);
+        server->priv->login_object_adapters = NULL;
+    }
 
     if (server->priv->bus_server) {
         DBG("Stop P2P DBus Server");

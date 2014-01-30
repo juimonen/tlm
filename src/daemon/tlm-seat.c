@@ -83,6 +83,7 @@ _session_terminate_idle (
 {
     g_return_val_if_fail (user_data && TLM_IS_SEAT (user_data), FALSE);
 
+    DBG ("");
     tlm_seat_terminate_session (TLM_SEAT (user_data));
     return FALSE;
 }
@@ -93,10 +94,10 @@ _handle_logout_user (
         const gchar *seat_id,
         gpointer user_data)
 {
-    DBG ("");
     g_return_if_fail (seat && TLM_IS_SEAT(seat));
 
     if (!seat->priv->logout_id) {
+        DBG ("");
         seat->priv->logout_id = g_idle_add (_session_terminate_idle, seat);
     }
 }
