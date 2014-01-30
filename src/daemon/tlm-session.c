@@ -67,7 +67,6 @@ struct _TlmSessionPrivate
     gchar *seat_id;
     gchar *service;
     gchar *username;
-    gchar *runtime_dir;
     GHashTable *env_hash;
     TlmAuthSession *auth_session;
 };
@@ -97,7 +96,6 @@ tlm_session_finalize (GObject *self)
     g_clear_string (&session->priv->seat_id);
     g_clear_string (&session->priv->service);
     g_clear_string (&session->priv->username);
-    g_clear_string (&session->priv->runtime_dir);
 
     if (session->priv->config)
         g_object_unref (session->priv->config);
@@ -352,7 +350,6 @@ _set_environment (TlmSessionPrivate *priv)
     setenv ("HOME", tlm_user_get_home_dir (priv->username), 1);
     setenv ("SHELL", tlm_user_get_shell (priv->username), 1);
     setenv ("XDG_SEAT", priv->seat_id, 1);
-    setenv ("XDG_RUNTIME_DIR", priv->runtime_dir, 1);
 
     const gchar *xdg_data_dirs =
         tlm_config_get_string (priv->config,
@@ -457,6 +454,7 @@ _session_on_session_created (
         WARN ("initgroups() failed: %s", strerror(errno));
     if (setregid (target_gid, target_gid))
         WARN ("setregid() failed: %s", strerror(errno));
+    // FIXME: set rest of the groups with setgroups()
     if (setreuid (target_uid, target_uid))
         WARN ("setreuid() failed: %s", strerror(errno));
 
@@ -550,29 +548,6 @@ _start_session (TlmSession *session,
                 G_CALLBACK (_session_on_session_error), (gpointer)session);
 
     tlm_auth_session_putenv (priv->auth_session, "XDG_SEAT", priv->seat_id);
-
-    const gchar *runtime_base =
-        tlm_config_get_string (priv->config,
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_RUNTIME_DIR);
-    if (!runtime_base)
-        runtime_base = "/run/user";
-    uid_t user_uid = tlm_user_get_uid (priv->username);
-    priv->runtime_dir = g_strdup_printf ("%s/%u", runtime_base, user_uid);
-    tlm_auth_session_putenv (priv->auth_session,
-                             "XDG_RUNTIME_DIR", priv->runtime_dir);
-    if (access (priv->runtime_dir, X_OK) != 0) {
-        DBG ("creating user runtime directory: %s",
-             priv->runtime_dir);
-        if (mkdir (priv->runtime_dir, S_IRUSR | S_IWUSR | S_IXUSR) != 0)
-            WARN ("failed to create user runtime directory: %s",
-                  priv->runtime_dir);
-        if (chown (priv->runtime_dir,
-                   user_uid,
-                   tlm_user_get_gid (priv->username)) != 0)
-            WARN ("failed to change ownership of user runtime directory: %s",
-                  priv->runtime_dir);
-    }
 
     return tlm_auth_session_start (priv->auth_session);
 }

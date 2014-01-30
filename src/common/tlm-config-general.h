@@ -95,14 +95,6 @@
 #define TLM_CONFIG_GENERAL_DATA_DIRS        "XDG_DATA_DIRS"
 
 /**
- * TLM_CONFIG_GENERAL_RUNTIME_DIR:
- *
- * Default value for XDG_RUNTIME_DIR base path. If not set, "/run/user"
- * is used.
- */
-#define TLM_CONFIG_GENERAL_RUNTIME_DIR      "XDG_RUNTIME_DIR"
-
-/**
  * TLM_CONFIG_GENERAL_AUTO_LOGIN
  *
  * Autologin to default user : TRUE/FALSE. TRUE if value is not set
