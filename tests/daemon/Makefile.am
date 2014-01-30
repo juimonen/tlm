@@ -3,7 +3,7 @@ include $(top_srcdir)/tests/test_common.mk
 TESTS = daemontest
 TESTS_ENVIRONMENT += \
     TLM_BIN_DIR=$(top_builddir)/src/daemon/.libs \
-    TLM_CONF_FILE=$(top_builddir)/data/tlm.conf \
+    TLM_CONF_FILE=$(top_builddir)/tests/tlm-test.conf \
     TLM_PLUGINS_DIR=$(top_builddir)/src/plugins/.libs
 
 VALGRIND_TESTS_DISABLE=
@@ -23,6 +23,7 @@ daemontest_CFLAGS = \
 daemontest_LDADD = \
     $(TLM_LIBS) \
     $(CHECK_LIBS) \
+    $(top_builddir)/src/daemon/tlm-tlm-utils.o \
     $(top_builddir)/src/common/dbus/libtlm-dbus-glue.la
 
 CLEANFILES = *.gcno *.gcda

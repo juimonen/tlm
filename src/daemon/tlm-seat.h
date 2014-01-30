@@ -73,13 +73,15 @@ gboolean
 tlm_seat_switch_user (TlmSeat *seat,
                       const gchar *service,
                       const gchar *username,
-                      const gchar *password);
+                      const gchar *password,
+                      GHashTable *environment);
 
 gboolean
 tlm_seat_create_session (TlmSeat *seat,
                          const gchar *service, 
                          const gchar *username,
-                         const gchar *password);
+                         const gchar *password,
+                         GHashTable *environment);
 
 gboolean
 tlm_seat_terminate_session (TlmSeat *seat);

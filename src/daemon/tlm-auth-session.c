@@ -77,8 +77,8 @@ static void
 _auth_session_stop (TlmAuthSession *auth_session)
 {
     int res;
-    g_return_val_if_fail (auth_session &&
-                TLM_IS_AUTH_SESSION (auth_session), FALSE);
+    g_return_if_fail (auth_session &&
+                TLM_IS_AUTH_SESSION (auth_session));
 
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 

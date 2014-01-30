@@ -4,8 +4,7 @@ bin_PROGRAMS = tlm-ui
 
 tlm_ui_SOURCES = tlm-ui.c
 tlm_ui_CPPFLAGS = \
-    -I$(top_builddir)/src/common \
-    -I$(top_srcdir)/src/common \
+    -I$(top_srcdir)/src \
     $(GLIB_CFLAGS) \
     $(GIO_CFLAGS) \
     $(GMODULE_CFLAGS) \
@@ -17,6 +16,8 @@ tlm_ui_LDADD = \
     $(GIO_LIBS) \
     $(GMODULE_LIBS) \
     $(ELEMENTARY_LIBS) \
-	$(DEPS_LIBS)
+    $(DEPS_LIBS) \
+    $(top_builddir)/src/daemon/tlm-tlm-utils.o \
+    $(top_builddir)/src/common/dbus/libtlm-dbus-glue.la
 
 CLEANFILES = *.gcno *.gcda

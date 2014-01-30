@@ -29,7 +29,7 @@
 #include <config.h>
 #include <glib.h>
 #include "common/dbus/tlm-dbus-login-gen.h"
-#include "tlm-dbus-server-interface.h"
+#include "tlm-dbus-server-p2p.h"
 
 G_BEGIN_DECLS
 
@@ -70,7 +70,8 @@ GType tlm_dbus_login_adapter_get_type (void) G_GNUC_CONST;
 
 TlmDbusLoginAdapter *
 tlm_dbus_login_adapter_new_with_connection (
-        GDBusConnection *connection);
+        GDBusConnection *connection,
+        TlmDbusServerP2P *server);
 
 G_END_DECLS
 

@@ -49,6 +49,16 @@ enum
     N_PROPERTIES
 };
 
+enum {
+    SIG_LOGIN_USER,
+    SIG_LOGOUT_USER,
+    SIG_SWITCH_USER,
+
+    SIG_MAX
+};
+
+static guint signals[SIG_MAX];
+
 struct _TlmDbusServerP2PPrivate
 {
     GHashTable *login_object_adapters;
@@ -177,13 +187,6 @@ _dispose (
 {
     TlmDbusServerP2P *self = TLM_DBUS_SERVER_P2P (object);
 
-    if (self->priv->login_object_adapters) {
-        g_hash_table_foreach (self->priv->login_object_adapters,
-                _clear_login_object_watchers, self);
-        g_hash_table_unref (self->priv->login_object_adapters);
-        self->priv->login_object_adapters = NULL;
-    }
-
     _tlm_dbus_server_p2p_stop (TLM_DBUS_SERVER (self));
 
     G_OBJECT_CLASS (tlm_dbus_server_p2p_parent_class)->dispose (object);
@@ -229,6 +232,45 @@ tlm_dbus_server_p2p_class_init (
             G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
             G_PARAM_STATIC_STRINGS);
     g_object_class_install_property (object_class, PROP_ADDRESS, address_spec);
+
+    signals[SIG_LOGIN_USER] = g_signal_new ("login-user",
+            TLM_TYPE_DBUS_SERVER_P2P,
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            NULL,
+            G_TYPE_NONE,
+            4,
+            G_TYPE_STRING,
+            G_TYPE_STRING,
+            G_TYPE_STRING,
+            G_TYPE_VARIANT);
+
+    signals[SIG_LOGOUT_USER] = g_signal_new ("logout-user",
+            TLM_TYPE_DBUS_SERVER_P2P,
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            NULL,
+            G_TYPE_NONE,
+            1,
+            G_TYPE_STRING);
+
+    signals[SIG_SWITCH_USER] = g_signal_new ("switch-user",
+            TLM_TYPE_DBUS_SERVER_P2P,
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            NULL,
+            G_TYPE_NONE,
+            4,
+            G_TYPE_STRING,
+            G_TYPE_STRING,
+            G_TYPE_STRING,
+            G_TYPE_VARIANT);
 }
 
 static void
@@ -255,7 +297,7 @@ _on_connection_closed (
             server->priv->login_object_adapters, connection);
     if  (login_object) {
         _clear_login_object_watchers (connection, login_object, user_data);
-        DBG("P2P dbus connection(%p) user service closed (peer vanished : %d)"
+        DBG("P2P dbus connection(%p) closed (peer vanished : %d)"
                 " with error: %s", connection, remote_peer_vanished,
                 error ? error->message : "NONE");
         g_hash_table_remove (server->priv->login_object_adapters, connection);
@@ -272,7 +314,7 @@ _tlm_dbus_server_p2p_add_login_obj (
     DBG("Export interfaces on connection %p", connection);
 
     login_object = tlm_dbus_login_adapter_new_with_connection (
-            g_object_ref (connection));
+            g_object_ref (connection), server);
     _add_login_object_watchers (connection, login_object, server);
 }
 
@@ -341,11 +383,18 @@ _tlm_dbus_server_p2p_stop (
 {
     g_return_val_if_fail (TLM_IS_DBUS_SERVER_P2P (self), FALSE);
 
-    DBG("Stop P2P DBus Server");
-
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (self);
 
+    if (server->priv->login_object_adapters) {
+        DBG("Cleanup watchers");
+        g_hash_table_foreach (server->priv->login_object_adapters,
+                _clear_login_object_watchers, server);
+        g_hash_table_unref (server->priv->login_object_adapters);
+        server->priv->login_object_adapters = NULL;
+    }
+
     if (server->priv->bus_server) {
+        DBG("Stop P2P DBus Server");
         if (g_dbus_server_is_active (server->priv->bus_server))
             g_dbus_server_stop (server->priv->bus_server);
         g_object_unref (server->priv->bus_server);
@@ -392,6 +441,56 @@ _tlm_dbus_server_p2p_interface_init (
     iface->get_remote_pid = _tlm_dbus_server_p2p_get_remote_pid;
 }
 
+gboolean
+tlm_dbus_server_p2p_handle_login_user (
+        TlmDbusServerP2P *server,
+        const gchar *seat_id,
+        const gchar *username,
+        const gchar *password,
+        const GVariant *environ,
+        GError **error)
+{
+    DBG ("");
+    g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
+            FALSE);
+
+    g_signal_emit (server, signals[SIG_LOGIN_USER], 0, seat_id, username,
+            password, environ);
+    return TRUE;
+}
+
+gboolean
+tlm_dbus_server_p2p_handle_logout_user (
+        TlmDbusServerP2P *server,
+        const gchar *seat_id,
+        GError **error)
+{
+    DBG ("");
+    g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
+            FALSE);
+
+    g_signal_emit (server, signals[SIG_LOGOUT_USER], 0, seat_id);
+    return TRUE;
+}
+
+gboolean
+tlm_dbus_server_p2p_handle_switch_user (
+        TlmDbusServerP2P *server,
+        const gchar *seat_id,
+        const gchar *username,
+        const gchar *password,
+        const GVariant *environ,
+        GError **error)
+{
+    DBG ("");
+    g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
+            FALSE);
+
+    g_signal_emit (server, signals[SIG_SWITCH_USER], 0, seat_id, username,
+            password, environ);
+    return TRUE;
+}
+
 const gchar *
 tlm_dbus_server_p2p_get_address (
         TlmDbusServerP2P *server)
@@ -423,12 +522,12 @@ tlm_dbus_server_p2p_new (
         }
         gchar *base_path = g_path_get_dirname (file_path);
 
-        if (g_mkdir_with_parents (base_path, S_IRUSR |S_IWUSR |S_IXUSR) == -1) {
+        if (g_mkdir_with_parents (base_path,
+                S_IRUSR |S_IWUSR |S_IXUSR |S_IXGRP |S_IXOTH) == -1) {
             WARN ("Could not create '%s', error: %s", base_path,
                     strerror(errno));
         }
         g_free (base_path);
-
     }
 
     return server;

@@ -15,6 +15,7 @@ libtlm_plugin_la_SOURCES = \
 	tlm-account-plugin.c \
 	tlm-auth-plugin.c \
 	tlm-log.c \
+	tlm-error.c \
 	tlm-config.c \
 	$(NULL)
 

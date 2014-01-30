@@ -32,6 +32,7 @@ m4/
 src/tlm-plugin-types.*
 examples/tlm-ui
 data/tlm.conf
+tests/tlm-test.conf
 src/daemon/tlm
 tests/config/configtest
 tests/daemon/daemontest

@@ -40,6 +40,7 @@
 #include "common/tlm-log.h"
 #include "common/tlm-config.h"
 #include "common/dbus/tlm-dbus-login-gen.h"
+#include "daemon/tlm-utils.h"
 
 static gchar *exe_name = 0;
 static GPid daemon_pid = 0;
@@ -92,8 +93,22 @@ _teardown_daemon (void)
     if (daemon_pid) kill (daemon_pid, SIGTERM);
 }
 
+
 GDBusConnection *
 _get_bus_connection (
+        const gchar *seat_id,
+        GError **error)
+{
+    /* get dbus connection for specific user only */
+    gchar address[128];
+    g_snprintf (address, 127, "unix:path=%s/%s", TLM_DBUS_SOCKET_PATH,
+            seat_id);
+    return g_dbus_connection_new_for_address_sync (address,
+            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
+}
+
+GDBusConnection *
+_get_root_socket_bus_connection (
         GError **error)
 {
     gchar address[128];
@@ -108,7 +123,101 @@ _get_login_object (
         GError **error)
 {
     return tlm_dbus_login_proxy_new_sync (connection, G_DBUS_PROXY_FLAGS_NONE,
-            TLM_SERVICE, TLM_LOGIN_OBJECTPATH, NULL, error);
+            NULL, TLM_LOGIN_OBJECTPATH, NULL, error);
+}
+
+
+static GVariant *
+_get_session_property (
+        GDBusProxy *proxy,
+        const gchar *object_path,
+        const gchar *prop_key)
+{
+    GError *error = NULL;
+    GVariant *result = NULL;
+    GVariant *prop_value = NULL;
+
+    result = g_dbus_connection_call_sync (
+            g_dbus_proxy_get_connection (proxy),
+            g_dbus_proxy_get_name (proxy),
+            object_path,
+            "org.freedesktop.DBus.Properties",
+            "GetAll",
+            g_variant_new ("(s)",  "org.freedesktop.login1.Session"),
+            G_VARIANT_TYPE ("(a{sv})"),
+            G_DBUS_CALL_FLAGS_NONE,
+            -1,
+            NULL,
+            &error);
+    if (error) {
+        WARN ("Failed with error %d:%s", error->code, error->message);
+        g_error_free (error);
+        error = NULL;
+        return NULL;
+    }
+
+    if (g_variant_is_of_type (result, G_VARIANT_TYPE ("(a{sv})"))) {
+        GVariantIter *iter = NULL;
+        GVariant *item = NULL;
+        g_variant_get (result, "(a{sv})",  &iter);
+        while ((item = g_variant_iter_next_value (iter)))  {
+            gchar *key;
+            GVariant *value;
+            g_variant_get (item, "{sv}", &key, &value);
+            if (g_strcmp0 (key, prop_key) == 0) {
+                prop_value = value;
+                g_free (key); key = NULL;
+                break;
+            }
+            g_free (key); key = NULL;
+            g_variant_unref (value); value = NULL;
+        }
+    }
+    g_variant_unref (result);
+    return prop_value;
+}
+
+static GVariant *
+_get_property (
+        const gchar *prop_key)
+{
+    GError *error = NULL;
+    GDBusProxy *proxy = NULL;
+    GVariant *res = NULL;
+    GVariant *prop_value = NULL;
+
+    GDBusConnection *connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL,
+            &error);
+    if (error) goto _finished;
+
+    proxy = g_dbus_proxy_new_sync (connection,
+            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES, NULL,
+            "org.freedesktop.login1", //destintation
+            "/org/freedesktop/login1", //path
+            "org.freedesktop.login1.Manager", //interface
+            NULL, &error);
+    if (error) goto _finished;
+
+    res = g_dbus_proxy_call_sync (proxy, "GetSessionByPID",
+            g_variant_new ("(u)", getpid()), G_DBUS_CALL_FLAGS_NONE, -1,
+            NULL, &error);
+    if (res) {
+        gchar *obj_path = NULL;
+        g_variant_get (res, "(o)", &obj_path);
+        prop_value = _get_session_property (proxy, obj_path, prop_key);
+        g_variant_unref (res); res = NULL;
+        g_free (obj_path);
+    }
+
+_finished:
+    if (error) {
+        DBG ("failed to listen for login events: %s", error->message);
+        g_error_free (error);
+    }
+    if (proxy) g_object_unref (proxy);
+    if (connection) g_object_unref (connection);
+
+    return prop_value;
 }
 
 /*
@@ -120,14 +229,35 @@ START_TEST (test_login_user)
     GError *error = NULL;
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
+    GHashTable *environ = NULL;
+    GVariant *venv = NULL;
+    GVariant *vseat = NULL;
+    gchar *seat = NULL;
 
-    connection = _get_bus_connection (&error);
+    vseat = _get_property ("Seat");
+    fail_if (vseat == NULL);
+    g_variant_get (vseat, "(so)", &seat, NULL);
+    g_variant_unref (vseat);
+
+    connection = _get_bus_connection (seat, &error);
     fail_if (connection == NULL, "failed to get bus connection : %s",
             error ? error->message : "(null)");
+    g_free (seat);
 
     login_object = _get_login_object (connection, &error);
     fail_if (login_object == NULL, "failed to get login object: %s",
             error ? error->message : "");
+
+    environ = g_hash_table_new_full ((GHashFunc)g_str_hash,
+            (GEqualFunc)g_str_equal,
+            (GDestroyNotify)g_free,
+            (GDestroyNotify)g_free);
+    venv = tlm_utils_hash_table_to_variant (environ);
+
+    g_hash_table_unref (environ);
+
+    fail_if (tlm_dbus_login_call_login_user_sync (login_object,
+            "seat0", "test0", "test1", venv, NULL, &error) == FALSE);
 
     if (error) {
         g_error_free (error);

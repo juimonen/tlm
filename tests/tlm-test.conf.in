@@ -1,0 +1,49 @@
+#
+# Example configuration for tlm.
+#
+
+#
+# This group contains top-level settings.
+#
+[General]
+#
+# Name of the account plugin to use to manage(add/remove) guest user accounts
+ACCOUNTS_PLUGIN=@ACCOUNT_PLUGIN_NAME@
+#
+# Auto-login default user
+# Default: off
+AUTO_LOGIN=0
+#
+# Prepare default/guest users before auto-login
+# Default: off
+PREPARE_DEFAULT=1
+#
+# PAM service file to use
+PAM_SERVICE=tlm-login
+#
+# Default (guest) username or template to use
+#  %S - seat number
+#  %I - seat id string
+# Default: "guest"
+#DEFAULT_USER=guest
+#
+# Session command : The command run after successfull login
+# Default: $SHELL
+# In case shell is not defined in /etc/passwd fallback is "systemd --user"
+#SESSION_CMD=systemd --user
+#
+# Setup terminal for session
+# Default: on
+SETUP_TERMINAL=0
+#
+#
+# Seat specific settings where the group name is seat id
+#[seat0]
+#DEFAULT_USER=guest_%S
+#
+#
+# plugin specific settings.
+#
+#[pluginname]
+#
+
