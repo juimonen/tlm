@@ -77,11 +77,13 @@ static void
 _auth_session_stop (TlmAuthSession *auth_session)
 {
     int res;
+
     g_return_if_fail (auth_session &&
                 TLM_IS_AUTH_SESSION (auth_session));
 
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
+    g_return_if_fail (priv->pam_handle);
     res = pam_setcred (priv->pam_handle, PAM_DELETE_CRED);
     if (res != PAM_SUCCESS) {
         WARN ("Failed to remove credentials from pam session: %s",
