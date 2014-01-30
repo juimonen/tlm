@@ -40,10 +40,28 @@
 #define UID_MAX "UID_MAX"
 #define TLM_LOGINDEFS_PATH "/etc/login.defs"
 
-static Evas_Object *user_label = NULL;
-static gboolean use_nfc_tag = FALSE;
-static Evas_Object *username_entry = NULL;
-static Evas_Object *password_entry = NULL;
+typedef enum {
+    TLM_UI_REQUEST_NONE = 0,
+    TLM_UI_REQUEST_LOGIN,
+    TLM_UI_REQUEST_LOGOUT,
+    TLM_UI_REQUEST_SWITCH_USER
+} RequestType;
+
+typedef struct {
+    Evas_Object *win;
+    Evas_Object *user_label;
+    gboolean use_nfc_tag;
+} MainWindow;
+
+typedef struct {
+    Evas_Object *dialog;
+    Evas_Object *username_entry;
+    Evas_Object *password_entry;
+    RequestType req_type;
+} MainDialog;
+
+static MainWindow *main_window = NULL;
+static MainDialog *main_dialog = NULL;
 
 GDBusConnection *
 _get_bus_connection (
@@ -171,6 +189,76 @@ _finished:
     return prop_value;
 }
 
+static void
+_trigger_dbus_request (
+        RequestType req_type,
+        const gchar *username,
+        const gchar *password)
+{
+    GError *error = NULL;
+    GDBusConnection *connection = NULL;
+    TlmDbusLogin *login_object = NULL;
+    GHashTable *environ = NULL;
+    GVariant *venv = NULL;
+    gchar *seat = NULL;
+    GVariant *vseat = NULL;
+
+    vseat = _get_property ("Seat");
+    if (!vseat) {
+        WARN ("No seat property exists");
+        goto _finished;
+    }
+    g_variant_get (vseat, "(so)", &seat, NULL);
+    g_variant_unref (vseat);
+
+    environ = g_hash_table_new_full ((GHashFunc)g_str_hash,
+            (GEqualFunc)g_str_equal,
+            (GDestroyNotify)g_free,
+            (GDestroyNotify)g_free);
+    venv = tlm_utils_hash_table_to_variant (environ);
+    g_hash_table_unref (environ);
+
+    switch (req_type) {
+    case TLM_UI_REQUEST_LOGIN: //root socket
+        connection = _get_root_socket_bus_connection (&error);
+        if (error) goto _finished;
+        break;
+    case TLM_UI_REQUEST_LOGOUT:
+    case TLM_UI_REQUEST_SWITCH_USER: //normal user socket
+       connection = _get_bus_connection (seat, &error);
+       if (error) goto _finished;
+        break;
+    }
+
+    login_object = _get_login_object (connection, &error);
+    if (error) goto _finished;
+
+    switch (req_type) {
+    case TLM_UI_REQUEST_LOGIN:
+        tlm_dbus_login_call_login_user_sync (login_object, seat, username,
+                password, venv, NULL, &error);
+        break;
+    case TLM_UI_REQUEST_LOGOUT:
+        tlm_dbus_login_call_logout_user_sync (login_object, seat, NULL, &error);
+        break;
+   case TLM_UI_REQUEST_SWITCH_USER:
+        tlm_dbus_login_call_switch_user_sync (login_object, seat, username,
+                password, venv, NULL, &error);
+        break;
+    }
+
+_finished:
+    g_free (seat);
+
+    if (error) {
+        DBG("Error %d:%s", error->code, error->message);
+        g_error_free (error);
+        error = NULL;
+    }
+    if (login_object) g_object_unref (login_object);
+    if (connection) g_object_unref (connection);
+}
+
 static Evas_Object*
 _add_entry (
         Evas_Object *window,
@@ -203,14 +291,13 @@ _add_entry (
 }
 
 static void
-_close_dialog (
-        Evas_Object *dialog)
+_close_dialog ()
 {
-    if (dialog) {
-        evas_object_hide (dialog);
-        username_entry = NULL;
-        password_entry = NULL;
+    if (main_dialog && main_dialog->dialog) {
+        evas_object_hide (main_dialog->dialog);
     }
+    g_free (main_dialog);
+    main_dialog = NULL;
 }
 
 static void
@@ -219,8 +306,7 @@ _on_close_dialog_clicked (
         Evas_Object *obj,
         void *event_info)
 {
-    Evas_Object *dialog = data;
-    _close_dialog (dialog);
+    _close_dialog ();
 }
 
 static void
@@ -229,100 +315,25 @@ _on_ok_dialog_clicked (
         Evas_Object *obj,
         void *event_info)
 {
-    GError *error = NULL;
-    GDBusConnection *connection = NULL;
-    TlmDbusLogin *login_object = NULL;
     const gchar *username = NULL;
     const gchar *password = NULL;
-    Evas_Object *dialog = data;
-    GHashTable *environ = NULL;
-    GVariant *venv = NULL;
-    gchar *seat = NULL;
-    GVariant *vseat = NULL;
 
-    if (username_entry) username = elm_entry_entry_get (username_entry);
-    if (password_entry) password = elm_entry_entry_get (password_entry);
+    if (main_dialog) {
+        RequestType req_type = main_dialog->req_type;
+        if (main_dialog->username_entry)
+            username = elm_entry_entry_get (main_dialog->username_entry);
+        if (main_dialog->password_entry)
+            password = elm_entry_entry_get (main_dialog->password_entry);
 
-    _close_dialog (dialog);
+        _close_dialog ();
 
-    if (!username || !password) {
-        WARN ("Invalid username/password");
-        goto _finished;
+        if (!username || !password) {
+            WARN ("Invalid username/password");
+            return;
+        }
+
+        _trigger_dbus_request (req_type, username, password);
     }
-
-    vseat = _get_property ("Seat");
-    if (!vseat) {
-        WARN ("No seat property exists");
-        goto _finished;
-    }
-    g_variant_get (vseat, "(so)", &seat, NULL);
-    g_variant_unref (vseat);
-
-    connection = _get_bus_connection (seat, &error);
-    if (error) goto _finished;
-
-    login_object = _get_login_object (connection, &error);
-    if (error) goto _finished;
-    environ = g_hash_table_new_full ((GHashFunc)g_str_hash,
-                (GEqualFunc)g_str_equal,
-                (GDestroyNotify)g_free,
-                (GDestroyNotify)g_free);
-    venv = tlm_utils_hash_table_to_variant (environ);
-    g_hash_table_unref (environ);
-
-    tlm_dbus_login_call_switch_user_sync (login_object, seat, username,
-            password, venv, NULL, &error);
-
-_finished:
-    g_free (seat);
-
-    if (error) {
-        DBG("Error %d:%s", error->code, error->message);
-        g_error_free (error);
-        error = NULL;
-    }
-    if (login_object) g_object_unref (login_object);
-    if (connection) g_object_unref (connection);
-}
-
-static void
-_on_logout_clicked (
-        void *data,
-        Evas_Object *obj,
-        void *event_info)
-{
-    GError *error = NULL;
-    GDBusConnection *connection = NULL;
-    TlmDbusLogin *login_object = NULL;
-    GVariant *vseat = NULL;
-    gchar *seat = NULL;
-
-    vseat = _get_property ("Seat");
-    if (!vseat) {
-        WARN ("No seat property exists");
-        goto _finished;
-    }
-    g_variant_get (vseat, "(so)", &seat, NULL);
-    g_variant_unref (vseat);
-
-    connection = _get_bus_connection (seat, &error);
-    if (error) goto _finished;
-
-    login_object = _get_login_object (connection, &error);
-    if (error) goto _finished;
-
-    tlm_dbus_login_call_logout_user_sync (login_object, seat, NULL, &error);
-
-_finished:
-    g_free (seat);
-
-    if (error) {
-        DBG("Error %d:%s", error->code, error->message);
-        g_error_free (error);
-        error = NULL;
-    }
-    if (login_object) g_object_unref (login_object);
-    if (connection) g_object_unref (connection);
 }
 
 static Evas_Object *
@@ -333,12 +344,15 @@ _create_nfc_dialog (
     Evas_Object *button_frame, *pad_frame, *button_box;
     Evas_Object *ok_button;
 
+    main_dialog = g_malloc (sizeof (MainDialog));
+
     /* main window */
     dialog = elm_win_add (NULL, "dialog", ELM_WIN_BASIC);
     elm_win_title_set (dialog, "Show NFC tag");
     elm_win_center (dialog, EINA_TRUE, EINA_TRUE);
     evas_object_smart_callback_add (dialog, "delete,request",
             _on_close_dialog_clicked, dialog);
+    main_dialog->dialog = dialog;
 
     /* window background */
     bg = elm_bg_add (dialog);
@@ -418,12 +432,16 @@ _create_dialog (
     Evas_Object *button_frame, *pad_frame, *button_box;
     Evas_Object *cancel_button, *ok_button;
 
+    g_free (main_dialog);
+    main_dialog = g_malloc (sizeof (MainDialog));
+
     /* main window */
     dialog = elm_win_add (NULL, "dialog", ELM_WIN_BASIC);
     elm_win_title_set (dialog, "Enter user password");
     elm_win_center (dialog, EINA_TRUE, EINA_TRUE);
     evas_object_smart_callback_add (dialog, "delete,request",
             _on_close_dialog_clicked, dialog);
+    main_dialog->dialog = dialog;
 
     /* window background */
     bg = elm_bg_add (dialog);
@@ -453,13 +471,14 @@ _create_dialog (
     evas_object_show (content_box);
     elm_object_part_content_set (frame, NULL, content_box);
 
-    username_entry = _add_entry (dialog, content_box, "Username:");
-    elm_entry_entry_set (username_entry, username);
-    elm_entry_editable_set (username_entry, EINA_FALSE);
+    main_dialog->username_entry = _add_entry (dialog, content_box, "Username:");
+    if (username) elm_entry_entry_set (main_dialog->username_entry, username);
+    elm_entry_editable_set (main_dialog->username_entry,
+            username? EINA_FALSE : EINA_TRUE);
 
-    password_entry = _add_entry (dialog, content_box, "Password:");
-    elm_entry_password_set (password_entry, EINA_TRUE);
-    elm_entry_editable_set (password_entry, EINA_TRUE);
+    main_dialog->password_entry = _add_entry (dialog, content_box, "Password:");
+    elm_entry_password_set (main_dialog->password_entry, EINA_TRUE);
+    elm_entry_editable_set (main_dialog->password_entry, EINA_TRUE);
 
     button_frame = elm_frame_add (dialog);
     elm_object_style_set (button_frame, "outdent_bottom");
@@ -488,7 +507,7 @@ _create_dialog (
     evas_object_size_hint_align_set (cancel_button,
             EVAS_HINT_FILL, EVAS_HINT_FILL);
     evas_object_smart_callback_add (cancel_button, "clicked",
-            _on_ok_dialog_clicked, dialog);
+            _on_close_dialog_clicked, dialog);
     evas_object_show (cancel_button);
     elm_box_pack_end (button_box, cancel_button);
 
@@ -518,23 +537,29 @@ _set_list_title (
 }
 
 static void
-_on_selected (
+_on_dialog_request (
         void *data,
         Evas_Object *obj,
-        void *event_info)
+        void *event_info,
+        RequestType req_type)
 {
     Elm_Object_Item *item = event_info;
+    Evas_Object *dialog = NULL;
+    const gchar *username = NULL;
+
+    _close_dialog ();
     if (item) {
-        Evas_Object *dialog = NULL;
         DBG("%s", elm_object_item_text_get(item));
         _set_list_title (obj, item);
-        if (use_nfc_tag)
-            dialog = _create_nfc_dialog (elm_object_item_text_get(item));
-        else
-            dialog = _create_dialog (elm_object_item_text_get(item));
-        if (dialog) {
-            evas_object_show (dialog);
-        }
+        username = elm_object_item_text_get(item);
+    }
+    if (main_window->use_nfc_tag)
+        dialog = _create_nfc_dialog (username);
+    else
+        dialog = _create_dialog (username);
+    if (dialog) {
+        evas_object_show (dialog);
+        main_dialog->req_type = req_type;
     }
 }
 
@@ -544,8 +569,8 @@ _on_cbox_changed (
         Evas_Object *obj,
         void *event_info)
 {
-    use_nfc_tag = *((Eina_Bool*)data);
-    DBG("Use NFC tag : %d", use_nfc_tag);
+    main_window->use_nfc_tag = *((Eina_Bool*)data);
+    DBG("Use NFC tag : %d", main_window->use_nfc_tag);
 }
 
 static void
@@ -620,7 +645,7 @@ _add_checkbox (
         Evas_Object *win)
 {
     Evas_Object *box = NULL, *checkbox;
-    Eina_Bool value = EINA_FALSE;
+    Eina_Bool value = main_window->use_nfc_tag;
 
     box = elm_box_add (win);
     evas_object_size_hint_weight_set (box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
@@ -637,6 +662,15 @@ _add_checkbox (
     evas_object_show(checkbox);
 
     return box;
+}
+
+static void
+_on_switch_user_clicked (
+        void *data,
+        Evas_Object *obj,
+        void *event_info)
+{
+    _on_dialog_request (data, obj, event_info, TLM_UI_REQUEST_SWITCH_USER);
 }
 
 static Evas_Object *
@@ -661,7 +695,8 @@ _add_user_list (
 
     _populate_users (users_list);
 
-    evas_object_smart_callback_add(users_list, "selected", _on_selected, NULL);
+    evas_object_smart_callback_add(users_list, "selected",
+            _on_switch_user_clicked, NULL);
     elm_box_pack_end (box, users_list);
 
     evas_object_show(users_list);
@@ -681,8 +716,55 @@ _add_user_list (
     return box;
 }
 
+static void
+_on_login_user_clicked (
+        void *data,
+        Evas_Object *obj,
+        void *event_info)
+{
+    _on_dialog_request (data, obj, event_info, TLM_UI_REQUEST_LOGIN);
+}
+
 static Evas_Object *
-_add_loggedin_box (
+_add_login_box (
+        Evas_Object *win)
+{
+    Evas_Object *box = NULL, *label, *login_button;
+    Eina_Bool value;
+
+    box = elm_box_add (win);
+    evas_object_size_hint_weight_set (box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+    evas_object_show (box);
+    elm_win_resize_object_add (win, box);
+    elm_box_horizontal_set (box, EINA_TRUE);
+    evas_object_size_hint_align_set (box, 0.1, 0.0);
+
+    /* login button */
+    login_button = elm_button_add (win);
+    elm_object_text_set (login_button, "Login");
+    evas_object_size_hint_weight_set (login_button,
+            EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+    evas_object_size_hint_align_set (login_button,
+            EVAS_HINT_FILL, EVAS_HINT_FILL);
+    evas_object_smart_callback_add (login_button, "clicked",
+            _on_login_user_clicked, win);
+    elm_box_pack_end (box, login_button);
+    evas_object_show (login_button);
+
+    return box;
+}
+
+static void
+_on_logout_user_clicked (
+        void *data,
+        Evas_Object *obj,
+        void *event_info)
+{
+    _trigger_dbus_request (TLM_UI_REQUEST_LOGOUT, NULL, NULL);
+}
+
+static Evas_Object *
+_add_logout_box (
         Evas_Object *win)
 {
     Evas_Object *box = NULL, *label, *logout_button;
@@ -703,7 +785,7 @@ _add_loggedin_box (
     evas_object_size_hint_align_set (logout_button,
             EVAS_HINT_FILL, EVAS_HINT_FILL);
     evas_object_smart_callback_add (logout_button, "clicked",
-            _on_logout_clicked, win);
+            _on_logout_user_clicked, win);
     elm_box_pack_end (box, logout_button);
     evas_object_show (logout_button);
 
@@ -712,9 +794,9 @@ _add_loggedin_box (
     elm_box_pack_end (box, label);
     evas_object_show(label);
 
-    user_label = elm_label_add(win);
-    elm_box_pack_end (box, user_label);
-    evas_object_show(user_label);
+    main_window->user_label = elm_label_add(win);
+    elm_box_pack_end (box, main_window->user_label);
+    evas_object_show(main_window->user_label);
 
     return box;
 }
@@ -723,8 +805,9 @@ static void
 _set_loggedin_username ()
 {
     GVariant *vusername = _get_property ("Name");
-    if (vusername && user_label) {
-        elm_object_text_set(user_label, g_variant_get_string (vusername, NULL));
+    if (vusername && main_window->user_label) {
+        elm_object_text_set(main_window->user_label,
+                g_variant_get_string (vusername, NULL));
     }
     if (vusername) g_variant_unref (vusername);
 }
@@ -734,7 +817,7 @@ elm_main (
         int argc,
         char **argv)
 {
-    Evas_Object *win, *bg, *box, *loggedin, *ulist;
+    Evas_Object *win, *bg, *box, *logout, *ulist, *login;
 
 #if !GLIB_CHECK_VERSION (2, 36, 0)
     g_type_init ();
@@ -747,6 +830,11 @@ elm_main (
     evas_object_resize(win, 500, 400);
     evas_object_show(win);
 
+    main_window = g_malloc (sizeof(MainWindow));
+    main_window->win = win;
+    main_window->use_nfc_tag = FALSE;
+    main_window->user_label = NULL;
+
     //background
     bg = elm_bg_add(win);
     evas_object_size_hint_weight_set(bg, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
@@ -758,17 +846,23 @@ elm_main (
     evas_object_show (box);
     elm_win_resize_object_add (win, box);
 
+    login = _add_login_box (win);
+    elm_box_pack_end (box, login);
+
     ulist = _add_user_list (win);
     elm_box_pack_end (box, ulist);
 
-    loggedin = _add_loggedin_box (win);
-    elm_box_pack_end (box, loggedin);
+    logout = _add_logout_box (win);
+    elm_box_pack_end (box, logout);
 
     _set_loggedin_username ();
 
     // run the mainloop and process events and callbacks
     elm_run();
     elm_shutdown();
+
+    g_free (main_window);
+
     return 0;
 }
 ELM_MAIN()
