@@ -34,7 +34,7 @@ g_clear_string (gchar **str)
 {
     if (str && *str) {
         g_free (*str);
-        str = NULL;
+        *str = NULL;
     }
 }
 

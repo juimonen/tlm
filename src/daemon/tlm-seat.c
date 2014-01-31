@@ -476,21 +476,23 @@ tlm_seat_create_session (TlmSeat *seat,
                        0,
                        default_user);
     }
-    if (!priv->session) {
-        priv->session =
-            tlm_session_new (priv->config,
-                             priv->id,
-                             service,
-                             default_user ? default_user : username,
-                             password,
-                             environment,
-                             priv->notify_fd[1]);
-    }
+
+    priv->session = tlm_session_new (priv->config,
+            priv->id,
+            service,
+            default_user ? default_user : username,
+            password,
+            environment,
+            priv->notify_fd[1]);
     if (!priv->session)
         return FALSE;
 
+    if (!_start_dbus (seat, default_user ? default_user : username)) {
+        tlm_seat_terminate_session (seat);
+        return FALSE;
+    }
 
-    return _start_dbus (seat, default_user ? default_user : username);
+    return TRUE;
 }
 
 gboolean
