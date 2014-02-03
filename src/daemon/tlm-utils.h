@@ -50,11 +50,8 @@ tlm_user_get_home_dir (const gchar *username);
 const gchar *
 tlm_user_get_shell (const gchar *username);
 
-GVariant *
-tlm_utils_hash_table_to_variant (GHashTable *dict);
-
-GHashTable *
-tlm_utils_hash_table_from_variant (GVariant *variant);
+gboolean
+tlm_utils_delete_dir (const gchar *dir);
 
 G_END_DECLS
 

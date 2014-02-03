@@ -37,7 +37,6 @@
 #include "tlm-dbus-server-p2p.h"
 #include "tlm-dbus-server-interface.h"
 #include "tlm-dbus-login-adapter.h"
-#include "daemon/tlm-utils.h"
 
 enum
 {
@@ -50,9 +49,8 @@ enum
 };
 
 enum {
-    SIG_LOGIN_USER,
-    SIG_LOGOUT_USER,
-    SIG_SWITCH_USER,
+    SIG_CLIENT_ADDED,
+    SIG_CLIENT_REMOVED,
 
     SIG_MAX
 };
@@ -233,21 +231,7 @@ tlm_dbus_server_p2p_class_init (
             G_PARAM_STATIC_STRINGS);
     g_object_class_install_property (object_class, PROP_ADDRESS, address_spec);
 
-    signals[SIG_LOGIN_USER] = g_signal_new ("login-user",
-            TLM_TYPE_DBUS_SERVER_P2P,
-            G_SIGNAL_RUN_LAST,
-            0,
-            NULL,
-            NULL,
-            NULL,
-            G_TYPE_NONE,
-            4,
-            G_TYPE_STRING,
-            G_TYPE_STRING,
-            G_TYPE_STRING,
-            G_TYPE_VARIANT);
-
-    signals[SIG_LOGOUT_USER] = g_signal_new ("logout-user",
+    signals[SIG_CLIENT_ADDED] = g_signal_new ("client-added",
             TLM_TYPE_DBUS_SERVER_P2P,
             G_SIGNAL_RUN_LAST,
             0,
@@ -256,9 +240,9 @@ tlm_dbus_server_p2p_class_init (
             NULL,
             G_TYPE_NONE,
             1,
-            G_TYPE_STRING);
+            TLM_TYPE_LOGIN_ADAPTER);
 
-    signals[SIG_SWITCH_USER] = g_signal_new ("switch-user",
+    signals[SIG_CLIENT_REMOVED] = g_signal_new ("client-removed",
             TLM_TYPE_DBUS_SERVER_P2P,
             G_SIGNAL_RUN_LAST,
             0,
@@ -266,11 +250,8 @@ tlm_dbus_server_p2p_class_init (
             NULL,
             NULL,
             G_TYPE_NONE,
-            4,
-            G_TYPE_STRING,
-            G_TYPE_STRING,
-            G_TYPE_STRING,
-            G_TYPE_VARIANT);
+            1,
+            TLM_TYPE_LOGIN_ADAPTER);
 }
 
 static void
@@ -297,9 +278,11 @@ _on_connection_closed (
             server->priv->login_object_adapters, connection);
     if  (login_object) {
         _clear_login_object_watchers (connection, login_object, user_data);
-        DBG("P2P dbus connection(%p) closed (peer vanished : %d)"
+        DBG("p2p dbus connection(%p) closed (peer vanished : %d)"
                 " with error: %s", connection, remote_peer_vanished,
                 error ? error->message : "NONE");
+
+        g_signal_emit (server, signals[SIG_CLIENT_REMOVED], 0, login_object);
         g_hash_table_remove (server->priv->login_object_adapters, connection);
     }
 }
@@ -311,11 +294,13 @@ _tlm_dbus_server_p2p_add_login_obj (
 {
     TlmDbusLoginAdapter *login_object = NULL;
 
-    DBG("Export interfaces on connection %p", connection);
+    DBG("export interfaces on connection %p", connection);
 
     login_object = tlm_dbus_login_adapter_new_with_connection (
-            g_object_ref (connection), server);
+            g_object_ref (connection));
+
     _add_login_object_watchers (connection, login_object, server);
+    g_signal_emit (server, signals[SIG_CLIENT_ADDED], 0, login_object);
 }
 
 static gboolean
@@ -339,7 +324,7 @@ _tlm_dbus_server_p2p_start (
 {
     g_return_val_if_fail (TLM_IS_DBUS_SERVER_P2P (self), FALSE);
 
-    DBG("Start P2P DBus Server");
+    DBG("start P2P DBus Server");
 
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (self);
     if (!server->priv->bus_server) {
@@ -372,7 +357,7 @@ _tlm_dbus_server_p2p_start (
             g_chmod (path, S_IRUSR | S_IWUSR);
         }
     }
-    DBG("Dbus server started at : %s", server->priv->address);
+    DBG("dbus server started at : %s", server->priv->address);
 
     return TRUE;
 }
@@ -386,7 +371,7 @@ _tlm_dbus_server_p2p_stop (
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (self);
 
     if (server->priv->login_object_adapters) {
-        DBG("Cleanup watchers");
+        DBG("cleanup watchers");
         g_hash_table_foreach (server->priv->login_object_adapters,
                 _clear_login_object_watchers, server);
         g_hash_table_unref (server->priv->login_object_adapters);
@@ -394,7 +379,7 @@ _tlm_dbus_server_p2p_stop (
     }
 
     if (server->priv->bus_server) {
-        DBG("Stop P2P DBus Server");
+        DBG("stop P2P DBus Server");
         if (g_dbus_server_is_active (server->priv->bus_server))
             g_dbus_server_stop (server->priv->bus_server);
         g_object_unref (server->priv->bus_server);
@@ -426,7 +411,7 @@ _tlm_dbus_server_p2p_get_remote_pid (
         WARN ("getsockopt() for SO_PEERCRED failed");
         return remote_pid;
     }
-    DBG ("Remote p2p peer pid=%d uid=%d gid=%d", peer_cred.pid, peer_cred.uid,
+    DBG ("remote p2p peer pid=%d uid=%d gid=%d", peer_cred.pid, peer_cred.uid,
             peer_cred.gid);
 
     return peer_cred.pid;
@@ -441,70 +426,12 @@ _tlm_dbus_server_p2p_interface_init (
     iface->get_remote_pid = _tlm_dbus_server_p2p_get_remote_pid;
 }
 
-gboolean
-tlm_dbus_server_p2p_handle_login_user (
-        TlmDbusServerP2P *server,
-        const gchar *seat_id,
-        const gchar *username,
-        const gchar *password,
-        const GVariant *environ,
-        GError **error)
-{
-    DBG ("");
-    g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
-            FALSE);
-
-    g_signal_emit (server, signals[SIG_LOGIN_USER], 0, seat_id, username,
-            password, environ);
-    return TRUE;
-}
-
-gboolean
-tlm_dbus_server_p2p_handle_logout_user (
-        TlmDbusServerP2P *server,
-        const gchar *seat_id,
-        GError **error)
-{
-    DBG ("");
-    g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
-            FALSE);
-
-    g_signal_emit (server, signals[SIG_LOGOUT_USER], 0, seat_id);
-    return TRUE;
-}
-
-gboolean
-tlm_dbus_server_p2p_handle_switch_user (
-        TlmDbusServerP2P *server,
-        const gchar *seat_id,
-        const gchar *username,
-        const gchar *password,
-        const GVariant *environ,
-        GError **error)
-{
-    DBG ("");
-    g_return_val_if_fail (server && TLM_IS_DBUS_SERVER_P2P(server),
-            FALSE);
-
-    g_signal_emit (server, signals[SIG_SWITCH_USER], 0, seat_id, username,
-            password, environ);
-    return TRUE;
-}
-
-const gchar *
-tlm_dbus_server_p2p_get_address (
-        TlmDbusServerP2P *server)
-{
-    g_return_val_if_fail (server || TLM_IS_DBUS_SERVER_P2P (server), NULL);
-    return g_dbus_server_get_client_address (server->priv->bus_server);
-}
-
 TlmDbusServerP2P *
 tlm_dbus_server_p2p_new (
         const gchar *address,
         uid_t uid)
 {
-    DBG("Create P2P DBus Server");
+    DBG("create P2P DBus Server");
 
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (
         g_object_new (TLM_TYPE_DBUS_SERVER_P2P, "address", address, NULL));
@@ -526,6 +453,8 @@ tlm_dbus_server_p2p_new (
                 S_IRUSR |S_IWUSR |S_IXUSR |S_IXGRP |S_IXOTH) == -1) {
             WARN ("Could not create '%s', error: %s", base_path,
                     strerror(errno));
+            g_object_unref (server);
+            server = NULL;
         }
         g_free (base_path);
     }

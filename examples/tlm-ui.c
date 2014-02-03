@@ -33,7 +33,7 @@
 #include "common/tlm-log.h"
 #include "common/dbus/tlm-dbus.h"
 #include "common/dbus/tlm-dbus-login-gen.h"
-#include "daemon/tlm-utils.h"
+#include "daemon/dbus/tlm-dbus-utils.h"
 
 #define BUFLEN 8096
 #define UID_MIN "UID_MIN"
@@ -64,24 +64,30 @@ static MainWindow *main_window = NULL;
 static MainDialog *main_dialog = NULL;
 
 GDBusConnection *
-_get_bus_connection (
-        const gchar *seat_id,
-        GError **error)
-{
-    /* get dbus connection for specific user only */
-    gchar address[128];
-    g_snprintf (address, 127, "unix:path=%s/%s", TLM_DBUS_SOCKET_PATH,
-            seat_id);
-    return g_dbus_connection_new_for_address_sync (address,
-            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
-}
-
-GDBusConnection *
 _get_root_socket_bus_connection (
         GError **error)
 {
     gchar address[128];
     g_snprintf (address, 127, TLM_DBUS_ROOT_SOCKET_ADDRESS);
+    return g_dbus_connection_new_for_address_sync (address,
+            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
+}
+
+GDBusConnection *
+_get_bus_connection (
+        const gchar *seat_id,
+        GError **error)
+{
+    uid_t ui_user_id = getuid ();
+
+    if (ui_user_id == 0) {
+        return _get_root_socket_bus_connection (error);
+    }
+
+    /* get dbus connection for specific user only */
+    gchar address[128];
+    g_snprintf (address, 127, "unix:path=%s/%s-%d", TLM_DBUS_SOCKET_PATH,
+            seat_id, ui_user_id);
     return g_dbus_connection_new_for_address_sync (address,
             G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
 }
@@ -215,20 +221,11 @@ _trigger_dbus_request (
             (GEqualFunc)g_str_equal,
             (GDestroyNotify)g_free,
             (GDestroyNotify)g_free);
-    venv = tlm_utils_hash_table_to_variant (environ);
+    venv = tlm_dbus_utils_hash_table_to_variant (environ);
     g_hash_table_unref (environ);
 
-    switch (req_type) {
-    case TLM_UI_REQUEST_LOGIN: //root socket
-        connection = _get_root_socket_bus_connection (&error);
-        if (error) goto _finished;
-        break;
-    case TLM_UI_REQUEST_LOGOUT:
-    case TLM_UI_REQUEST_SWITCH_USER: //normal user socket
-       connection = _get_bus_connection (seat, &error);
-       if (error) goto _finished;
-        break;
-    }
+    connection = _get_bus_connection (seat, &error);
+    if (error) goto _finished;
 
     login_object = _get_login_object (connection, &error);
     if (error) goto _finished;
