@@ -11,7 +11,7 @@
     be fetched as a variable from package configuration file tlm.pc.
     Besides whenever a user is logged in, a dbus login object is also exported
     which can be used for 'logout-user' and 'switch-user' functionalities by
-    that user. The dbus object can be accessed at TLM_DBUS_SOCKET_PATH/<seat_id>
+    that user. The dbus object can be accessed at TLM_DBUS_SOCKET_PATH/&lt;seat_id&gt;
     by the user who is logged in at the seat.
     -->
     <interface name="org.tizen.Tlm.Login">

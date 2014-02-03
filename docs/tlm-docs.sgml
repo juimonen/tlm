@@ -37,6 +37,7 @@
     <chapter>
     <title>Tlm miscellaneous</title>
     <xi:include href="xml/tlm-log.xml"/>
+    <xi:include href="xml/tlm-error.xml"/>
 
   </chapter>
 
