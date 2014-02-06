@@ -356,9 +356,9 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
 
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
-    pam_tty = getenv("DISPLAY");
+    pam_tty = getenv ("DISPLAY");
     if (!pam_tty) {
-        pam_tty = ctermid(NULL);
+        pam_tty = ctermid (NULL);
     }
     DBG ("setting PAM_TTY to '%s'", pam_tty);
     if (pam_set_item (priv->pam_handle, PAM_TTY, pam_tty) != PAM_SUCCESS) {

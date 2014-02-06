@@ -32,9 +32,11 @@
 #include <grp.h>
 #include <stdio.h>
 #include <signal.h>
+#include <termios.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
 
 #include "tlm-session.h"
 #include "tlm-auth-session.h"
@@ -84,6 +86,7 @@ tlm_session_dispose (GObject *self)
         g_hash_table_unref (session->priv->env_hash);
         session->priv->env_hash = NULL;
     }
+    g_clear_object (&session->priv->config);
 
     G_OBJECT_CLASS (tlm_session_parent_class)->dispose (self);
 }
@@ -96,9 +99,6 @@ tlm_session_finalize (GObject *self)
     g_clear_string (&session->priv->seat_id);
     g_clear_string (&session->priv->service);
     g_clear_string (&session->priv->username);
-
-    if (session->priv->config)
-        g_object_unref (session->priv->config);
 
     G_OBJECT_CLASS (tlm_session_parent_class)->finalize (self);
 }
@@ -277,6 +277,7 @@ _set_terminal (TlmSessionPrivate *priv)
 {
     int i;
     int tty_fd;
+    pid_t tty_pid;
     const char *tty_dev;
     struct stat tty_stat;
 
@@ -306,10 +307,14 @@ _set_terminal (TlmSessionPrivate *priv)
         WARN ("open() failed: %s", strerror(errno));
         return FALSE;
     }
-    if (!isatty(tty_fd)) {
+    if (!isatty (tty_fd)) {
         close (tty_fd);
         WARN ("isatty() failed");
         return FALSE;
+    }
+    tty_pid = getpid ();
+    if (ioctl (tty_fd, TIOCSPGRP, &tty_pid)) {
+        WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
     }
 
     // close all old handles
@@ -438,7 +443,9 @@ _session_on_session_created (
         return;
     }
 
-    /* this is child process here onwards */
+    /* ==================================
+     * this is child process here onwards
+     * ================================== */
 
     if (tlm_config_get_boolean (priv->config,
                                 TLM_CONFIG_GENERAL,
@@ -450,13 +457,20 @@ _session_on_session_created (
     setsid ();
     uid_t target_uid = tlm_user_get_uid (priv->username);
     gid_t target_gid = tlm_user_get_gid (priv->username);
+
     if (initgroups (priv->username, target_gid))
         WARN ("initgroups() failed: %s", strerror(errno));
     if (setregid (target_gid, target_gid))
         WARN ("setregid() failed: %s", strerror(errno));
-    // FIXME: set rest of the groups with setgroups()
     if (setreuid (target_uid, target_uid))
         WARN ("setreuid() failed: %s", strerror(errno));
+
+    int grouplist_len = NGROUPS_MAX;
+    gid_t grouplist[NGROUPS_MAX];
+    grouplist_len = getgroups (grouplist_len, grouplist);
+    DBG ("group membership:");
+    for (i = 0; i < grouplist_len; i++)
+        DBG ("\t%s", getgrgid (grouplist[i])->gr_name);
 
     DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d (%s)",
          getuid(), geteuid(), getgid(), getegid(), priv->username);
