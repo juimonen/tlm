@@ -56,6 +56,7 @@
  * @TLM_ERROR_UNKNOWN: Catch-all for errors not distinguished by another error
  * code
  * @TLM_ERROR_INTERNAL_SERVER: Server internal error
+ * @TLM_ERROR_PERMISSION_DENIED: Permission denied
  * @TLM_ERROR_INVALID_INPUT: Invalid input
  * @TLM_ERROR_LAST_ERR: Placeholder to rearrange enumeration
  *
