@@ -356,10 +356,10 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
 
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
-    pam_tty = getenv ("DISPLAY");
-    if (!pam_tty) {
-        pam_tty = ctermid (NULL);
-    }
+    /*pam_tty = getenv ("DISPLAY");
+    if (!pam_tty) {*/
+        pam_tty = ttyname (0);
+    //}
     DBG ("setting PAM_TTY to '%s'", pam_tty);
     if (pam_set_item (priv->pam_handle, PAM_TTY, pam_tty) != PAM_SUCCESS) {
             WARN ("pam_set_item(PAM_TTY, '%s')", pam_tty);
@@ -391,6 +391,16 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
         g_error_free (error); 
         return FALSE;
     }
+
+    /*res = pam_acct_mgmt (priv->pam_handle, 0);
+    if (res == PAM_NEW_AUTHTOK_REQD) {
+        res = pam_chauthtok (priv->pam_handle, PAM_CHANGE_EXPIRED_AUTHTOK);
+    }
+    if (res != PAM_SUCCESS) {
+        WARN ("Account validity check failed: %s",
+              pam_strerror (priv->pam_handle, res));
+        return FALSE;
+    }*/
 
     g_signal_emit (auth_session, signals[SIG_AUTH_SUCCESS], 0);
 

@@ -324,6 +324,7 @@ _notify_handler (GIOChannel *channel,
         WARN ("failed to read child pid for seat %p", seat);
 
     DBG ("handling session termination for pid %u", notify_pid);
+    tlm_session_reset_tty (priv->session);
     g_clear_object (&priv->session);
 
     g_signal_emit (seat,

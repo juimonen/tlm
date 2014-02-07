@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <termios.h>
+#include <libintl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -66,6 +67,8 @@ struct _TlmSessionPrivate
     TlmConfig *config;
     gint notify_fd;
     pid_t child_pid;
+    uid_t tty_uid;
+    gid_t tty_gid;
     gchar *seat_id;
     gchar *service;
     gchar *username;
@@ -240,6 +243,16 @@ tlm_session_init (TlmSession *session)
         notify_table = g_hash_table_new (g_direct_hash,
                                          g_direct_equal);
         /* NOTE: the notify_table won't be freed ever */
+    }
+
+    struct stat tty_stat;
+
+    if (fstat (0, &tty_stat) == 0) {
+        priv->tty_uid = tty_stat.st_uid;
+        priv->tty_gid = tty_stat.st_gid;
+    } else {
+        priv->tty_uid = 0;
+        priv->tty_gid = 0;
     }
 }
 
@@ -450,13 +463,23 @@ _session_on_session_created (
     if (tlm_config_get_boolean (priv->config,
                                 TLM_CONFIG_GENERAL,
                                 TLM_CONFIG_GENERAL_SETUP_TERMINAL,
-                                TRUE)) {
+                                FALSE)) {
+        /* usually terminal settings are handled by PAM */
         _set_terminal (priv);
     }
 
-    setsid ();
+    if (getppid() == 1) {
+        setsid ();
+        if (ioctl (0, TIOCSCTTY, 1)) {
+            WARN ("ioctl(TIOCSCTTY) failed: %s", strerror(errno));
+        }
+    }
     uid_t target_uid = tlm_user_get_uid (priv->username);
     gid_t target_gid = tlm_user_get_gid (priv->username);
+
+    if (fchown (0, target_uid, -1)) {
+        WARN ("Changing TTY access rights failed");
+    }
 
     if (initgroups (priv->username, target_gid))
         WARN ("initgroups() failed: %s", strerror(errno));
@@ -599,5 +622,16 @@ tlm_session_terminate (TlmSession *session)
     if (kill (session->priv->child_pid, SIGTERM) < 0)
         WARN ("kill(%u, SIGTERM): %s",
               session->priv->child_pid, strerror(errno));
+}
+
+
+void
+tlm_session_reset_tty (TlmSession *session)
+{
+    TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
+
+    if (fchown (0, priv->tty_uid, priv->tty_gid)) {
+        WARN ("Changing TTY access rights failed");
+    }
 }
 
