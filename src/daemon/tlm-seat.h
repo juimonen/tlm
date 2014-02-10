@@ -28,8 +28,8 @@
 #define _TLM_SEAT_H
 
 #include <glib-object.h>
-
 #include <tlm-config.h>
+#include "tlm-types.h"
 
 G_BEGIN_DECLS
 
@@ -43,8 +43,6 @@ G_BEGIN_DECLS
 #define TLM_SEAT_IS_CLASS(kls)  (G_TYPE_CHECK_CLASS_TYPE((kls), \
                                  TLM_TYPE_SEAT))
 
-typedef struct _TlmSeat TlmSeat;
-typedef struct _TlmSeatClass TlmSeatClass;
 typedef struct _TlmSeatPrivate TlmSeatPrivate;
 
 struct _TlmSeat
@@ -63,6 +61,7 @@ GType tlm_seat_get_type(void);
 
 TlmSeat *
 tlm_seat_new (TlmConfig *config,
+              TlmManager *manager,
               const gchar *id,
               const gchar *path);
 

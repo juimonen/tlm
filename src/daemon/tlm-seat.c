@@ -34,10 +34,10 @@
 #include "tlm-seat.h"
 #include "tlm-session.h"
 #include "tlm-log.h"
+#include "tlm-error.h"
 #include "tlm-utils.h"
 #include "tlm-config-general.h"
-#include "dbus/tlm-dbus-server-interface.h"
-#include "dbus/tlm-dbus-server-p2p.h"
+#include "tlm-dbus-observer.h"
 
 G_DEFINE_TYPE (TlmSeat, tlm_seat, G_TYPE_OBJECT);
 
@@ -55,7 +55,9 @@ static GParamSpec *pspecs[N_PROPERTIES];
 
 enum {
     SIG_PREPARE_USER,
+    SIG_SESSION_CREATED,
     SIG_SESSION_TERMINATED,
+    SIG_SESSION_ERROR,
     SIG_MAX
 };
 static guint signals[SIG_MAX];
@@ -63,6 +65,7 @@ static guint signals[SIG_MAX];
 struct _TlmSeatPrivate
 {
     TlmConfig *config;
+    TlmManager *manager;
     gchar *id;
     gchar *path;
     gchar *next_service;
@@ -70,87 +73,42 @@ struct _TlmSeatPrivate
     gchar *next_password;
     GHashTable *next_environment;
     TlmSession *session;
-    TlmDbusServer *dbus_server; /* dbus server accessed only by user who has
+    TlmDbusObserver *dbus_observer; /* dbus server accessed only by user who has
     active session */
     gint notify_fd[2];
     GIOChannel *notify_channel;
     guint logout_id;      /* logout source id */
 };
 
-static gboolean
-_session_terminate_idle (
-        gpointer user_data)
-{
-    g_return_val_if_fail (user_data && TLM_IS_SEAT (user_data), FALSE);
-
-    DBG ("");
-    tlm_seat_terminate_session (TLM_SEAT (user_data));
-    return FALSE;
-}
-
 static void
-_handle_logout_user (
-        TlmSeat *seat,
-        const gchar *seat_id,
-        gpointer user_data)
+_destroy_dbus_observer (
+        TlmDbusObserver **dbus_observer)
 {
-    g_return_if_fail (seat && TLM_IS_SEAT(seat));
-
-    if (!seat->priv->logout_id) {
-        DBG ("");
-        seat->priv->logout_id = g_idle_add (_session_terminate_idle, seat);
-    }
-}
-
-static void
-_handle_switch_user (
-        TlmSeat *seat,
-        const gchar *seat_id,
-        const gchar *username,
-        const gchar *password,
-        GVariant *environment,
-        gpointer user_data)
-{
-    DBG ("");
-    g_return_if_fail (seat && TLM_IS_SEAT(seat));
-
-    GHashTable *environ = tlm_utils_hash_table_from_variant (environment);
-    tlm_seat_switch_user (seat, NULL, username, password, environ);
-    if (environ) g_hash_table_unref (environ);
-}
-
-static void
-_stop_dbus (TlmSeat *seat)
-{
-    if (seat->priv->dbus_server) {
-        g_signal_handlers_disconnect_by_func (G_OBJECT(seat->priv->dbus_server),
-                _handle_logout_user, seat);
-        g_signal_handlers_disconnect_by_func (G_OBJECT(seat->priv->dbus_server),
-                _handle_switch_user, seat);
-        tlm_dbus_server_stop (seat->priv->dbus_server);
-        g_object_unref (seat->priv->dbus_server);
-        seat->priv->dbus_server = NULL;
+    if (*dbus_observer) {
+        g_object_unref (*dbus_observer);
+        *dbus_observer = NULL;
     }
 }
 
 static gboolean
-_start_dbus (
+_create_dbus_observer (
         TlmSeat *seat,
         const gchar *username)
 {
-    _stop_dbus (seat);
+    gchar *address = NULL;
+    uid_t uid = 0;
+    _destroy_dbus_observer (&seat->priv->dbus_observer);
 
-    gchar *address = g_strdup_printf ("unix:path=%s/%s", TLM_DBUS_SOCKET_PATH,
-            seat->priv->id);
-    seat->priv->dbus_server = TLM_DBUS_SERVER (tlm_dbus_server_p2p_new (address,
-            tlm_user_get_uid (username)));
+    uid = tlm_user_get_uid (username);
+    address = g_strdup_printf ("unix:path=%s/%s-%d", TLM_DBUS_SOCKET_PATH,
+            seat->priv->id, uid);
+    seat->priv->dbus_observer = TLM_DBUS_OBSERVER (tlm_dbus_observer_new (
+            seat->priv->manager, seat, address, uid,
+            DBUS_OBSERVER_ENABLE_LOGOUT_USER |
+            DBUS_OBSERVER_ENABLE_SWITCH_USER));
     g_free (address);
-    g_signal_connect_swapped (G_OBJECT (seat->priv->dbus_server),
-            "logout-user", G_CALLBACK(_handle_logout_user), seat);
-    g_signal_connect_swapped (G_OBJECT (seat->priv->dbus_server),
-            "switch-user", G_CALLBACK(_handle_switch_user), seat);
 
-    return tlm_dbus_server_start (seat->priv->dbus_server);
+    return (seat->priv->dbus_observer != NULL);
 }
 
 static void
@@ -165,13 +123,18 @@ tlm_seat_dispose (GObject *self)
         seat->priv->logout_id = 0;
     }
 
-    _stop_dbus (seat);
+    _destroy_dbus_observer (&seat->priv->dbus_observer);
 
     g_clear_object (&seat->priv->session);
 
     if (seat->priv->config) {
         g_object_unref (seat->priv->config);
         seat->priv->config = NULL;
+    }
+
+    if (seat->priv->manager) {
+        g_object_unref (seat->priv->manager);
+        seat->priv->manager = NULL;
     }
 
     G_OBJECT_CLASS (tlm_seat_parent_class)->dispose (self);
@@ -297,6 +260,16 @@ tlm_seat_class_init (TlmSeatClass *klass)
                                               G_TYPE_NONE,
                                               1,
                                               G_TYPE_STRING);
+    signals[SIG_SESSION_CREATED] = g_signal_new ("session-created",
+                                                    TLM_TYPE_SEAT,
+                                                    G_SIGNAL_RUN_LAST,
+                                                    0,
+                                                    NULL,
+                                                    NULL,
+                                                    NULL,
+                                                    G_TYPE_NONE,
+                                                    1,
+                                                    G_TYPE_STRING);
     signals[SIG_SESSION_TERMINATED] = g_signal_new ("session-terminated",
                                                     TLM_TYPE_SEAT,
                                                     G_SIGNAL_RUN_LAST,
@@ -307,6 +280,16 @@ tlm_seat_class_init (TlmSeatClass *klass)
                                                     G_TYPE_BOOLEAN,
                                                     1,
                                                     G_TYPE_STRING);
+    signals[SIG_SESSION_ERROR] = g_signal_new ("session-error",
+                                                    TLM_TYPE_SEAT,
+                                                    G_SIGNAL_RUN_LAST,
+                                                    0,
+                                                    NULL,
+                                                    NULL,
+                                                    NULL,
+                                                    G_TYPE_NONE,
+                                                    1,
+                                                    G_TYPE_UINT);
 }
 
 static gboolean
@@ -321,7 +304,7 @@ _notify_handler (GIOChannel *channel,
 
     if (read (priv->notify_fd[0],
               &notify_pid, sizeof (notify_pid)) < (ssize_t) sizeof (notify_pid))
-        WARN ("failed to read child pid for seat %p", seat);
+        WARN ("Failed to read child pid for seat %p", seat);
 
     DBG ("handling session termination for pid %u", notify_pid);
     tlm_session_reset_tty (priv->session);
@@ -332,13 +315,16 @@ _notify_handler (GIOChannel *channel,
                    0,
                    priv->id,
                    &stop);
-    if (stop)
-        return stop;
+    if (stop) {
+        DBG ("no relogin or switch user");
+        return TRUE;
+    }
 
     if (tlm_config_get_boolean (priv->config,
                                 TLM_CONFIG_GENERAL,
                                 TLM_CONFIG_GENERAL_AUTO_LOGIN,
-                                TRUE)) {
+                                TRUE) ||
+        seat->priv->next_user) {
         DBG ("auto re-login with '%s'", seat->priv->next_user);
         tlm_seat_create_session (seat,
                                  seat->priv->next_service,
@@ -368,6 +354,7 @@ tlm_seat_init (TlmSeat *seat)
                     _notify_handler,
                     seat);
     priv->logout_id = 0;
+    priv->manager = NULL;
 }
 
 const gchar *
@@ -448,7 +435,12 @@ tlm_seat_create_session (TlmSeat *seat,
 {
     g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
     TlmSeatPrivate *priv = TLM_SEAT_PRIV (seat);
-    g_return_val_if_fail (priv->session == NULL, FALSE);
+
+    if (priv->session != NULL) {
+        g_signal_emit (seat, signals[SIG_SESSION_ERROR],  0,
+                TLM_ERROR_SESSION_ALREADY_EXISTS);
+        return FALSE;
+    }
 
     gchar *default_user = NULL;
 
@@ -476,21 +468,33 @@ tlm_seat_create_session (TlmSeat *seat,
                        0,
                        default_user);
     }
+
+    priv->session = tlm_session_new (priv->config,
+            priv->id,
+            service,
+            default_user ? default_user : username,
+            password,
+            environment,
+            priv->notify_fd[1]);
     if (!priv->session) {
-        priv->session =
-            tlm_session_new (priv->config,
-                             priv->id,
-                             service,
-                             default_user ? default_user : username,
-                             password,
-                             environment,
-                             priv->notify_fd[1]);
-    }
-    if (!priv->session)
+        g_signal_emit (seat, signals[SIG_SESSION_ERROR], 0,
+                TLM_ERROR_SESSION_CREATION_FAILURE);
         return FALSE;
+    }
 
+    TlmDbusObserver *old_observer = seat->priv->dbus_observer;
+    seat->priv->dbus_observer = NULL;
+    if (!_create_dbus_observer (seat, default_user ? default_user : username)) {
+        if (tlm_seat_terminate_session (seat)) {
+            g_signal_emit (seat, signals[SIG_SESSION_ERROR],  0,
+                    TLM_ERROR_DBUS_SERVER_START_FAILURE);
+        }
+        return FALSE;
+    }
 
-    return _start_dbus (seat, default_user ? default_user : username);
+    g_signal_emit (seat, signals[SIG_SESSION_CREATED], 0, priv->id);
+    _destroy_dbus_observer (&old_observer);
+    return TRUE;
 }
 
 gboolean
@@ -499,10 +503,10 @@ tlm_seat_terminate_session (TlmSeat *seat)
     g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
     g_return_val_if_fail (seat->priv, FALSE);
 
-    _stop_dbus (seat);
-
     if (!seat->priv->session) {
         WARN ("No active session to terminate");
+        g_signal_emit (seat, signals[SIG_SESSION_ERROR], 0,
+                TLM_ERROR_SESSION_NOT_VALID);
         return FALSE;
     }
 
@@ -513,13 +517,16 @@ tlm_seat_terminate_session (TlmSeat *seat)
 
 TlmSeat *
 tlm_seat_new (TlmConfig *config,
+              TlmManager *manager,
               const gchar *id,
               const gchar *path)
 {
-    return g_object_new (TLM_TYPE_SEAT,
+    TlmSeat *seat = g_object_new (TLM_TYPE_SEAT,
                          "config", config,
                          "id", id,
                          "path", path,
                          NULL);
+    if (seat) seat->priv->manager = g_object_ref (manager);
+    return seat;
 }
 

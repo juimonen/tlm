@@ -21,6 +21,8 @@ libtlm_dbus_la_SOURCES = \
    tlm-dbus-server-p2p.h \
    tlm-dbus-login-adapter.c \
    tlm-dbus-login-adapter.h \
+   tlm-dbus-utils.c \
+   tlm-dbus-utils.h \
    $(NULL)
 
 clean-local :

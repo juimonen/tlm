@@ -31,8 +31,7 @@
 #include "tlm-auth-plugin.h"
 #include "tlm-config.h"
 #include "tlm-config-general.h"
-#include "dbus/tlm-dbus-server-interface.h"
-#include "dbus/tlm-dbus-server-p2p.h"
+#include "tlm-dbus-observer.h"
 #include "tlm-utils.h"
 #include "config.h"
 
@@ -55,7 +54,7 @@ struct _TlmManagerPrivate
     GDBusConnection *connection;
     TlmConfig *config;
     GHashTable *seats; /* { gchar*:TlmSeat* } */
-    TlmDbusServer *dbus_server; /* dbus server accessed by root only */
+    TlmDbusObserver *dbus_observer; /* dbus observer accessed by root only */
     TlmAccountPlugin *account_plugin;
     GList *auth_plugins;
     gboolean is_started;
@@ -96,9 +95,9 @@ tlm_manager_dispose (GObject *self)
 
     DBG("disposing manager");
 
-    if (manager->priv->dbus_server) {
-        g_object_unref (manager->priv->dbus_server);
-        manager->priv->dbus_server = NULL;
+    if (manager->priv->dbus_observer) {
+        g_object_unref (manager->priv->dbus_observer);
+        manager->priv->dbus_observer = NULL;
     }
 
     if (manager->priv->is_started) {
@@ -397,46 +396,6 @@ _load_auth_plugins (TlmManager *self)
 }
 
 static void
-_handle_login_user (
-        TlmManager *manager,
-        const gchar *seat_id,
-        const gchar *username,
-        const gchar *password,
-        GVariant *environment,
-        gpointer user_data)
-{
-    DBG ("");
-    g_return_if_fail (manager && TLM_IS_MANAGER(manager));
-
-    TlmSeat *seat = g_hash_table_lookup (manager->priv->seats, seat_id);
-    if (seat) {
-        GHashTable *environ = tlm_utils_hash_table_from_variant (environment);
-        tlm_seat_create_session (seat, NULL, username, password, environ);
-        if (environ) g_hash_table_unref (environ);
-    }
-}
-
-static void
-_handle_switch_user (
-        TlmManager *manager,
-        const gchar *seat_id,
-        const gchar *username,
-        const gchar *password,
-        GVariant *environment,
-        gpointer user_data)
-{
-    DBG ("");
-    g_return_if_fail (manager && TLM_IS_MANAGER(manager));
-
-    TlmSeat *seat = g_hash_table_lookup (manager->priv->seats, seat_id);
-    if (seat) {
-        GHashTable *environ = tlm_utils_hash_table_from_variant (environment);
-        tlm_seat_switch_user (seat, NULL, username, password, environ);
-        if (environ) g_hash_table_unref (environ);
-    }
-}
-
-static void
 tlm_manager_init (TlmManager *manager)
 {
     GError *error = NULL;
@@ -466,14 +425,11 @@ tlm_manager_init (TlmManager *manager)
     _load_accounts_plugin (manager, act_plugin_name);
     _load_auth_plugins (manager);
 
-    priv->dbus_server = TLM_DBUS_SERVER (tlm_dbus_server_p2p_new (
-            TLM_DBUS_ROOT_SOCKET_ADDRESS, getuid ()));
-    tlm_dbus_server_start (priv->dbus_server);
-
-    g_signal_connect_swapped (G_OBJECT (manager->priv->dbus_server),
-            "login-user", G_CALLBACK (_handle_login_user), manager);
-    g_signal_connect_swapped (G_OBJECT (manager->priv->dbus_server),
-            "switch-user", G_CALLBACK(_handle_switch_user), manager);
+    /* delete tlm runtime directory */
+    tlm_utils_delete_dir (TLM_DBUS_SOCKET_PATH);
+    priv->dbus_observer = TLM_DBUS_OBSERVER (tlm_dbus_observer_new (manager,
+            NULL, TLM_DBUS_ROOT_SOCKET_ADDRESS, getuid (),
+            DBUS_OBSERVER_ENABLE_ALL));
 }
 
 static void
@@ -502,6 +458,7 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
     TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
 
     TlmSeat *seat = tlm_seat_new (priv->config,
+                                  manager,
                                   seat_id,
                                   seat_path);
     g_signal_connect (seat,
@@ -695,8 +652,8 @@ tlm_manager_start (TlmManager *manager)
 
 
 static gboolean
-_session_terminated_cb (TlmManager *manager, const gchar *seat_id,
-                        gpointer user_data)
+_session_terminated_cb (GObject *emitter, const gchar *seat_id,
+        TlmManager *manager)
 {
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), TRUE);
 
@@ -721,7 +678,7 @@ tlm_manager_stop (TlmManager *manager)
     g_hash_table_iter_init (&iter, manager->priv->seats);
     while (g_hash_table_iter_next (&iter, &key, &value)) {
         DBG ("terminate seat '%s'", (const gchar *) key);
-        g_signal_connect_swapped ((TlmSeat *) value,
+        g_signal_connect_after ((TlmSeat *) value,
                                   "session-terminated",
                                   G_CALLBACK (_session_terminated_cb),
                                   manager);
@@ -768,3 +725,12 @@ tlm_manager_new (const gchar *initial_user)
                          NULL);
 }
 
+TlmSeat *
+tlm_manager_get_seat (
+        TlmManager *manager,
+        const gchar *seat_id)
+{
+    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), NULL);
+
+    return g_hash_table_lookup (manager->priv->seats, seat_id);
+}

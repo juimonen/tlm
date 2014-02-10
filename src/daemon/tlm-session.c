@@ -599,6 +599,8 @@ tlm_session_new (TlmConfig *config,
                  const gchar *username, const gchar *password,
                  GHashTable *environment, gint notify_fd)
 {
+    DBG ("Session New");
+
     TlmSession *session =
         g_object_new (TLM_TYPE_SESSION,
                       "config", config,
@@ -609,6 +611,7 @@ tlm_session_new (TlmConfig *config,
                       "environment", environment,
                       NULL);
     if (!_start_session (session, password)) {
+        WARN ("Session startup failed");
         g_object_unref (session);
         return NULL;
     }
@@ -619,6 +622,8 @@ void
 tlm_session_terminate (TlmSession *session)
 {
     g_return_if_fail (session && TLM_IS_SESSION(session));
+
+    DBG ("Session Terminate");
 
     if (kill (session->priv->child_pid, SIGHUP) < 0)
         WARN ("kill(%u, SIGHUP): %s",

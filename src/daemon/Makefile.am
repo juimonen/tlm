@@ -5,7 +5,7 @@ bin_PROGRAMS = tlm
 BUILT_SOURCES =
 
 tlm_SOURCES = \
-	tlm-utils.h \
+	tlm-utils.h \
 	tlm-utils.c \
 	tlm-auth-session.h \
 	tlm-auth-session.c \
@@ -13,7 +13,9 @@ tlm_SOURCES = \
 	tlm-session.c \
 	tlm-seat.h \
 	tlm-seat.c \
-	tlm-manager.h \
+	tlm-dbus-observer.h \
+	tlm-dbus-observer.c \
+	tlm-manager.h \
 	tlm-manager.c \
 	tlm-main.c \
 	$(NULL)

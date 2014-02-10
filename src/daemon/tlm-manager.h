@@ -28,6 +28,7 @@
 #define _TLM_MANAGER_H
 
 #include <glib-object.h>
+#include "tlm-types.h"
 
 G_BEGIN_DECLS
 
@@ -41,8 +42,6 @@ G_BEGIN_DECLS
 #define TLM_IS_MANAGER_CLASS(cls)   (G_TYPE_CHECK_CLASS_TYPE((cls), \
                                      TLM_TYPE_MANAGER))
 
-typedef struct _TlmManager TlmManager;
-typedef struct _TlmManagerClass TlmManagerClass;
 typedef struct _TlmManagerPrivate TlmManagerPrivate;
 
 struct _TlmManager
@@ -68,6 +67,12 @@ tlm_manager_stop(TlmManager *manager);
 
 gboolean
 tlm_manager_setup_guest_user (TlmManager *manager, const gchar *name);
+
+TlmSeat *
+tlm_manager_get_seat (
+        TlmManager *manager,
+        const gchar *seat_id);
+
 
 G_END_DECLS
 
