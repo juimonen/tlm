@@ -69,6 +69,7 @@ struct _TlmSessionPrivate
     pid_t child_pid;
     uid_t tty_uid;
     gid_t tty_gid;
+    struct termios tty_state;
     gchar *seat_id;
     gchar *service;
     gchar *username;
@@ -254,6 +255,9 @@ tlm_session_init (TlmSession *session)
         priv->tty_uid = 0;
         priv->tty_gid = 0;
     }
+
+    if (tcgetattr (0, &priv->tty_state))
+        WARN ("Failed to retrieve initial terminal state");
 }
 
 static void
@@ -619,9 +623,10 @@ tlm_session_terminate (TlmSession *session)
     if (kill (session->priv->child_pid, SIGHUP) < 0)
         WARN ("kill(%u, SIGHUP): %s",
               session->priv->child_pid, strerror(errno));
-    if (kill (session->priv->child_pid, SIGTERM) < 0)
+    /* FIXME: send SIGTERM and then SIGKILL only after certain timeout if earlier signal wasn't obeyed */
+    /*if (kill (session->priv->child_pid, SIGTERM) < 0)
         WARN ("kill(%u, SIGTERM): %s",
-              session->priv->child_pid, strerror(errno));
+              session->priv->child_pid, strerror(errno));*/
 }
 
 
@@ -630,8 +635,13 @@ tlm_session_reset_tty (TlmSession *session)
 {
     TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
 
-    if (fchown (0, priv->tty_uid, priv->tty_gid)) {
+    if (fchown (0, priv->tty_uid, priv->tty_gid))
         WARN ("Changing TTY access rights failed");
-    }
+    if (tcflush (0, TCIOFLUSH))
+        WARN ("Flushing stdio failed");
+    if (tcsetpgrp (0, getpid ()))
+        WARN ("Change TTY controlling process failed");
+    if (tcsetattr (0, TCSANOW, &priv->tty_state))
+        WARN ("Restoring TTY settings failed");
 }
 
