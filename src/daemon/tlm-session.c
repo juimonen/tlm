@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -75,6 +75,8 @@ struct _TlmSessionPrivate
     gchar *username;
     GHashTable *env_hash;
     TlmAuthSession *auth_session;
+    int last_sig;
+    guint timer_id;
 };
 
 static GHashTable *notify_table = NULL;
@@ -84,6 +86,9 @@ tlm_session_dispose (GObject *self)
 {
     TlmSession *session = TLM_SESSION(self);
     DBG("disposing session: %s", session->priv->service);
+
+    if (session->priv->timer_id)
+        g_source_remove (session->priv->timer_id);
 
     g_clear_object (&session->priv->auth_session);
     if (session->priv->env_hash) {
@@ -618,20 +623,60 @@ tlm_session_new (TlmConfig *config,
     return session;
 }
 
+static gboolean
+_terminate_timeout (gpointer user_data)
+{
+    TlmSession *session = TLM_SESSION(user_data);
+    TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
+
+    switch (priv->last_sig)
+    {
+        case SIGHUP:
+            DBG ("child %u didn't respond to SIGHUP, sending SIGTERM",
+                 priv->child_pid);
+            priv->last_sig = SIGTERM;
+            if (kill (priv->child_pid, SIGTERM))
+                WARN ("kill(%u, SIGTERM): %s", priv->child_pid, strerror(errno));
+            return G_SOURCE_CONTINUE;
+        case SIGTERM:
+            DBG ("child %u didn't respond to SIGTERM, sending SIGKILL",
+                 priv->child_pid);
+            priv->last_sig = SIGKILL;
+            if (kill (priv->child_pid, SIGKILL))
+                WARN ("kill(%u, SIGKILL): %s", priv->child_pid, strerror(errno));
+            return G_SOURCE_CONTINUE;
+        case SIGKILL:
+            DBG ("child %u didn't respond to SIGKILL, process is stuck in kernel",
+                 priv->child_pid);
+            priv->timer_id = 0;
+            return G_SOURCE_REMOVE;
+        default:
+            WARN ("%d has unknown signaling state %d",
+                  priv->child_pid,
+                  priv->last_sig);
+    }
+    return G_SOURCE_REMOVE;
+}
+
 void
 tlm_session_terminate (TlmSession *session)
 {
     g_return_if_fail (session && TLM_IS_SESSION(session));
+    TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
 
     DBG ("Session Terminate");
 
-    if (kill (session->priv->child_pid, SIGHUP) < 0)
+    if (kill (priv->child_pid, SIGHUP) < 0)
         WARN ("kill(%u, SIGHUP): %s",
-              session->priv->child_pid, strerror(errno));
-    /* FIXME: send SIGTERM and then SIGKILL only after certain timeout if earlier signal wasn't obeyed */
-    /*if (kill (session->priv->child_pid, SIGTERM) < 0)
-        WARN ("kill(%u, SIGTERM): %s",
-              session->priv->child_pid, strerror(errno));*/
+              priv->child_pid, strerror(errno));
+    priv->last_sig = SIGHUP;
+    priv->timer_id =
+        g_timeout_add_seconds (tlm_config_get_uint (priv->config,
+                                                    TLM_CONFIG_GENERAL,
+                                                    TLM_CONFIG_GENERAL_TERMINATE_TIMEOUT,
+                                                    10),
+                               _terminate_timeout,
+                               session);
 }
 
 

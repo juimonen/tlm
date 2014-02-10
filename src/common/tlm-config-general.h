@@ -141,4 +141,14 @@
  */
 #define TLM_CONFIG_GENERAL_SETUP_TERMINAL   "SETUP_TERMINAL"
 
+/**
+ * TLM_CONFIG_GENERAL_TERMINATE_TIMEOUT
+ *
+ * Timeout for session termination in seconds. Default value: 10
+ *
+ * Specifies timeout between sending different termination signals in case
+ * the previous signal wasn't obeyed.
+ */
+#define TLM_CONFIG_GENERAL_TERMINATE_TIMEOUT "TERMINATE_TIMEOUT" 
+
 #endif /* __TLM_GENERAL_CONFIG_H_ */
