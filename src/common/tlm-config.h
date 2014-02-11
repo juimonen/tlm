@@ -139,6 +139,10 @@ tlm_config_get_group (
         TlmConfig *self,
         const gchar *group);
 
+void
+tlm_config_reload (
+        TlmConfig *self);
+
 G_END_DECLS
 
 #endif /* __TLM_CONFIG_H_ */

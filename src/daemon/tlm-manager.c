@@ -399,7 +399,6 @@ static void
 tlm_manager_init (TlmManager *manager)
 {
     GError *error = NULL;
-    const gchar *act_plugin_name = NULL;
     TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
     
     priv->config = tlm_config_new ();
@@ -418,11 +417,8 @@ tlm_manager_init (TlmManager *manager)
 
     manager->priv = priv;
 
-    act_plugin_name = tlm_config_get_string (priv->config, 
-                                             TLM_CONFIG_GENERAL,
-                                             TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN);
-    
-    _load_accounts_plugin (manager, act_plugin_name);
+    _load_accounts_plugin (manager, tlm_config_get_string (priv->config,
+            TLM_CONFIG_GENERAL, TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN));
     _load_auth_plugins (manager);
 
     /* delete tlm runtime directory */
@@ -726,11 +722,22 @@ tlm_manager_new (const gchar *initial_user)
 }
 
 TlmSeat *
-tlm_manager_get_seat (
-        TlmManager *manager,
-        const gchar *seat_id)
+tlm_manager_get_seat (TlmManager *manager, const gchar *seat_id)
 {
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), NULL);
 
     return g_hash_table_lookup (manager->priv->seats, seat_id);
+}
+
+void
+tlm_manager_sighup_received (TlmManager *manager)
+{
+    g_return_if_fail (manager && TLM_IS_MANAGER (manager));
+
+    DBG ("sighup recvd. reload configuration and account plugin");
+    tlm_config_reload (manager->priv->config);
+    g_clear_object (&manager->priv->account_plugin);
+    _load_accounts_plugin (manager, tlm_config_get_string (
+            manager->priv->config, TLM_CONFIG_GENERAL,
+            TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN));
 }

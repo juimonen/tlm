@@ -580,6 +580,20 @@ tlm_config_has_key (
 }
 
 static void
+_cleanup (TlmConfig *self)
+{
+    if (self->priv->config_table) {
+        g_hash_table_unref (self->priv->config_table);
+        self->priv->config_table = NULL;
+    }
+
+    if (self->priv->config_file_path) {
+        g_free (self->priv->config_file_path);
+        self->priv->config_file_path = NULL;
+    }
+}
+
+static void
 tlm_config_dispose (
         GObject *object)
 {
@@ -588,10 +602,7 @@ tlm_config_dispose (
 
     self = TLM_CONFIG (object);
 
-    if (self->priv->config_table) {
-        g_hash_table_unref (self->priv->config_table);
-        self->priv->config_table = NULL;
-    }
+    _cleanup (self);
 
     G_OBJECT_CLASS (tlm_config_parent_class)->dispose (object);
 }
@@ -600,15 +611,7 @@ static void
 tlm_config_finalize (
         GObject *object)
 {
-    TlmConfig *self = 0;
     g_return_if_fail (object && TLM_IS_CONFIG (object));
-
-    self = TLM_CONFIG (object);
-
-    if (self->priv->config_file_path) {
-        g_free (self->priv->config_file_path);
-        self->priv->config_file_path = NULL;
-    }
 
     G_OBJECT_CLASS (tlm_config_parent_class)->finalize (object);
 }
@@ -626,11 +629,8 @@ tlm_config_class_init (
 }
 
 static void
-tlm_config_init (
-        TlmConfig *self)
+_initialize (TlmConfig *self)
 {
-    self->priv = TLM_CONFIG_PRIV (self);
-
     self->priv->config_file_path = NULL;
     self->priv->config_table = g_hash_table_new_full (
                                     g_str_hash,
@@ -646,6 +646,32 @@ tlm_config_init (
     _load_environment (self);
 #endif
     _set_defaults (self);
+}
+
+static void
+tlm_config_init (
+        TlmConfig *self)
+{
+    self->priv = TLM_CONFIG_PRIV (self);
+    _initialize (self);
+}
+
+/**
+ * tlm_config_reload:
+ * @self: (transfer none): an instance of #TlmConfig
+ *
+ * Reloads the configuration.
+ *
+ */
+void
+tlm_config_reload (
+        TlmConfig *self)
+{
+    g_return_if_fail (self && TLM_IS_CONFIG (self));
+
+    DBG ("reload configuration");
+    _cleanup (self);
+    _initialize (self);
 }
 
 /**

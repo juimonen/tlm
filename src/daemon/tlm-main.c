@@ -68,7 +68,10 @@ static gboolean
 _on_sighup_cb (gpointer data)
 {
     DBG ("SIGHUP");
-    /* FIXME: Do something, may be reload configuration  */
+
+    TlmManager *manager = TLM_MANAGER(data);
+    tlm_manager_sighup_received (manager);
+
     return FALSE;
 }
 
