@@ -324,6 +324,9 @@ _on_ok_dialog_clicked (
 
         _close_dialog ();
 
+        if (main_window && main_window->use_nfc_tag)
+            return;
+
         if (!username || !password) {
             WARN ("Invalid username/password");
             return;
@@ -341,7 +344,7 @@ _create_nfc_dialog (
     Evas_Object *button_frame, *pad_frame, *button_box;
     Evas_Object *ok_button;
 
-    main_dialog = g_malloc (sizeof (MainDialog));
+    main_dialog = g_malloc0 (sizeof (MainDialog));
 
     /* main window */
     dialog = elm_win_add (NULL, "dialog", ELM_WIN_BASIC);
@@ -430,7 +433,7 @@ _create_dialog (
     Evas_Object *cancel_button, *ok_button;
 
     g_free (main_dialog);
-    main_dialog = g_malloc (sizeof (MainDialog));
+    main_dialog = g_malloc0 (sizeof (MainDialog));
 
     /* main window */
     dialog = elm_win_add (NULL, "dialog", ELM_WIN_BASIC);
@@ -827,7 +830,7 @@ elm_main (
     evas_object_resize(win, 500, 400);
     evas_object_show(win);
 
-    main_window = g_malloc (sizeof(MainWindow));
+    main_window = g_malloc0 (sizeof(MainWindow));
     main_window->win = win;
     main_window->use_nfc_tag = FALSE;
     main_window->user_label = NULL;
