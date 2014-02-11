@@ -95,7 +95,7 @@ if test "x$enable_gum" = "xyes" && test "x$have_libgum" = "xno" ; then
 fi
 AC_SUBST(LIBGUM_CFLAGS)
 AC_SUBST(LIBGUM_LIBS)
-AM_CONDITIONAL(HAVE_LIBGUM, [test x$enable_gum = xyes])
+AM_CONDITIONAL(HAVE_LIBGUM, [test x$have_libgum = xyes])
 
 if test "x$enable_gum" = "xyes" ; then
     AC_SUBST(ACCOUNT_PLUGIN_NAME, [gumd])
@@ -114,10 +114,10 @@ src/daemon/dbus/Makefile
 src/daemon/tlm.pc
 src/plugins/Makefile
 src/plugins/default/Makefile
-data/Makefile
-data/tlm.conf
 src/plugins/gumd/Makefile
 src/plugins/nfc/Makefile
+data/Makefile
+data/tlm.conf
 tests/Makefile
 tests/config/Makefile
 tests/daemon/Makefile
