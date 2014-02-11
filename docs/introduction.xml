@@ -26,7 +26,17 @@
         switch users on a seat.
     </para>
     <para>
-        FIXME: add a paragraph about examples/.
+        Under examples, tlm-ui demonstrates the usage of tlm daemon's dbus
+        interface for login, logout and switch user functionality. Login
+        object with root access is exported at TLM_DBUS_ROOT_SOCKET_ADDRESS
+        which can be used to login, logout and switch any user.
+        TLM_DBUS_ROOT_SOCKET_ADDRESS can be fetched as a variable from package
+        configuration file tlm.pc.
+        Besides whenever a user is logged in, a dbus login object is also
+        exported which can be used for 'logout-user' and 'switch-user'
+        functionalities by that user. The dbus object can be accessed at
+        TLM_DBUS_SOCKET_PATH/<seat_id-uid> by the user (uid) who is logged in
+        at the seat (seat_id).
     </para>
   </refsect1>
 </refentry>
