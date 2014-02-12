@@ -44,23 +44,6 @@
 #define TLM_CONFIG_GENERAL                  "General"
 
 /**
- * FIXME: move to correct place
- * TLM_CONFIG_GENERAL_PLUGINS_DIR:
- *
- * Plugins directory path. Default value: $(pkglibdir)/plugins
- * If Tlm has been configured with --enable-debug, the
- * value can be overriden with TLM_PLUGINS_DIR environment variable.
- *
- * Plugins should be named "libtlm-plugin-&lt;plugin_name&gt;.so" and they should
- * contain a "tlm_&lt;plugin_type&gt;_plugin_&lt;plugin_name&gt;_get_type" symbol
- * that is a function that returns a #GType of the plugin object. plugin_type
- * is "auth" for authentication plugins and "account" for account plugins.
- *
- * See #TlmAuthPlugin and #TlmAccountPlugin for more information and examples.
- */
-
-
-/**
  * TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN:
  *
  * Accounts plugin (implementation of #TlmAccountPlugin) to use.

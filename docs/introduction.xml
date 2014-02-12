@@ -39,4 +39,20 @@
         at the seat (seat_id).
     </para>
   </refsect1>
+
+  <refsect1>
+      <title>Plugin development</title>
+      <para>
+          Plugins should be named "libtlm-plugin-&lt;plugin_name&gt;.so" and
+          they should contain a
+          "tlm_&lt;plugin_type&gt;_plugin_&lt;plugin_name&gt;_get_type"
+          symbol that is a function that returns a #GType of the plugin object.
+          plugin_type is "auth" for authentication plugins and "account" for
+          account plugins.
+      </para>
+      <para>
+          If Tlm has been configured with --enable-debug, plugin directory can
+          be overriden with TLM_PLUGINS_DIR environment variable.
+      </para>
+  </refsect1>
 </refentry>
