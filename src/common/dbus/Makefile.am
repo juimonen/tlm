@@ -32,8 +32,17 @@ libtlm_dbus_glue_la_SOURCES =  \
    $(DBUS_BUILT_SOURCES) \
    $(NULL)
 
-EXTRA_DIST = interfaces tlm-dbus.h
+EXTRA_DIST = interfaces tlm-dbus.h tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml
 
-clean-local :
+all-local: login_xml_doc
+
+mostlyclean-local:
+	rm -rf $(abs_top_builddir)/docs/tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml
+
+login_xml_doc: tlm-dbus-login-gen.c
+	cp -f $(abs_top_srcdir)/src/common/dbus/tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml $(abs_top_builddir)/docs/tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml
+	chmod +w $(abs_top_builddir)/docs/tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml
+
+clean-local:
 	rm -f *~ $(DBUS_BUILT_SOURCES) $(DBUS_BUILT_DOCS)
 

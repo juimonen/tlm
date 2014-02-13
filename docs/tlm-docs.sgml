@@ -19,7 +19,7 @@
     <xi:include href="introduction.xml"/>
     <xi:include href="xml/tlm-config.xml"/>
     <xi:include href="xml/tlm-config-general.xml"/>
-    <xi:include href="../src/common/dbus/tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml"/>
+    <xi:include href="tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml"/>
 
   </chapter>
 
