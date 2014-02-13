@@ -97,6 +97,6 @@ rm -rf %{buildroot}
 
 
 %changelog
-* Wed Feb 11 2014 Imran Zaman <imran.zaman@intel.com>
+* Thu Feb 13 2014 Imran Zaman <imran.zaman@intel.com>
 - Initial RPM packaging
 
