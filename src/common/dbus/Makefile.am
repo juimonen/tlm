@@ -32,7 +32,7 @@ libtlm_dbus_glue_la_SOURCES =  \
    $(DBUS_BUILT_SOURCES) \
    $(NULL)
 
-EXTRA_DIST = interfaces
+EXTRA_DIST = interfaces tlm-dbus.h
 
 clean-local :
 	rm -f *~ $(DBUS_BUILT_SOURCES) $(DBUS_BUILT_DOCS)

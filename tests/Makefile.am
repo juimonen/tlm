@@ -16,4 +16,6 @@ valgrind: $(SUBDIRS)
 
 EXTRA_DIST = \
     valgrind.supp \
-    valgrind_common.mk
+    valgrind_common.mk \
+    tlm-test.conf.in \
+    test_common.mk

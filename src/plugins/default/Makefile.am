@@ -5,11 +5,10 @@ libtlm_plugin_default_la_SOURCES = \
 	tlm-account-plugin-default.h \
 	tlm-account-plugin-default.c \
 	tlm-auth-plugin-default.h \
-    tlm-auth-plugin-default.c
+	tlm-auth-plugin-default.c
 
 libtlm_plugin_default_la_CFLAGS = \
-	-I$(abs_top_builddir)/src/common \
-	-I$(abs_top_builddir)/src \
+	-I$(abs_top_srcdir)/src/common \
 	-DG_LOG_DOMAIN=\"TLM_PLUGIN_DEFAULT\" \
 	$(GLIB_CFLAGS)
 

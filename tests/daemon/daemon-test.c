@@ -41,6 +41,7 @@
 #include "common/tlm-config.h"
 #include "common/dbus/tlm-dbus-login-gen.h"
 #include "daemon/tlm-utils.h"
+#include "daemon/dbus/tlm-dbus-utils.h"
 
 static gchar *exe_name = 0;
 static GPid daemon_pid = 0;
@@ -252,7 +253,7 @@ START_TEST (test_login_user)
             (GEqualFunc)g_str_equal,
             (GDestroyNotify)g_free,
             (GDestroyNotify)g_free);
-    venv = tlm_utils_hash_table_to_variant (environ);
+    venv = tlm_dbus_utils_hash_table_to_variant (environ);
 
     g_hash_table_unref (environ);
 

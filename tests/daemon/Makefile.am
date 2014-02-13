@@ -14,7 +14,7 @@ include $(top_srcdir)/tests/valgrind_common.mk
 daemontest_SOURCES = daemon-test.c
 
 daemontest_CFLAGS = \
-    -I$(top_srcdir)/src \
+    -I$(abs_top_srcdir)/src \
     $(TLM_CFLAGS) \
     $(CHECK_CFLAGS) \
     -U G_LOG_DOMAIN \
@@ -23,7 +23,8 @@ daemontest_CFLAGS = \
 daemontest_LDADD = \
     $(TLM_LIBS) \
     $(CHECK_LIBS) \
-    $(top_builddir)/src/daemon/tlm-tlm-utils.o \
-    $(top_builddir)/src/common/dbus/libtlm-dbus-glue.la
+    $(abs_top_builddir)/src/daemon/tlm-tlm-utils.o \
+    $(abs_top_builddir)/src/daemon/dbus/libtlm-dbus.la \
+    $(abs_top_builddir)/src/common/dbus/libtlm-dbus-glue.la
 
 CLEANFILES = *.gcno *.gcda

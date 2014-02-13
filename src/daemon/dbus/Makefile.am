@@ -3,7 +3,6 @@ NULL=
 noinst_LTLIBRARIES = libtlm-dbus.la
 
 libtlm_dbus_la_CPPFLAGS = \
-    -I$(top_builddir)/src \
     -I$(top_srcdir)/src \
     $(TLM_CFLAGS) \
     -DG_LOG_DOMAIN=\"TLM\" \

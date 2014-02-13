@@ -8,6 +8,9 @@ libtlm_plugin_la_include_HEADERS = \
 	tlm-account-plugin.h \
 	tlm-auth-plugin.h \
 	tlm-log.h \
+	tlm-error.h \
+	tlm-config.h \
+	tlm-config-general.h \
 	$(NULL)
 
 libtlm_plugin_la_SOURCES = \
@@ -20,7 +23,6 @@ libtlm_plugin_la_SOURCES = \
 	$(NULL)
 
 libtlm_plugin_la_CFLAGS = \
-	-I$(abs_top_builddir) \
 	-I$(abs_top_srcdir)/src \
 	-DG_LOG_DOMAIN=\"TLM_PLUGIN\" \
 	-DTLM_PLUGINS_DIR='"$(pluginsdir)"' \

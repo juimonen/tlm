@@ -5,6 +5,7 @@ bin_PROGRAMS = tlm
 BUILT_SOURCES =
 
 tlm_SOURCES = \
+	tlm-types.h \
 	tlm-utils.h \
 	tlm-utils.c \
 	tlm-auth-session.h \
