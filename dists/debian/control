@@ -1,0 +1,27 @@
+Source: tlm
+Section: net
+Priority: extra
+Maintainer: Imran Zaman <imran.zaman@intel.com>
+Build-Depends: debhelper (>= 8.0.0), autotools-dev, pkg-config, gtk-doc-tools, libglib2.0-dev, libgum-dev
+Standards-Version: 3.9.2
+Homepage: https://github.com/01org/tlm
+Vcs-Git: https://github.com/01org/tlm.git
+Vcs-Browser: https://github.com/01org/tlm
+
+Package: tlm
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: tlm daemon and default plugins
+ tlm is login manager for Tizen
+
+Package: tlm-dev
+Architecture: any
+Depends: ${shlibs:Depens}, ${misc:Depends}
+Description: development files for tlm
+ Headers and libraries necessary for developing plugins.
+
+Package: tlm-doc
+Architecture: all
+Description: documentation for tlm
+ Developer documentation for developing plugins.
+

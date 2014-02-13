@@ -1,0 +1,4 @@
+/usr/bin/tlm
+/usr/lib/*.so.*
+/usr/lib/tlm/plugins/*.so*
+/etc/tlm.conf

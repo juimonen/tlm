@@ -27,10 +27,10 @@
     <title>Tlm plugins reference</title>
     <xi:include href="xml/tlm-account-plugin.xml"/>
     <xi:include href="xml/tlm-account-plugin-default.xml"/>
-    <xi:include href="xml/tlm-plugin-gumd.xml"/>
+    <xi:include href="xml/tlm-plugin-gumd.xml"><xi:fallback /></xi:include>
     <xi:include href="xml/tlm-auth-plugin.xml"/>
     <xi:include href="xml/tlm-auth-plugin-default.xml"/>
-    <xi:include href="xml/tlm-auth-plugin-nfc.xml"/>
+    <xi:include href="xml/tlm-auth-plugin-nfc.xml"><xi:fallback /></xi:include>
 
   </chapter>
 

@@ -52,7 +52,7 @@ AC_ARG_ENABLE(debug, [ --enable-debug enable debug features],
 if test "x$enable_debug" = "xyes" ; then
     AC_DEFINE(ENABLE_DEBUG, [1], [Enable debug features])
     AC_ARG_ENABLE(tests, [ --enable-tests build unit tests],
-                  [enable_tests=$enable_tests], [enable_tests="yes"])
+                  [enable_tests=$enable_tests], [enable_tests="no"])
     if test "x$enable_tests" = "xyes" ; then
         AC_DEFINE(ENABLE_TESTS, [1], [Build unit tests], [enable_tests=yes])
         PKG_CHECK_MODULES([CHECK], [check >= 0.9.4])

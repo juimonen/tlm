@@ -1,0 +1,4 @@
+/usr/include/tlm/*.h
+/usr/lib/libtlm*.so
+/usr/lib/libtlm*.la
+/usr/lib/pkgconfig/tlm.pc
