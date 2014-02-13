@@ -94,26 +94,31 @@ _teardown_daemon (void)
     if (daemon_pid) kill (daemon_pid, SIGTERM);
 }
 
-
-GDBusConnection *
-_get_bus_connection (
-        const gchar *seat_id,
-        GError **error)
-{
-    /* get dbus connection for specific user only */
-    gchar address[128];
-    g_snprintf (address, 127, "unix:path=%s/%s", TLM_DBUS_SOCKET_PATH,
-            seat_id);
-    return g_dbus_connection_new_for_address_sync (address,
-            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
-}
-
 GDBusConnection *
 _get_root_socket_bus_connection (
         GError **error)
 {
     gchar address[128];
     g_snprintf (address, 127, TLM_DBUS_ROOT_SOCKET_ADDRESS);
+    return g_dbus_connection_new_for_address_sync (address,
+            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
+}
+
+GDBusConnection *
+_get_bus_connection (
+        const gchar *seat_id,
+        GError **error)
+{
+    uid_t ui_user_id = getuid ();
+
+    if (ui_user_id == 0) {
+        return _get_root_socket_bus_connection (error);
+    }
+
+    /* get dbus connection for specific user only */
+    gchar address[128];
+    g_snprintf (address, 127, "unix:path=%s/%s-%d", TLM_DBUS_SOCKET_PATH,
+            seat_id, ui_user_id);
     return g_dbus_connection_new_for_address_sync (address,
             G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
 }
@@ -151,7 +156,7 @@ _get_session_property (
             NULL,
             &error);
     if (error) {
-        WARN ("Failed with error %d:%s", error->code, error->message);
+        DBG ("Failed with error %d:%s", error->code, error->message);
         g_error_free (error);
         error = NULL;
         return NULL;
@@ -258,7 +263,7 @@ START_TEST (test_login_user)
     g_hash_table_unref (environ);
 
     fail_if (tlm_dbus_login_call_login_user_sync (login_object,
-            "seat0", "test0", "test1", venv, NULL, &error) == FALSE);
+            "seat0", "test01234567", "test1", venv, NULL, &error) == TRUE);
 
     if (error) {
         g_error_free (error);
