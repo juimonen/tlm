@@ -1,4 +1,6 @@
 include $(top_srcdir)/common.mk
 
-sysconf_DATA = tlm.conf
+EXTRA_DIST = \
+      tlm.conf.in
 
+sysconf_DATA = tlm.conf

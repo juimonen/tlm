@@ -35,6 +35,8 @@ AC_SUBST(GMODULE_LIBS)
 
 # Check for libtlm-nfc
 PKG_CHECK_MODULES([LIBTLM_NFC], [libtlm-nfc], [have_libtlm_nfc=yes], [have_libtlm_nfc=no])
+AC_SUBST(LIBTLM_NFC_CFLAGS)
+AC_SUBST(LIBTLM_NFC_LIBS)
 AM_CONDITIONAL(HAVE_LIBTLM_NFC, [test x$have_libtlm_nfc = xyes])
 
 AC_CHECK_HEADERS([security/pam_appl.h],,[AC_MSG_ERROR("pam-devel is required")])
@@ -130,7 +132,7 @@ AC_OUTPUT
 echo ""
 echo "Enabled debug features : "$enable_debug
 echo "Building tests         : "$enable_tests
-echo "Enabled Gumd           : "$enable_gum
+echo "Enabled Gumd           : "$enable_gum $have_libgum
 echo "Enabled NFC            : "$have_libtlm_nfc
 echo "Enabled examples       : "$enable_examples
 echo ""

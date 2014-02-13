@@ -37,4 +37,10 @@ tlm_LDADD = \
 	-lpam \
 	$(NULL)
 
+EXTRA_DIST = \
+      tlm.pc.in
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = tlm.pc
+
 CLEANFILES = $(BUILT_SOURCES)

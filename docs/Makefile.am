@@ -22,7 +22,14 @@ DOC_MAIN_SGML_FILE=$(DOC_MODULE)-docs.sgml
 # gtk-doc will search all .c and .h files beneath these paths
 # for inline comments documenting functions and macros.
 # e.g. DOC_SOURCE_DIR=$(top_srcdir)/gtk $(top_srcdir)/gdk
-DOC_SOURCE_DIR=$(top_srcdir)/src/common $(top_srcdir)/src/plugins/
+DOC_SOURCE_DIR=$(top_srcdir)/src/common $(top_srcdir)/src/plugins/default
+
+if HAVE_LIBGUM
+DOC_SOURCE_DIR += $(top_srcdir)/src/plugins/gumd
+endif
+if HAVE_LIBTLM_NFC
+DOC_SOURCE_DIR += $(top_srcdir)/src/plugins/nfc
+endif
 
 # Extra options to pass to gtkdoc-scangobj. Not normally needed.
 SCANGOBJ_OPTIONS=
@@ -84,8 +91,13 @@ GTKDOC_LIBS=$(GLIB_LIBS) \
             $(top_builddir)/src/common/libtlm-plugin.la \
             $(top_builddir)/src/plugins/default/libtlm-plugin-default.la
 
+if HAVE_LIBGUM
 GTKDOC_LIBS += $(LIBGUM_LIBS) $(top_builddir)/src/plugins/gumd/libtlm-plugin-gumd.la
-GTKDOC_LIBS += $(LIBGUM_LIBS) $(top_builddir)/src/plugins/nfc/libtlm-plugin-nfc.la
+endif
+
+if HAVE_LIBTLM_NFC
+GTKDOC_LIBS += $(LIBTLM_NFC_CFLAGS) $(top_builddir)/src/plugins/nfc/libtlm-plugin-nfc.la
+endif
 
 # This includes the standard gtk-doc make rules, copied by gtkdocize.
 include $(top_srcdir)/gtk-doc.make

@@ -35,8 +35,8 @@
         Besides whenever a user is logged in, a dbus login object is also
         exported which can be used for 'logout-user' and 'switch-user'
         functionalities by that user. The dbus object can be accessed at
-        TLM_DBUS_SOCKET_PATH/<seat_id-uid> by the user (uid) who is logged in
-        at the seat (seat_id).
+        TLM_DBUS_SOCKET_PATH/&lt;seat_id-uid&gt; by the user (uid) who is logged
+        in at the seat (seat_id).
     </para>
   </refsect1>
 
