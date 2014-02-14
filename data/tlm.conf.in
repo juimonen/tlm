@@ -36,6 +36,10 @@ PAM_SERVICE=tlm-login
 # Default: off
 #SETUP_TERMINAL=0
 #
+# Use X11 style sessions
+# Default: off
+#X11_SESSION=0
+#
 #
 # Seat specific settings where the group name is seat id
 #[seat0]
