@@ -209,13 +209,12 @@ _trigger_dbus_request (
     gchar *seat = NULL;
     GVariant *vseat = NULL;
 
-    vseat = _get_property ("Seat");
-    if (!vseat) {
-        WARN ("No seat property exists");
-        goto _finished;
+    const gchar *env_seat = g_getenv ("TLM_SEAT_ID");
+    if (env_seat) seat = g_strdup (env_seat);
+    if (!seat) {
+        WARN ("No seat defined in environment variable, using seat0");
+        seat = g_strdup ("seat0");
     }
-    g_variant_get (vseat, "(so)", &seat, NULL);
-    g_variant_unref (vseat);
 
     environ = g_hash_table_new_full ((GHashFunc)g_str_hash,
             (GEqualFunc)g_str_equal,
