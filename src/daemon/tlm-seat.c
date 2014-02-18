@@ -322,6 +322,16 @@ _notify_handler (GIOChannel *channel,
 
     if (tlm_config_get_boolean (priv->config,
                                 TLM_CONFIG_GENERAL,
+                                TLM_CONFIG_GENERAL_X11_SESSION,
+                                FALSE)) {
+        DBG ("X11 session termination");
+        if (kill (0, SIGTERM))
+            WARN ("Failed to send TERM signal to process tree");
+        return TRUE;
+    }
+
+    if (tlm_config_get_boolean (priv->config,
+                                TLM_CONFIG_GENERAL,
                                 TLM_CONFIG_GENERAL_AUTO_LOGIN,
                                 TRUE) ||
         seat->priv->next_user) {

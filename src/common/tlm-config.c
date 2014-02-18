@@ -122,6 +122,7 @@ _load_config (
             def_config = g_build_filename (g_get_user_config_dir(),
                                            "/tlm.conf",
                                            NULL);
+        DBG ("trying config file %s", def_config);
         if (g_access (def_config, R_OK) == 0) {
             self->priv->config_file_path = def_config;
         } else {
@@ -131,6 +132,7 @@ _load_config (
                 def_config = g_build_filename (*sysconfdirs,
                                                "/tlm.conf",
                                                NULL);
+                DBG ("trying config file %s", def_config);
                 if (g_access (def_config, R_OK) == 0) {
                     self->priv->config_file_path = def_config;
                     break;
@@ -147,6 +149,7 @@ _load_config (
     def_config = g_build_filename (TLM_SYSCONF_DIR,
                                    "/tlm.conf",
                                    NULL);
+    DBG ("trying config file %s", def_config);
     if (g_access (def_config, R_OK) == 0) {
         self->priv->config_file_path = def_config;
     } else {
@@ -155,7 +158,7 @@ _load_config (
 #   endif  /* ENABLE_DEBUG */
 
     if (self->priv->config_file_path) {
-        DBG ("Loading TLM config from %s", self->priv->config_file_path);
+        DBG ("loading TLM config from %s", self->priv->config_file_path);
         if (!g_key_file_load_from_file (settings,
                                         self->priv->config_file_path,
                                         G_KEY_FILE_NONE, &err)) {
