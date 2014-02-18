@@ -1,3 +1,4 @@
+include $(top_srcdir)/common.mk
 SUBDIRS = dbus
 
 lib_LTLIBRARIES = libtlm-plugin.la

@@ -102,11 +102,21 @@ struct _TlmConfigPrivate
 
 G_DEFINE_TYPE (TlmConfig, tlm_config, G_TYPE_OBJECT);
 
+static gchar *
+_check_config_file (const gchar *path)
+{
+    gchar *fn = g_build_filename (path, "tlm.conf",   NULL);
+    DBG ("check config at %s", fn);
+    if (g_access (fn, R_OK) == 0)
+        return fn;
+    g_free (fn);
+    return NULL;
+}
+
 static gboolean
 _load_config (
         TlmConfig *self)
 {
-    gchar *def_config;
     GError *err = NULL;
     gchar **groups = NULL;
     gsize n_groups = 0;
@@ -117,44 +127,36 @@ _load_config (
     const gchar * const *sysconfdirs;
 
     if (!self->priv->config_file_path) {
-        def_config = g_strdup (g_getenv ("TLM_CONF_FILE"));
-        if (!def_config)
-            def_config = g_build_filename (g_get_user_config_dir(),
-                                           "/tlm.conf",
-                                           NULL);
-        DBG ("trying config file %s", def_config);
-        if (g_access (def_config, R_OK) == 0) {
-            self->priv->config_file_path = def_config;
-        } else {
-            g_free (def_config);
-            sysconfdirs = g_get_system_config_dirs ();
-            while (*sysconfdirs != NULL) {
-                def_config = g_build_filename (*sysconfdirs,
-                                               "/tlm.conf",
-                                               NULL);
-                DBG ("trying config file %s", def_config);
-                if (g_access (def_config, R_OK) == 0) {
-                    self->priv->config_file_path = def_config;
-                    break;
-                }
-                g_free (def_config);
-                sysconfdirs++;
+        const gchar *cfg_env = g_getenv ("TLM_CONF_FILE");
+        if (cfg_env)
+            self->priv->config_file_path = _check_config_file (cfg_env);
+    }
+    if (!self->priv->config_file_path) {
+        gchar *user_cfg = g_strdup_printf ("%s/%s",
+                                           g_get_user_config_dir (),
+                                           "tlm");
+        self->priv->config_file_path = _check_config_file (user_cfg);
+        g_free (user_cfg);
+    }
+    if (!self->priv->config_file_path) {
+        self->priv->config_file_path = _check_config_file (TLM_SYSCONF_DIR);
+    }
+    if (!self->priv->config_file_path) {
+        sysconfdirs = g_get_system_config_dirs ();
+        while (*sysconfdirs != NULL) {
+            gchar *sys_cfg = _check_config_file (*sysconfdirs);
+            if (sys_cfg) {
+                self->priv->config_file_path = sys_cfg;
+                break;
             }
+            sysconfdirs++;
         }
     }
 #   else  /* ENABLE_DEBUG */
 #   ifndef TLM_SYSCONF_DIR
 #   error "System configuration directory not defined!"
 #   endif
-    def_config = g_build_filename (TLM_SYSCONF_DIR,
-                                   "/tlm.conf",
-                                   NULL);
-    DBG ("trying config file %s", def_config);
-    if (g_access (def_config, R_OK) == 0) {
-        self->priv->config_file_path = def_config;
-    } else {
-        g_free (def_config);
-    }
+    self->priv->config_file_path = _check_config_file (TLM_SYSCONF_DIR);
 #   endif  /* ENABLE_DEBUG */
 
     if (self->priv->config_file_path) {
