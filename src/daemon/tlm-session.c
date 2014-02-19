@@ -286,7 +286,10 @@ _session_on_auth_error (
     GError *error, 
     gpointer userdata)
 {
-    WARN ("ERROR : %s", error->message);
+    if (!error)
+        WARN ("ERROR but error is NULL");
+    else
+        WARN ("ERROR : %s", error->message);
 }
 
 static void
@@ -434,6 +437,157 @@ _signal_action (
     }
 }
 
+static gchar *
+_get_tty_id (
+        const gchar *tty_name)
+{
+    gchar *id = NULL;
+    const gchar *tmp = tty_name;
+
+    while (tmp) {
+        if (isdigit(*tmp)) {
+            id = g_strdup (tmp);
+            break;
+        }
+        tmp++;
+    }
+    return id;
+}
+
+static gchar *
+_get_host_address (
+        const gchar *hostname)
+{
+    gchar *hostaddress = NULL;
+    struct addrinfo hints, *info = NULL;
+
+    if (!hostname) return NULL;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_flags = AI_ADDRCONFIG;
+
+    if (getaddrinfo(hostname, NULL, &hints, &info) == 0) {
+        if (info) {
+            if (info->ai_family == AF_INET) {
+                struct sockaddr_in *sa = (struct sockaddr_in *) info->ai_addr;
+                hostaddress = g_malloc0 (sizeof(sa->sin_addr));
+                memcpy(hostaddress, &(sa->sin_addr), sizeof(sa->sin_addr));
+            } else if (info->ai_family == AF_INET6) {
+                struct sockaddr_in6 *sa = (struct sockaddr_in6 *) info->ai_addr;
+                hostaddress = g_malloc0 (sizeof(sa->sin6_addr));
+                memcpy(hostaddress, &(sa->sin6_addr), sizeof(sa->sin6_addr));
+            }
+            freeaddrinfo(info);
+        }
+    }
+    return hostaddress;
+}
+
+static gboolean
+_is_tty_same (
+        const gchar *tty1_name,
+        const gchar *tty2_name)
+{
+    gchar *tty1 = NULL, *tty2 = NULL;
+    gboolean res = FALSE;
+
+    if (tty1_name == tty2_name) return TRUE;
+    if (!tty1_name || !tty2_name) return FALSE;
+
+    if (*tty1_name == '/') tty1 = g_strdup (tty1_name);
+    else tty1 = g_strdup_printf ("/dev/%s", tty1_name);
+    if (*tty2_name == '/') tty2 = g_strdup (tty2_name);
+    else tty2 = g_strdup_printf ("/dev/%s", tty2_name);
+
+    res = (g_strcmp0 (tty1_name, tty2_name) == 0);
+
+    g_free (tty1);
+    g_free (tty2);
+    return res;
+}
+
+static gchar *
+_get_host_name ()
+{
+    gchar *name = g_malloc0 (HOST_NAME_SIZE);
+    if (gethostname(name, HOST_NAME_SIZE) != 0) {
+        g_free (name);
+        return NULL;
+    }
+    return name;
+}
+
+static void
+_log_utmp_entry (TlmSession *self)
+{
+    struct timeval tv;
+    pid_t pid;
+    struct utmp ut_ent;
+    struct utmp *ut_tmp = NULL;
+    gchar *hostname = NULL, *hostaddress = NULL;
+    const gchar *tty_name = NULL;
+    gchar *tty_no_dev_name = NULL, *tty_id = NULL;
+
+    DBG ("Log session entry to utmp/wtmp");
+
+    hostname = _get_host_name ();
+    hostaddress = _get_host_address (hostname);
+    tty_name = ttyname (0);
+    if (tty_name) {
+        tty_no_dev_name = g_strdup (strncmp(tty_name, "/dev/", 5) == 0 ?
+            tty_name + 5 : tty_name);
+    }
+    tty_id = _get_tty_id (tty_no_dev_name);
+    pid = getpid ();
+    utmpname(_PATH_UTMP);
+
+    setutent();
+    while ((ut_tmp = getutent())) {
+        if ( (ut_tmp->ut_pid == pid) &&
+             (ut_tmp->ut_id[0] != '\0') &&
+             (ut_tmp->ut_type == LOGIN_PROCESS ||
+                     ut_tmp->ut_type == USER_PROCESS) &&
+             (_is_tty_same (ut_tmp->ut_line, tty_name))) {
+            break;
+        }
+    }
+
+    if (ut_tmp) memcpy(&ut_ent, ut_tmp, sizeof(ut_ent));
+    else        memset(&ut_ent, 0, sizeof(ut_ent));
+
+    ut_ent.ut_type = USER_PROCESS;
+    ut_ent.ut_pid = pid;
+    if (tty_id)
+        strncpy(ut_ent.ut_id, tty_id, sizeof(ut_ent.ut_id));
+    if (self->priv->username)
+        strncpy(ut_ent.ut_user, self->priv->username, sizeof(ut_ent.ut_user));
+    if (tty_no_dev_name)
+        strncpy(ut_ent.ut_line, tty_no_dev_name, sizeof(ut_ent.ut_line));
+    if (hostname)
+        strncpy(ut_ent.ut_host, hostname, sizeof(ut_ent.ut_host));
+    if (hostaddress)
+        memcpy(&ut_ent.ut_addr_v6, hostaddress, sizeof(ut_ent.ut_addr_v6));
+
+    ut_ent.ut_session = getsid (0);
+    gettimeofday(&tv, NULL);
+#ifdef _HAVE_UT_TV
+    ut_ent.ut_tv.tv_sec = tv.tv_sec;
+    ut_ent.ut_tv.tv_usec = tv.tv_usec;
+#else
+    ut_ent.ut_time = tv.tv_sec;
+#endif
+
+    pututline(&ut_ent);
+    endutent();
+
+    updwtmp(_PATH_WTMP, &ut_ent);
+
+    g_free (hostaddress);
+    g_free (hostname);
+    g_free (tty_no_dev_name);
+    g_free (tty_id);
+}
+
 static void
 _session_on_session_created (
     TlmAuthSession *auth_session,
@@ -454,6 +608,7 @@ _session_on_session_created (
         priv->username =
             g_strdup (tlm_auth_session_get_username (auth_session));
     DBG ("session ID : %s", id);
+    _log_utmp_entry (session);
 
     priv->child_pid = fork ();
     if (priv->child_pid) {
@@ -605,153 +760,6 @@ _start_session (TlmSession *session,
     return tlm_auth_session_start (priv->auth_session);
 }
 
-static gchar *
-_get_tty_id (
-        const gchar *tty_name)
-{
-    gchar *id = NULL;
-    const gchar *tmp = tty_name;
-
-    while (tmp) {
-        if (isdigit(*tmp)) {
-            id = g_strdup (tmp);
-            break;
-        }
-        tmp++;
-    }
-    return id;
-}
-
-static gchar *
-_get_host_address (
-        const gchar *hostname)
-{
-    gchar *hostaddress = NULL;
-    struct addrinfo hints, *info = NULL;
-
-    if (!hostname) return NULL;
-
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_flags = AI_ADDRCONFIG;
-
-    if (getaddrinfo(hostname, NULL, &hints, &info) == 0) {
-        if (info) {
-            if (info->ai_family == AF_INET) {
-                struct sockaddr_in *sa = (struct sockaddr_in *) info->ai_addr;
-                hostaddress = g_malloc0 (sizeof(sa->sin_addr));
-                memcpy(hostaddress, &(sa->sin_addr), sizeof(sa->sin_addr));
-            } else if (info->ai_family == AF_INET6) {
-                struct sockaddr_in6 *sa = (struct sockaddr_in6 *) info->ai_addr;
-                hostaddress = g_malloc0 (sizeof(sa->sin6_addr));
-                memcpy(hostaddress, &(sa->sin6_addr), sizeof(sa->sin6_addr));
-            }
-            freeaddrinfo(info);
-        }
-    }
-    return hostaddress;
-}
-
-static gboolean
-_is_tty_same (
-        const gchar *tty1_name,
-        const gchar *tty2_name)
-{
-    gchar *tty1 = NULL, *tty2 = NULL;
-    gboolean res = FALSE;
-
-    if (tty1_name == tty2_name) return TRUE;
-    if (!tty1_name || !tty2_name) return FALSE;
-
-    if (*tty1_name == '/') tty1 = g_strdup (tty1_name);
-    else tty1 = g_strdup_printf ("/dev/%s", tty1_name);
-    if (*tty2_name == '/') tty2 = g_strdup (tty2_name);
-    else tty2 = g_strdup_printf ("/dev/%s", tty2_name);
-
-    res = (g_strcmp0 (tty1_name, tty2_name) == 0);
-
-    g_free (tty1);
-    g_free (tty2);
-    return res;
-}
-
-static gchar *
-_get_host_name ()
-{
-    gchar *name = g_malloc0 (HOST_NAME_SIZE);
-    if (gethostname(name, HOST_NAME_SIZE) != 0) {
-        g_free (name);
-        return NULL;
-    }
-    return name;
-}
-
-static void
-_log_utmp_entry (TlmSession *self)
-{
-    struct timeval tv;
-    pid_t pid;
-    struct utmp ut_ent;
-    struct utmp *ut_tmp = NULL;
-    gchar *hostname = NULL, *hostaddress = NULL;
-    const gchar *tty_name = NULL;
-    gchar *tty_no_dev_name = NULL, *tty_id = NULL;
-
-    hostname = _get_host_name ();
-    hostaddress = _get_host_address (hostname);
-    tty_name = ttyname (0);
-    tty_no_dev_name = g_strdup (strncmp(tty_name, "/dev/", 5) == 0 ?
-            tty_name + 5 : tty_name);
-    tty_id = _get_tty_id (tty_no_dev_name);
-    pid = getpid ();
-    utmpname(_PATH_UTMP);
-
-    setutent();
-    while ((ut_tmp = getutent())) {
-        if ( (ut_tmp->ut_pid == pid) &&
-             (ut_tmp->ut_id[0] != '\0') &&
-             (ut_tmp->ut_type == LOGIN_PROCESS ||
-                     ut_tmp->ut_type == USER_PROCESS) &&
-             (_is_tty_same (ut_tmp->ut_line, tty_name))) {
-            break;
-        }
-    }
-
-    if (ut_tmp) memcpy(&ut_ent, ut_tmp, sizeof(ut_ent));
-    else        memset(&ut_ent, 0, sizeof(ut_ent));
-
-    ut_ent.ut_type = USER_PROCESS;
-    ut_ent.ut_pid = pid;
-    if (tty_id)
-        strncpy(ut_ent.ut_id, tty_id, sizeof(ut_ent.ut_id));
-    if (self->priv->username)
-        strncpy(ut_ent.ut_user, self->priv->username, sizeof(ut_ent.ut_user));
-    if (tty_no_dev_name)
-        strncpy(ut_ent.ut_line, tty_no_dev_name, sizeof(ut_ent.ut_line));
-    if (hostname)
-        strncpy(ut_ent.ut_host, hostname, sizeof(ut_ent.ut_host));
-    if (hostaddress)
-        memcpy(&ut_ent.ut_addr_v6, hostaddress, sizeof(ut_ent.ut_addr_v6));
-
-    ut_ent.ut_session = getsid (0);
-    gettimeofday(&tv, NULL);
-#ifdef _HAVE_UT_TV
-    ut_ent.ut_tv.tv_sec = tv.tv_sec;
-    ut_ent.ut_tv.tv_usec = tv.tv_usec;
-#else
-    ut_ent.ut_time = tv.tv_sec;
-#endif
-
-    pututline(&ut_ent);
-    endutent();
-
-    updwtmp(_PATH_WTMP, &ut_ent);
-
-    g_free (hostaddress);
-    g_free (hostname);
-    g_free (tty_no_dev_name);
-    g_free (tty_id);
-}
-
 TlmSession *
 tlm_session_new (TlmConfig *config,
                  const gchar *seat_id, const gchar *service,
@@ -775,7 +783,6 @@ tlm_session_new (TlmConfig *config,
         return NULL;
     }
 
-    _log_utmp_entry (session);
     return session;
 }
 
