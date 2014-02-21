@@ -790,16 +790,29 @@ _terminate_timeout (gpointer user_data)
         case SIGHUP:
             DBG ("child %u didn't respond to SIGHUP, sending SIGTERM",
                  priv->child_pid);
+            sigset_t new_mask, old_mask;
+            sigemptyset (&new_mask);
+            sigaddset (&new_mask, SIGTERM);
+            sigprocmask (SIG_BLOCK, &new_mask, &old_mask);
+            if (killpg (getpgid (priv->child_pid), SIGTERM))
+                WARN ("killpg(%u, SIGTERM): %s",
+                      getpgid (priv->child_pid),
+                      strerror(errno));
+            sigprocmask (SIG_SETMASK, &old_mask, NULL);
             priv->last_sig = SIGTERM;
-            if (kill (priv->child_pid, SIGTERM))
-                WARN ("kill(%u, SIGTERM): %s", priv->child_pid, strerror(errno));
             return G_SOURCE_CONTINUE;
         case SIGTERM:
             DBG ("child %u didn't respond to SIGTERM, sending SIGKILL",
                  priv->child_pid);
+            if (setpgid (priv->child_pid, 0))
+                WARN ("setpgid(%u, 0): %s",
+                      priv->child_pid,
+                      strerror(errno));
+            if (killpg (priv->child_pid, SIGKILL))
+                WARN ("killpg(%u, SIGKILL): %s",
+                      getpgid (priv->child_pid),
+                      strerror(errno));
             priv->last_sig = SIGKILL;
-            if (kill (priv->child_pid, SIGKILL))
-                WARN ("kill(%u, SIGKILL): %s", priv->child_pid, strerror(errno));
             return G_SOURCE_CONTINUE;
         case SIGKILL:
             DBG ("child %u didn't respond to SIGKILL, process is stuck in kernel",
@@ -822,9 +835,16 @@ tlm_session_terminate (TlmSession *session)
 
     DBG ("Session Terminate");
 
-    if (kill (priv->child_pid, SIGHUP) < 0)
+    sigset_t new_mask, old_mask;
+
+    sigemptyset (&new_mask);
+    sigaddset (&new_mask, SIGHUP);
+    sigprocmask (SIG_BLOCK, &new_mask, &old_mask);
+    if (killpg (getpgid (priv->child_pid), SIGHUP) < 0)
         WARN ("kill(%u, SIGHUP): %s",
-              priv->child_pid, strerror(errno));
+              getpgid (priv->child_pid),
+              strerror(errno));
+    sigprocmask (SIG_SETMASK, &old_mask, NULL);
     priv->last_sig = SIGHUP;
     priv->timer_id = g_timeout_add_seconds (
             tlm_config_get_uint (priv->config, TLM_CONFIG_GENERAL,
