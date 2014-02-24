@@ -311,7 +311,7 @@ _set_terminal (TlmSessionPrivate *priv)
 {
     int i;
     int tty_fd;
-    pid_t tty_pid;
+    pid_t tty_pgid;
     const char *tty_dev;
     struct stat tty_stat;
 
@@ -346,14 +346,14 @@ _set_terminal (TlmSessionPrivate *priv)
         WARN ("isatty() failed");
         return FALSE;
     }
-    tty_pid = getpid ();
-    if (ioctl (tty_fd, TIOCSPGRP, &tty_pid)) {
-        WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
-    }
     if (ioctl (tty_fd, TIOCSCTTY, 1))
         WARN ("ioctl(TIOCSCTTY) failed: %s", strerror(errno));
-    if (tcsetpgrp (tty_fd, getpgrp ()))
-        WARN ("tcsetpgrp() failed: %s", strerror(errno));
+    tty_pgid = getpgid (getpid ());
+    if (ioctl (tty_fd, TIOCSPGRP, &tty_pgid)) {
+        WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
+    }
+    /*if (tcsetpgrp (tty_fd, getpgrp ()))
+        WARN ("tcsetpgrp() failed: %s", strerror(errno));*/
 
     // close all old handles
     for (i = 0; i < tty_fd; i++)
@@ -416,6 +416,7 @@ _signal_action (
     siginfo_t *signal_info,
     void *context)
 {
+    int status = 0;
     gpointer notify_ptr;
 
     switch (signal_no) {
@@ -423,6 +424,8 @@ _signal_action (
             DBG ("SIGCHLD received for %u status %d",
                  signal_info->si_pid,
                  signal_info->si_status);
+            waitpid (signal_info->si_pid, &status, WNOHANG);
+            DBG ("child %u waitpid() status %d", signal_info->si_pid, status);
             notify_ptr = g_hash_table_lookup (notify_table,
                                               GUINT_TO_POINTER (signal_info->si_pid));
             if (!notify_ptr) {
@@ -451,7 +454,7 @@ _get_tty_id (
     const gchar *tmp = tty_name;
 
     while (tmp) {
-        if (isdigit(*tmp)) {
+        if (isdigit (*tmp)) {
             id = g_strdup (tmp);
             break;
         }
@@ -469,21 +472,21 @@ _get_host_address (
 
     if (!hostname) return NULL;
 
-    memset(&hints, 0, sizeof(hints));
+    memset (&hints, 0, sizeof (hints));
     hints.ai_flags = AI_ADDRCONFIG;
 
-    if (getaddrinfo(hostname, NULL, &hints, &info) == 0) {
+    if (getaddrinfo (hostname, NULL, &hints, &info) == 0) {
         if (info) {
             if (info->ai_family == AF_INET) {
                 struct sockaddr_in *sa = (struct sockaddr_in *) info->ai_addr;
                 hostaddress = g_malloc0 (sizeof(sa->sin_addr));
-                memcpy(hostaddress, &(sa->sin_addr), sizeof(sa->sin_addr));
+                memcpy (hostaddress, &(sa->sin_addr), sizeof (sa->sin_addr));
             } else if (info->ai_family == AF_INET6) {
                 struct sockaddr_in6 *sa = (struct sockaddr_in6 *) info->ai_addr;
                 hostaddress = g_malloc0 (sizeof(sa->sin6_addr));
-                memcpy(hostaddress, &(sa->sin6_addr), sizeof(sa->sin6_addr));
+                memcpy (hostaddress, &(sa->sin6_addr), sizeof (sa->sin6_addr));
             }
-            freeaddrinfo(info);
+            freeaddrinfo (info);
         }
     }
     return hostaddress;
@@ -516,7 +519,7 @@ static gchar *
 _get_host_name ()
 {
     gchar *name = g_malloc0 (HOST_NAME_SIZE);
-    if (gethostname(name, HOST_NAME_SIZE) != 0) {
+    if (gethostname (name, HOST_NAME_SIZE) != 0) {
         g_free (name);
         return NULL;
     }
@@ -545,9 +548,9 @@ _log_utmp_entry (TlmSession *self)
     }
     tty_id = _get_tty_id (tty_no_dev_name);
     pid = getpid ();
-    utmpname(_PATH_UTMP);
+    utmpname (_PATH_UTMP);
 
-    setutent();
+    setutent ();
     while ((ut_tmp = getutent())) {
         if ( (ut_tmp->ut_pid == pid) &&
              (ut_tmp->ut_id[0] != '\0') &&
@@ -558,24 +561,24 @@ _log_utmp_entry (TlmSession *self)
         }
     }
 
-    if (ut_tmp) memcpy(&ut_ent, ut_tmp, sizeof(ut_ent));
-    else        memset(&ut_ent, 0, sizeof(ut_ent));
+    if (ut_tmp) memcpy (&ut_ent, ut_tmp, sizeof (ut_ent));
+    else        memset (&ut_ent, 0, sizeof (ut_ent));
 
     ut_ent.ut_type = USER_PROCESS;
     ut_ent.ut_pid = pid;
     if (tty_id)
-        strncpy(ut_ent.ut_id, tty_id, sizeof(ut_ent.ut_id));
+        strncpy (ut_ent.ut_id, tty_id, sizeof (ut_ent.ut_id));
     if (self->priv->username)
-        strncpy(ut_ent.ut_user, self->priv->username, sizeof(ut_ent.ut_user));
+        strncpy (ut_ent.ut_user, self->priv->username, sizeof (ut_ent.ut_user));
     if (tty_no_dev_name)
-        strncpy(ut_ent.ut_line, tty_no_dev_name, sizeof(ut_ent.ut_line));
+        strncpy (ut_ent.ut_line, tty_no_dev_name, sizeof (ut_ent.ut_line));
     if (hostname)
-        strncpy(ut_ent.ut_host, hostname, sizeof(ut_ent.ut_host));
+        strncpy (ut_ent.ut_host, hostname, sizeof (ut_ent.ut_host));
     if (hostaddress)
-        memcpy(&ut_ent.ut_addr_v6, hostaddress, sizeof(ut_ent.ut_addr_v6));
+        memcpy (&ut_ent.ut_addr_v6, hostaddress, sizeof (ut_ent.ut_addr_v6));
 
     ut_ent.ut_session = getsid (0);
-    gettimeofday(&tv, NULL);
+    gettimeofday (&tv, NULL);
 #ifdef _HAVE_UT_TV
     ut_ent.ut_tv.tv_sec = tv.tv_sec;
     ut_ent.ut_tv.tv_usec = tv.tv_usec;
@@ -583,10 +586,10 @@ _log_utmp_entry (TlmSession *self)
     ut_ent.ut_time = tv.tv_sec;
 #endif
 
-    pututline(&ut_ent);
-    endutent();
+    pututline (&ut_ent);
+    endutent ();
 
-    updwtmp(_PATH_WTMP, &ut_ent);
+    updwtmp (_PATH_WTMP, &ut_ent);
 
     g_free (hostaddress);
     g_free (hostname);
@@ -637,27 +640,30 @@ _session_on_session_created (
      * this is child process here onwards
      * ================================== */
 
-    if (getppid() == 1) {
-        if (setsid () == (pid_t) -1)
-            WARN ("setsid() failed: %s", strerror (errno));
-    } else {
-        /*if (setpgrp ())
-            WARN ("setpgrp() failed: %s", strerror (errno));*/
-    }
-    if (tlm_config_get_boolean (priv->config,
-                                TLM_CONFIG_GENERAL,
-                                TLM_CONFIG_GENERAL_SETUP_TERMINAL,
-                                FALSE)) {
-        puts("\n\n\n");
-        /* usually terminal settings are handled by PAM */
-        _set_terminal (priv);
-    }
-
     uid_t target_uid = tlm_user_get_uid (priv->username);
     gid_t target_gid = tlm_user_get_gid (priv->username);
 
     if (fchown (0, target_uid, -1)) {
         WARN ("Changing TTY access rights failed");
+    }
+
+    /*if (getppid() == 1) {
+        if (setsid () == (pid_t) -1)
+            WARN ("setsid() failed: %s", strerror (errno));
+    } else {
+        if (setpgrp ())
+            WARN ("setpgrp() failed: %s", strerror (errno));
+    }*/
+    DBG ("old pgid=%u", getpgrp ());
+    if (setsid () == (pid_t) -1)
+        WARN ("setsid() failed: %s", strerror (errno));
+    DBG ("new pgid=%u", getpgrp());
+    if (tlm_config_get_boolean (priv->config,
+                                TLM_CONFIG_GENERAL,
+                                TLM_CONFIG_GENERAL_SETUP_TERMINAL,
+                                FALSE)) {
+        /* usually terminal settings are handled by PAM */
+        _set_terminal (priv);
     }
 
     if (initgroups (priv->username, target_gid))
