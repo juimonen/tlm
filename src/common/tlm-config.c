@@ -114,58 +114,46 @@ _check_config_file (const gchar *path)
 }
 
 static gboolean
-_load_config (
-        TlmConfig *self)
+_load_config (TlmConfig *self)
 {
+    TlmConfigPrivate *priv = self->priv;
     GError *err = NULL;
     gchar **groups = NULL;
     gsize n_groups = 0;
     int i,j;
     GKeyFile *settings = g_key_file_new ();
 
-#   ifdef ENABLE_DEBUG
     const gchar * const *sysconfdirs;
 
-    if (!self->priv->config_file_path) {
+    if (!priv->config_file_path) {
         const gchar *cfg_env = g_getenv ("TLM_CONF_FILE");
-        if (cfg_env)
-            self->priv->config_file_path = _check_config_file (cfg_env);
+        if (cfg_env) {
+            if (g_access (cfg_env, R_OK) == 0)
+                priv->config_file_path = g_strdup (cfg_env);
+        }
     }
-    if (!self->priv->config_file_path) {
-        gchar *user_cfg = g_strdup_printf ("%s/%s",
-                                           g_get_user_config_dir (),
-                                           "tlm");
-        self->priv->config_file_path = _check_config_file (user_cfg);
-        g_free (user_cfg);
+    if (!priv->config_file_path) {
+        priv->config_file_path = _check_config_file (TLM_SYSCONF_DIR);
     }
-    if (!self->priv->config_file_path) {
-        self->priv->config_file_path = _check_config_file (TLM_SYSCONF_DIR);
-    }
-    if (!self->priv->config_file_path) {
+    if (!priv->config_file_path) {
         sysconfdirs = g_get_system_config_dirs ();
         while (*sysconfdirs != NULL) {
             gchar *sys_cfg = _check_config_file (*sysconfdirs);
             if (sys_cfg) {
-                self->priv->config_file_path = sys_cfg;
+                priv->config_file_path = sys_cfg;
                 break;
             }
             sysconfdirs++;
         }
     }
-#   else  /* ENABLE_DEBUG */
-#   ifndef TLM_SYSCONF_DIR
-#   error "System configuration directory not defined!"
-#   endif
-    self->priv->config_file_path = _check_config_file (TLM_SYSCONF_DIR);
-#   endif  /* ENABLE_DEBUG */
 
-    if (self->priv->config_file_path) {
-        DBG ("loading TLM config from %s", self->priv->config_file_path);
+    if (priv->config_file_path) {
+        DBG ("loading TLM config from %s", priv->config_file_path);
         if (!g_key_file_load_from_file (settings,
-                                        self->priv->config_file_path,
+                                        priv->config_file_path,
                                         G_KEY_FILE_NONE, &err)) {
             WARN ("error reading config file at '%s': %s",
-                 self->priv->config_file_path, err->message);
+                 priv->config_file_path, err->message);
             g_error_free (err);
             g_key_file_free (settings);
             return FALSE;
@@ -193,7 +181,7 @@ _load_config (
         }
 
         group_table = (GHashTable *) g_hash_table_lookup (
-                                self->priv->config_table, groups[i]);
+                                priv->config_table, groups[i]);
         if (!group_table) 
             group_table = g_hash_table_new_full (
                                g_str_hash,
@@ -221,7 +209,7 @@ _load_config (
 
         }
 
-        g_hash_table_insert (self->priv->config_table,
+        g_hash_table_insert (priv->config_table,
                              g_strdup (groups[i]),
                              group_table);
 
