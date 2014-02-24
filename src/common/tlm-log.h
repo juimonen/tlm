@@ -29,6 +29,8 @@
 
 #include <glib.h>
 
+#include "config.h"
+
 G_BEGIN_DECLS
 
 void tlm_log_init (const gchar *domain);
@@ -38,8 +40,14 @@ void tlm_log_close (const gchar *domain);
     g_get_monotonic_time()*1.0e-6, __FILE__, __LINE__, __PRETTY_FUNCTION__, \
     ##args
 
-#define INFO(frmt, args...)     g_print(EXPAND_LOG_MSG(frmt, ##args))
-#define DBG(frmt, args...)      g_debug("debug:"EXPAND_LOG_MSG(frmt, ##args))
+#ifdef ENABLE_DEBUG
+# define INFO(frmt, args...)     g_print(EXPAND_LOG_MSG(frmt, ##args))
+# define DBG(frmt, args...)      g_debug("debug:"EXPAND_LOG_MSG(frmt, ##args))
+#else
+# define INFO(frmt, args...)
+# define DBG(frmt, args...)
+#endif
+
 #define WARN(frmt, args...)     g_warning("warning:"EXPAND_LOG_MSG(frmt, ##args))
 #define CRITICAL(frmt, args...) g_critical(EXPAND_LOG_MSG(frmt, ##args))
 #define ERR(frmt, args...)      g_error(EXPAND_LOG_MSG(frmt, ##args))
