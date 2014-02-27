@@ -97,6 +97,9 @@ _create_dbus_observer (
 {
     gchar *address = NULL;
     uid_t uid = 0;
+
+    if (!username) return FALSE;
+
     _destroy_dbus_observer (&seat->priv->dbus_observer);
 
     uid = tlm_user_get_uid (username);
@@ -472,11 +475,12 @@ tlm_seat_create_session (TlmSeat *seat,
             name_tmpl = tlm_config_get_string (priv->config,
                                                TLM_CONFIG_GENERAL,
                                                TLM_CONFIG_GENERAL_DEFAULT_USER);
-        default_user = _build_user_name (name_tmpl, priv->id);
-        g_signal_emit (seat,
-                       signals[SIG_PREPARE_USER],
-                       0,
-                       default_user);
+        if (name_tmpl) default_user = _build_user_name (name_tmpl, priv->id);
+        if (default_user)
+            g_signal_emit (seat,
+                           signals[SIG_PREPARE_USER],
+                           0,
+                           default_user);
     }
 
     priv->session = tlm_session_new (priv->config,

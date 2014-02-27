@@ -370,6 +370,7 @@ static gboolean
 _set_environment (TlmSessionPrivate *priv)
 {
 	gchar **envlist = tlm_auth_session_get_envlist(priv->auth_session);
+	const gchar *home_dir=NULL, *shell=NULL;
 
     if (envlist) {
     	gchar **env = 0;
@@ -390,8 +391,10 @@ _set_environment (TlmSessionPrivate *priv)
 
     setenv ("USER", priv->username, 1);
     setenv ("LOGNAME", priv->username, 1);
-    setenv ("HOME", tlm_user_get_home_dir (priv->username), 1);
-    setenv ("SHELL", tlm_user_get_shell (priv->username), 1);
+    home_dir = tlm_user_get_home_dir (priv->username);
+    if (home_dir) setenv ("HOME", home_dir, 1);
+    shell = tlm_user_get_shell (priv->username);
+    if (shell) setenv ("SHELL", shell, 1);
     setenv ("XDG_SEAT", priv->seat_id, 1);
 
     const gchar *xdg_data_dirs =
@@ -606,11 +609,13 @@ _session_on_session_created (
     gint i;
     const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
     const char *home;
-    const char *shell;
+    const char *shell = NULL;
+    const char *env_shell = NULL;
     gchar **args = NULL;
     gchar **args_iter = NULL;
     TlmSession *session = TLM_SESSION (userdata);
     TlmSessionPrivate *priv = session->priv;
+    gchar **temp_strv = NULL;
 
     priv = session->priv;
     if (!priv->username)
@@ -696,51 +701,51 @@ _session_on_session_created (
                                    TLM_CONFIG_GENERAL_SESSION_CMD);
     if (shell) {
         DBG ("Session command : %s", shell);
-        gchar **temp_strv = g_regex_split_simple (pattern,
-                                                  shell,
-                                                  0,
-                                                  G_REGEX_MATCH_NOTEMPTY);
-        if (temp_strv) {
-            gchar **temp_iter;
-            
-            args = g_new0 (gchar *, g_strv_length (temp_strv));
-            for (temp_iter = temp_strv, args_iter = args;
-                 *temp_iter != NULL;
-                 temp_iter++) {
-                size_t item_len = 0;
-                gchar *item = g_strstrip (*temp_iter);
-
-                item_len = strlen (item);
-                if (item_len == 0) {
-                    continue;
-                }
-                if ((item[0] == '\"' && item[item_len - 1] == '\"') ||
-                    (item[0] == '\'' && item[item_len - 1] == '\'')) {
-                    item[item_len - 1] = '\0';
-                    memmove (item, item + 1, item_len - 1);
-                }
-                *args_iter = g_strcompress (item);
-                args_iter++;
-            }
-            g_strfreev (temp_strv);
-        }
-    } else {
-        args = g_new0 (gchar *, 3);
-        shell = getenv("SHELL");
-        if (shell) {
-            /* use shell if no override configured */
-            args[0] = g_strdup (shell);
-        } else {
-            /* in case shell is not defined, fall back to systemd --user */
-            args[0] = g_strdup ("systemd");
-            args[1] = g_strdup ("--user");
-        }
+        temp_strv = g_regex_split_simple (pattern,
+                                          shell,
+                                          0,
+                                          G_REGEX_MATCH_NOTEMPTY);
     }
+
+    if (temp_strv) {
+        gchar **temp_iter;
+
+        args = g_new0 (gchar *, g_strv_length (temp_strv));
+        for (temp_iter = temp_strv, args_iter = args;
+                *temp_iter != NULL;
+                temp_iter++) {
+            size_t item_len = 0;
+            gchar *item = g_strstrip (*temp_iter);
+
+            item_len = strlen (item);
+            if (item_len == 0) {
+                continue;
+            }
+            if ((item[0] == '\"' && item[item_len - 1] == '\"') ||
+                    (item[0] == '\'' && item[item_len - 1] == '\'')) {
+                item[item_len - 1] = '\0';
+                memmove (item, item + 1, item_len - 1);
+            }
+            *args_iter = g_strcompress (item);
+            args_iter++;
+        }
+        g_strfreev (temp_strv);
+    } else if ((env_shell = getenv("SHELL"))){
+        /* use shell if no override configured */
+        args = g_new0 (gchar *, 2);
+        args[0] = g_strdup (env_shell);
+    } else {
+        /* in case shell is not defined, fall back to systemd --user */
+        args = g_new0 (gchar *, 3);
+        args[0] = g_strdup ("systemd");
+        args[1] = g_strdup ("--user");
+    }
+
     DBG ("executing: ");
-    for (args_iter = args, i = 0;
-         *args_iter != NULL;
-         args_iter++, i++) {
+    args_iter = args;
+    while (args_iter && *args_iter) {
         DBG ("\targv[%d]: %s", i, *args_iter);
+        args_iter++; i++;
     }
     execvp (args[0], args);
     /* we reach here only in case of error */

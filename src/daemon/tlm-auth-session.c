@@ -297,23 +297,25 @@ _auth_session_pam_conversation_cb (int n_msgs,
         const char *pwd_prompt = "Password";
 
         DBG (" message string : '%s'", msg->msg);
-        if (msg->msg_style == PAM_PROMPT_ECHO_ON &&
-            strncmp(msg->msg, login_prompt, strlen(login_prompt)) == 0) {
-            DBG ("  login prompt");
-            resp->resp = strndup (auth_session->priv->username,
-            		              PAM_MAX_RESP_SIZE - 1);
-            resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
+        if (resp) {
+            if (msg->msg_style == PAM_PROMPT_ECHO_ON &&
+                    strncmp(msg->msg, login_prompt, strlen(login_prompt)) == 0) {
+                DBG ("  login prompt");
+                resp->resp = strndup (auth_session->priv->username,
+                        PAM_MAX_RESP_SIZE - 1);
+                if (resp->resp) resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
+            }
+            else if (msg->msg_style == PAM_PROMPT_ECHO_OFF &&
+                    strncmp(msg->msg, pwd_prompt, strlen(pwd_prompt)) == 0) {
+                DBG ("  password prompt");
+                resp->resp = strndup ("", PAM_MAX_RESP_SIZE - 1);
+                if (resp->resp) resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
+            }
+            else {
+                resp->resp = NULL;
+            }
+            resp->resp_retcode = PAM_SUCCESS;
         }
-        else if (msg->msg_style == PAM_PROMPT_ECHO_OFF &&
-                 strncmp(msg->msg, pwd_prompt, strlen(pwd_prompt)) == 0) {
-            DBG ("  password prompt");
-            resp->resp = strndup ("", PAM_MAX_RESP_SIZE - 1);
-            resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
-        }
-        else {
-            resp->resp = NULL;
-        }
-        resp->resp_retcode = PAM_SUCCESS;
     }
 
     return PAM_SUCCESS;

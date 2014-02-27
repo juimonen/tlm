@@ -436,7 +436,7 @@ tlm_dbus_server_p2p_new (
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (
         g_object_new (TLM_TYPE_DBUS_SERVER_P2P, "address", address, NULL));
 
-    if (!server || uid < 0) {
+    if (!server) {
         return NULL;
     }
     server->priv->uid = uid;
