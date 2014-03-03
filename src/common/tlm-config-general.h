@@ -144,4 +144,12 @@
  */
 #define TLM_CONFIG_GENERAL_X11_SESSION      "X11_SESSION"
 
+/**
+ * TLM_CONFIG_GENERAL_PAUSE_SESSION
+ *
+ * Do not actually launch anything after creating session, let systemd
+ * handle it through PAM.
+ */
+#define TLM_CONFIG_GENERAL_PAUSE_SESSION    "PAUSE_SESSION"
+
 #endif /* __TLM_GENERAL_CONFIG_H_ */

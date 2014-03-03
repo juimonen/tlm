@@ -696,6 +696,15 @@ _session_on_session_created (
             WARN ("Failed to change directroy : %s", strerror (errno));
     } else WARN ("Could not get home directory");
 
+    if (tlm_config_get_boolean (priv->config,
+                                TLM_CONFIG_GENERAL,
+                                TLM_CONFIG_GENERAL_PAUSE_SESSION,
+                                FALSE)) {
+        pause ();
+        exit (0);
+        return;  /* this should be unreachable */
+    }
+
     shell = tlm_config_get_string (priv->config,
                                    TLM_CONFIG_GENERAL,
                                    TLM_CONFIG_GENERAL_SESSION_CMD);
@@ -751,6 +760,7 @@ _session_on_session_created (
     /* we reach here only in case of error */
     g_strfreev (args);
     DBG ("execl(): %s", strerror(errno));
+    exit (0);
 }
 
 static gboolean

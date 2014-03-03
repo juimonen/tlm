@@ -32,13 +32,21 @@ PAM_SERVICE=tlm-login
 # In case shell is not defined in /etc/passwd fallback is "systemd --user"
 #SESSION_CMD=systemd --user
 #
+# Session termination timeout in seconds
+# Default: 10
+#TERMINATE_TIMEOUT=10
+#
 # Setup terminal for session
 # Default: off
-#SETUP_TERMINAL=0
+#SETUP_TERMINAL=1
 #
 # Use X11 style sessions
 # Default: off
-#X11_SESSION=0
+#X11_SESSION=1
+#
+# Do not launch anything, let systemd handle it through PAM
+# Default: off
+#PAUSE_SESSION=1
 #
 #
 # Seat specific settings where the group name is seat id
