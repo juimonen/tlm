@@ -72,6 +72,8 @@ struct _TlmSeatPrivate
     gchar *next_user;
     gchar *next_password;
     GHashTable *next_environment;
+    gint64 prev_time;
+    gint32 prev_count;
     TlmSession *session;
     TlmDbusObserver *dbus_observer; /* dbus server accessed only by user who has
     active session */
@@ -79,6 +81,15 @@ struct _TlmSeatPrivate
     GIOChannel *notify_channel;
     guint logout_id;      /* logout source id */
 };
+
+typedef struct _DelayClosure
+{
+    TlmSeat *seat;
+    gchar *service;
+    gchar *username;
+    gchar *password;
+    GHashTable *environment;
+} DelayClosure;
 
 static void
 _destroy_dbus_observer (
@@ -439,6 +450,28 @@ _build_user_name (const gchar *template, const gchar *seat_id)
     return out;
 }
 
+static gboolean
+_delayed_session (gpointer user_data)
+{
+    DelayClosure *delay_closure = (DelayClosure *) user_data;
+
+    g_return_val_if_fail (user_data, FALSE);
+
+    tlm_seat_create_session (delay_closure->seat,
+                             delay_closure->service,
+                             delay_closure->username,
+                             delay_closure->password,
+                             delay_closure->environment);
+    g_object_unref (delay_closure->seat);
+    g_free (delay_closure->service);
+    g_free (delay_closure->username);
+    g_free (delay_closure->password);
+    if (delay_closure->environment)
+        g_hash_table_unref (delay_closure->environment);
+    g_slice_free (DelayClosure, delay_closure);
+    return FALSE;
+}
+
 gboolean
 tlm_seat_create_session (TlmSeat *seat,
                          const gchar *service,
@@ -453,6 +486,27 @@ tlm_seat_create_session (TlmSeat *seat,
         g_signal_emit (seat, signals[SIG_SESSION_ERROR],  0,
                 TLM_ERROR_SESSION_ALREADY_EXISTS);
         return FALSE;
+    }
+
+    if (g_get_monotonic_time () - priv->prev_time < 1000000) {
+        DBG ("short time relogin");
+        priv->prev_time = g_get_monotonic_time ();
+        priv->prev_count++;
+        if (priv->prev_count > 3) {
+            WARN ("relogins spinning too fast, delay...");
+            DelayClosure *delay_closure = g_slice_new0 (DelayClosure);
+            delay_closure->seat = g_object_ref (seat);
+            delay_closure->service = g_strdup (service);
+            delay_closure->username = g_strdup (username);
+            delay_closure->password = g_strdup (password);
+            if (environment)
+                delay_closure->environment = g_hash_table_ref (environment);
+            g_timeout_add_seconds (10, _delayed_session, delay_closure);
+            return TRUE;
+        }
+    } else {
+        priv->prev_time = g_get_monotonic_time ();
+        priv->prev_count = 1;
     }
 
     gchar *default_user = NULL;
