@@ -28,11 +28,15 @@ libtlm_dbus_glue_la_LIBADD = \
     $(TLM_LIBS) \
     $(NULL)
 
-libtlm_dbus_glue_la_SOURCES =  \
+nodist_libtlm_dbus_glue_la_SOURCES =  \
    $(DBUS_BUILT_SOURCES) \
    $(NULL)
 
-EXTRA_DIST = interfaces tlm-dbus.h tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml
+libtlm_dbus_glue_la_SOURCES =  \
+   tlm-dbus.h \
+   $(NULL)
+
+EXTRA_DIST = interfaces tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml
 
 all-local: login_xml_doc
 
