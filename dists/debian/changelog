@@ -1,5 +1,11 @@
+tlm (0.0.2-2) unstable; urgency=low
+
+  * Update to 0.0.2
+
+ -- Jussi Laako <jussi.laako@linux.intel.com>  Thu, 13 Mar 2014 15:52:00 +0200
+
 tlm (0.0.1-1) unstable; urgency=low
 
   * Initial Release.
 
- -- Imran Zaman <imran.zaman@intel.com>  Thu, 13 Feb 2014 17:24:53 +0300
+ -- Imran Zaman <imran.zaman@intel.com>  Thu, 13 Feb 2014 17:24:53 +0200

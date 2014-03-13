@@ -1,2 +1,5 @@
+* Thu Mar 13 2014 Jussi Laako <jussi.laako@linux.intel.com>
+- Update to 0.0.2
+
 * Thu Feb 13 2014 Imran Zaman <imran.zaman@intel.com>
 - Initial RPM packaging

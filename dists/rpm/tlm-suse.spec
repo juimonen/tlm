@@ -4,7 +4,7 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 0.0.1
+Version: 0.0.2
 Release: 1
 Group: System/Daemons
 License: LGPL-2.1+
@@ -97,6 +97,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Thu Mar 13 2014 Jussi Laako <jussi.laako@linux.intel.com>
+- Update to 0.0.2
+
 * Thu Feb 13 2014 Imran Zaman <imran.zaman@intel.com>
 - Initial RPM packaging
 
