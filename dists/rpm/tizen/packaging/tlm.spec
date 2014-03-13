@@ -13,7 +13,6 @@ URL: https://github.com/01org/tlm
 Source1001:     %{name}.manifest
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
-BuildRequires: pkgconfig(gtk-doc)
 BuildRequires: pkgconfig(glib-2.0) >= 2.30
 BuildRequires: pkgconfig(gobject-2.0)
 BuildRequires: pkgconfig(gio-2.0)
@@ -55,7 +54,7 @@ Requires:   %{name} = %{version}-%{release}
 %if %{debug_build} == 1
 %configure --enable-gum --enable-gtk-doc --enable-examples --enable-debug
 %else
-%configure --enable-gum --enable-gtk-doc --enable-examples
+%configure --enable-gum --enable-examples
 %endif
 make %{?_smp_mflags}
 
