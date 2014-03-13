@@ -11,7 +11,7 @@ fi
 
 mkdir -p $2 && \
 cd $2 && \
-git rm -r *; rm -rf packaging;
+git rm -f -r *; rm -rf packaging;
 tar -xzvf $1 -C $2 --strip-components 1 && \
 mkdir -p packaging && \
 cp dists/rpm/tizen/packaging/tlm.spec packaging/ && \
