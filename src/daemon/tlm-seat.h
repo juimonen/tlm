@@ -61,7 +61,6 @@ GType tlm_seat_get_type(void);
 
 TlmSeat *
 tlm_seat_new (TlmConfig *config,
-              TlmManager *manager,
               const gchar *id,
               const gchar *path);
 

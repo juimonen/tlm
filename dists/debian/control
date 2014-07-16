@@ -25,3 +25,10 @@ Architecture: all
 Description: documentation for tlm
  Developer documentation for developing plugins.
 
+Package: tlm-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends: tlm (= ${binary:Version}), ${misc:Depends}
+Description: debugging symbols for tlm
+ debugging symbols

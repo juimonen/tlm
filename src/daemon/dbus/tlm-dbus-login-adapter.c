@@ -24,12 +24,12 @@
  */
 
 #include "config.h"
+
 #include "common/tlm-log.h"
 #include "common/tlm-error.h"
 #include "common/dbus/tlm-dbus.h"
 
 #include "tlm-dbus-login-adapter.h"
-#include "tlm-dbus-utils.h"
 
 enum
 {
@@ -102,7 +102,7 @@ _set_property (
 
     switch (property_id) {
         case PROP_CONNECTION:
-            self->priv->connection = g_value_get_object(value);
+            self->priv->connection = g_value_dup_object (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -133,13 +133,27 @@ _dispose (
 {
     TlmDbusLoginAdapter *self = TLM_DBUS_LOGIN_ADAPTER (object);
 
-    DBG("- unregistering dbus login adaptor.");
+    DBG("- unregistering dbus login adaptor %p.", self);
 
     if (self->priv->dbus_obj) {
         g_dbus_interface_skeleton_unexport (G_DBUS_INTERFACE_SKELETON (
                 self->priv->dbus_obj));
         g_object_unref (self->priv->dbus_obj);
         self->priv->dbus_obj = NULL;
+    }
+
+    if (self->priv->connection) {
+        /* NOTE: There seems to be some bug in glib's dbus connection's
+         * worker thread such that it does not closes the stream. The problem
+         * is hard to be tracked exactly as it is more of timing issue.
+         * Following code snippet at least closes the stream to avoid any
+         * descriptors leak.
+         * */
+        GIOStream *stream = g_dbus_connection_get_stream (
+                self->priv->connection);
+        if (stream) g_io_stream_close (stream, NULL, NULL);
+        g_object_unref (self->priv->connection);
+        self->priv->connection = NULL;
     }
 
     G_OBJECT_CLASS (tlm_dbus_login_adapter_parent_class)->dispose (

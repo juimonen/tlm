@@ -1,0 +1,10 @@
+[Unit]
+Description=Tizen Login Manager
+After=systemd-user-sessions.service systemd-logind.service display-manager.path
+Requires=systemd-logind.service display-manager.path
+
+[Service]
+ExecStart=/usr/bin/tlm
+
+[Install]
+WantedBy=graphical.target

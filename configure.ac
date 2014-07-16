@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([tlm], [0.0.2], [])
+AC_INIT([tlm], [0.0.3], [])
 AC_CONFIG_SRCDIR([src/daemon/tlm-main.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -114,6 +114,8 @@ src/common/dbus/Makefile
 src/daemon/Makefile
 src/daemon/dbus/Makefile
 src/daemon/tlm.pc
+src/sessiond/Makefile
+src/utils/Makefile
 src/plugins/Makefile
 src/plugins/default/Makefile
 src/plugins/gumd/Makefile

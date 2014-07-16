@@ -1,4 +1,6 @@
 /usr/bin/tlm
+/usr/bin/tlm-sessiond
 /usr/lib/*.so.*
 /usr/lib/tlm/plugins/*.so*
 /etc/tlm.conf
+/usr/bin/tlm-client

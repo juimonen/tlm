@@ -41,13 +41,6 @@ G_BEGIN_DECLS
 #define TLM_AUTH_SESSION_IS_CLASS(kls)  (G_TYPE_CHECK_CLASS_TYPE((kls), \
                                  TLM_TYPE_AUTH_SESSION))
 
-
-typedef enum {
-    TLM_AUTH_SESSION_PAM_ERROR = 1,
-} TlmAuthSessionError;
-
-#define TLM_AUTH_SESSION_ERROR g_quark_from_string("tlm-auth-session-error")
-
 typedef struct _TlmAuthSession TlmAuthSession;
 typedef struct _TlmAuthSessionClass TlmAuthSessionClass;
 typedef struct _TlmAuthSessionPrivate TlmAuthSessionPrivate;
@@ -77,10 +70,16 @@ tlm_auth_session_putenv (TlmAuthSession *auth_session,
                          const gchar *value);
 
 gboolean
-tlm_auth_session_start (TlmAuthSession *auth_session);
+tlm_auth_session_authenticate (TlmAuthSession *auth_session, GError **error);
+
+gboolean
+tlm_auth_session_open (TlmAuthSession *auth_session, GError **error);
 
 const gchar *
 tlm_auth_session_get_username (TlmAuthSession *auth_session);
+
+const gchar *
+tlm_auth_session_get_sessionid (TlmAuthSession *auth_session);
 
 gchar **
 tlm_auth_session_get_envlist (TlmAuthSession *auth_session);

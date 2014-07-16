@@ -39,15 +39,14 @@ tlm_dbus_utils_create_request (
     if (!request) return NULL;
 
     request->type = type;
-    request->dbus_adapter = g_object_ref (object);
-    request->invocation = g_object_ref (invocation);
+    if (invocation) request->invocation = g_object_ref (invocation);
+    if (object) request->dbus_adapter = g_object_ref (object);
     if (seat_id) request->seat_id = g_strdup (seat_id);
     if (username) request->username = g_strdup (username);
     if (password) request->password = g_strdup (password);
-    if (environment) {
-        request->environment =
-                tlm_dbus_utils_hash_table_from_variant (environment);
-    }
+    if (environment)
+        request->environment = tlm_dbus_utils_hash_table_from_variant (
+                environment);
     return request;
 }
 

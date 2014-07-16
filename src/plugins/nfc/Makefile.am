@@ -14,7 +14,7 @@ libtlm_plugin_nfc_la_CFLAGS = \
 libtlm_plugin_nfc_la_LDFLAGS = -avoid-version
 
 libtlm_plugin_nfc_la_LIBADD = \
-	$(abs_top_builddir)/src/common/libtlm-plugin.la \
+	$(abs_top_builddir)/src/common/libtlm-common.la \
 	$(LIBTLM_NFC_LIBS) \
 	$(GLIB_LIBS)
 

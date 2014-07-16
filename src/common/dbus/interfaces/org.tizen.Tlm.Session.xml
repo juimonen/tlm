@@ -1,0 +1,28 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.tizen.Tlm.Session">
+    <property type='s' name='seatid' access='readwrite'/>
+    <property type='s' name='username' access='readwrite'/>
+    <property type='s' name='service' access='readwrite'/>
+    <property type='s' name='sessionid' access='read'/>
+
+    <method name="sessionCreate">
+      <arg name="password" type="s" direction="in"/>
+      <arg name="environment" type="a{ss}" direction="in"/>
+    </method>
+    <method name="sessionTerminate">
+    </method>
+
+    <signal name="sessionCreated">
+      <arg name="sessionid" type="s" direction="out"/>
+    </signal>
+    <signal name="sessionTerminated">
+    </signal>
+    <signal name="error">
+      <arg name="error" type="(uis)" direction="out"/>
+    </signal>
+    <signal name="authenticated">
+    </signal>
+
+  </interface>
+</node>

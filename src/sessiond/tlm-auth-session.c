@@ -37,8 +37,9 @@
 #include <gio/gio.h>
 
 #include "tlm-auth-session.h"
-#include "tlm-log.h"
-#include "tlm-utils.h"
+#include "common/tlm-log.h"
+#include "common/tlm-utils.h"
+#include "common/tlm-error.h"
 
 G_DEFINE_TYPE (TlmAuthSession, tlm_auth_session, G_TYPE_OBJECT);
 
@@ -54,15 +55,6 @@ enum {
     N_PROPERTIES
 };
 static GParamSpec *pspecs[N_PROPERTIES];
-
-enum {
-    SIG_AUTH_ERROR,
-    SIG_AUTH_SUCCESS,
-    SIG_SESSION_CREATED,
-    SIG_SESSION_ERROR,
-    SIG_MAX
-};
-static guint signals[SIG_MAX];
 
 struct _TlmAuthSessionPrivate
 {
@@ -121,6 +113,7 @@ tlm_auth_session_finalize (GObject *self)
     g_clear_string (&priv->service);
     g_clear_string (&priv->username);
     g_clear_string (&priv->password);
+    g_clear_string (&priv->session_id);
 
     G_OBJECT_CLASS (tlm_auth_session_parent_class)->finalize (self);
 }
@@ -192,41 +185,24 @@ tlm_auth_session_class_init (TlmAuthSessionClass *klass)
                              "authentication service",
                              "Service",
                              NULL,
-                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+                             G_PARAM_READWRITE|
+                             G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
     pspecs[PROP_USERNAME] =
         g_param_spec_string ("username",
                              "username",
                              "Username",
                              NULL,
-                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+                             G_PARAM_READWRITE|
+                             G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
     pspecs[PROP_PASSWORD] =
         g_param_spec_string ("password",
                              "password",
                              "Unix password for the user to login",
                              NULL,
-                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+                             G_PARAM_READWRITE|
+                             G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
 
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
-
-    signals[SIG_AUTH_ERROR] = g_signal_new ("auth-error", TLM_TYPE_AUTH_SESSION,
-                                G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
-                                G_TYPE_NONE, 1, G_TYPE_ERROR);
-
-    signals[SIG_AUTH_SUCCESS] = g_signal_new ("auth-success", 
-                                TLM_TYPE_AUTH_SESSION, G_SIGNAL_RUN_LAST,
-                                0, NULL, NULL, NULL, G_TYPE_NONE,
-                                0, G_TYPE_NONE);
-
-    signals[SIG_SESSION_CREATED] = g_signal_new ("session-created",
-                                TLM_TYPE_AUTH_SESSION, G_SIGNAL_RUN_LAST,
-                                0, NULL, NULL, NULL, G_TYPE_NONE,
-                                1, G_TYPE_STRING);
-
-    signals[SIG_SESSION_ERROR] = g_signal_new ("session-error",
-                                TLM_TYPE_AUTH_SESSION, G_SIGNAL_RUN_LAST,
-                                0, NULL, NULL, NULL, G_TYPE_NONE,
-                                1, G_TYPE_ERROR);
-                                
 }
 
 static void
@@ -350,13 +326,12 @@ tlm_auth_session_putenv (
 }
 
 gboolean
-tlm_auth_session_start (TlmAuthSession *auth_session)
+tlm_auth_session_authenticate (TlmAuthSession *auth_session, GError **error)
 {
     int res;
     const char *pam_tty = NULL;
     const char *pam_ruser = NULL;
-    GError *error = 0;
-    g_return_val_if_fail (auth_session && 
+    g_return_val_if_fail (auth_session &&
                 TLM_IS_AUTH_SESSION(auth_session), FALSE);
 
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
@@ -390,14 +365,24 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
     if((res = pam_authenticate (priv->pam_handle, PAM_SILENT)) != PAM_SUCCESS) {
         WARN ("PAM authentication failure: %s",
               pam_strerror (priv->pam_handle, res));
-        GError *error = g_error_new (TLM_AUTH_SESSION_ERROR,
-                                     TLM_AUTH_SESSION_PAM_ERROR,
-                                     "pam authenticaton failed : %s",
-                                     pam_strerror (priv->pam_handle, res));
-        g_signal_emit (auth_session, signals[SIG_AUTH_ERROR], 0, error);
-        g_error_free (error); 
+        if (error)
+        	*error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_PAM_AUTH_FAILURE,
+        			"pam authenticaton failed : %s",
+        			pam_strerror (priv->pam_handle, res));
         return FALSE;
     }
+
+    return TRUE;
+}
+
+gboolean
+tlm_auth_session_open (TlmAuthSession *auth_session, GError **error)
+{
+    int res;
+    g_return_val_if_fail (auth_session && 
+                TLM_IS_AUTH_SESSION(auth_session), FALSE);
+
+    TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
     /*res = pam_acct_mgmt (priv->pam_handle, 0);
     if (res == PAM_NEW_AUTHTOK_REQD) {
@@ -408,8 +393,6 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
               pam_strerror (priv->pam_handle, res));
         return FALSE;
     }*/
-
-    g_signal_emit (auth_session, signals[SIG_AUTH_SUCCESS], 0);
 
     res = pam_setcred (priv->pam_handle, PAM_ESTABLISH_CRED);
     if (res != PAM_SUCCESS) {
@@ -433,15 +416,12 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
         return FALSE;
     }
 
-    priv->session_id = _auth_session_get_logind_session_id (&error);
+    priv->session_id = _auth_session_get_logind_session_id (error);
     if (!priv->session_id) {
-        g_signal_emit (auth_session, signals[SIG_SESSION_ERROR], 0, error);
-        g_error_free (error);
         pam_close_session (priv->pam_handle, 0);
         return FALSE;
     }
-    g_signal_emit (auth_session, signals[SIG_SESSION_CREATED],
-                   0, priv->session_id);
+
     return TRUE;
 }
 
@@ -450,6 +430,7 @@ tlm_auth_session_new (const gchar *service,
                       const gchar *username,
                       const gchar *password)
 {
+    int res;
     TlmAuthSession *auth_session = TLM_AUTH_SESSION (
         g_object_new (TLM_TYPE_AUTH_SESSION,
                       "service", service,
@@ -458,7 +439,6 @@ tlm_auth_session_new (const gchar *service,
                       NULL));
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
-    int res;
     struct pam_conv conv = { _auth_session_pam_conversation_cb,
                              auth_session };
     DBG ("loading pam for service '%s'", priv->service);
@@ -479,6 +459,14 @@ tlm_auth_session_get_username (TlmAuthSession *auth_session)
     g_return_val_if_fail (TLM_IS_AUTH_SESSION (auth_session), NULL);
 
     return auth_session->priv->username;
+}
+
+const gchar *
+tlm_auth_session_get_sessionid (TlmAuthSession *auth_session)
+{
+    g_return_val_if_fail (TLM_IS_AUTH_SESSION (auth_session), NULL);
+
+    return auth_session->priv->session_id;
 }
 
 gchar **

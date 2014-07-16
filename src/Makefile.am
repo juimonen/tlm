@@ -1,2 +1,2 @@
 NULL=
-SUBDIRS = common plugins daemon
+SUBDIRS = common plugins daemon sessiond utils

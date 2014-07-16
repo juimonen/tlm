@@ -45,9 +45,11 @@ typedef enum {
     TLM_ERROR_SESSION_CREATION_FAILURE,
     TLM_ERROR_SESSION_ALREADY_EXISTS,
     TLM_ERROR_SESSION_NOT_VALID,
+    TLM_ERROR_SESSION_TERMINATION_FAILURE,
     TLM_ERROR_DBUS_SERVER_START_FAILURE,
+    TLM_ERROR_PAM_AUTH_FAILURE,
 
-    TLM_ERROR_DBUS_REQ_ABORTED = 40,
+    TLM_ERROR_DBUS_REQ_ABORTED = 50,
     TLM_ERROR_DBUS_REQ_NOT_SUPPORTED,
     TLM_ERROR_DBUS_REQ_UNKNOWN,
 
@@ -60,6 +62,15 @@ typedef enum {
 
 GQuark
 tlm_error_quark (void);
+
+GError *
+tlm_error_new_from_variant (
+        GVariant *var);
+
+GVariant *
+tlm_error_to_variant (
+        GError *error);
+
 
 G_END_DECLS
 

@@ -4,6 +4,7 @@ noinst_LTLIBRARIES = libtlm-dbus.la
 
 libtlm_dbus_la_CPPFLAGS = \
     -I$(top_srcdir)/src \
+    -I$(top_builddir)/src \
     $(TLM_CFLAGS) \
     -DG_LOG_DOMAIN=\"TLM\" \
     $(NULL)
@@ -20,8 +21,6 @@ libtlm_dbus_la_SOURCES = \
    tlm-dbus-server-p2p.h \
    tlm-dbus-login-adapter.c \
    tlm-dbus-login-adapter.h \
-   tlm-dbus-utils.c \
-   tlm-dbus-utils.h \
    $(NULL)
 
 clean-local :

@@ -40,8 +40,8 @@
 #include "common/tlm-log.h"
 #include "common/tlm-config.h"
 #include "common/dbus/tlm-dbus-login-gen.h"
-#include "daemon/tlm-utils.h"
-#include "daemon/dbus/tlm-dbus-utils.h"
+#include "common/tlm-utils.h"
+#include "common/dbus/tlm-dbus-utils.h"
 
 static gchar *exe_name = 0;
 static GPid daemon_pid = 0;
