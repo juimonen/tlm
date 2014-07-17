@@ -295,20 +295,23 @@ _auth_session_pam_conversation_cb (int n_msgs,
         struct pam_response *resp = *resps + i;
         const char *login_prompt = "login";
         const char *pwd_prompt = "Password";
+        const char *luname = auth_session->priv->username ?
+            auth_session->priv->username : "";
+        const char *lpasswd = auth_session->priv->password ?
+            auth_session->priv->password : "";
 
         DBG (" message string : '%s'", msg->msg);
         if (resp) {
             if (msg->msg_style == PAM_PROMPT_ECHO_ON &&
                     strncmp(msg->msg, login_prompt, strlen(login_prompt)) == 0) {
                 DBG ("  login prompt");
-                resp->resp = strndup (auth_session->priv->username,
-                        PAM_MAX_RESP_SIZE - 1);
+                resp->resp = strndup (luname, PAM_MAX_RESP_SIZE - 1);
                 if (resp->resp) resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
             }
             else if (msg->msg_style == PAM_PROMPT_ECHO_OFF &&
                     strncmp(msg->msg, pwd_prompt, strlen(pwd_prompt)) == 0) {
                 DBG ("  password prompt");
-                resp->resp = strndup ("", PAM_MAX_RESP_SIZE - 1);
+                resp->resp = strndup (lpasswd, PAM_MAX_RESP_SIZE - 1);
                 if (resp->resp) resp->resp[PAM_MAX_RESP_SIZE - 1] = '\0';
             }
             else {
@@ -358,13 +361,15 @@ tlm_auth_session_start (TlmAuthSession *auth_session)
 
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
-    /*pam_tty = getenv ("DISPLAY");
-    if (!pam_tty) {*/
+    pam_tty = getenv ("DISPLAY");
+    if (!pam_tty) {
         pam_tty = ttyname (0);
-    //}
-    DBG ("setting PAM_TTY to '%s'", pam_tty);
-    if (pam_set_item (priv->pam_handle, PAM_TTY, pam_tty) != PAM_SUCCESS) {
-            WARN ("pam_set_item(PAM_TTY, '%s')", pam_tty);
+    }
+    if (pam_tty) {
+        DBG ("setting PAM_TTY to '%s'", pam_tty);
+        if (pam_set_item (priv->pam_handle, PAM_TTY, pam_tty) != PAM_SUCCESS) {
+                WARN ("pam_set_item(PAM_TTY, '%s')", pam_tty);
+        }
     }
 
     pam_ruser = tlm_user_get_name (geteuid());
