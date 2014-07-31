@@ -134,6 +134,14 @@ tlm_error_quark (void)
     return (GQuark) quark_volatile;
 }
 
+/**
+ * tlm_error_new_from_variant:
+ * @var: (transfer none): instance of #GVariant
+ *
+ * Converts the GVariant to GError.
+ *
+ * Returns: (transfer full): #GError object if successful, NULL otherwise.
+ */
 GError *
 tlm_error_new_from_variant (
         GVariant *var)
@@ -153,6 +161,14 @@ tlm_error_new_from_variant (
     return error;
 }
 
+/**
+ * tlm_error_to_variant:
+ * @error: (transfer none): instance of #GError
+ *
+ * Converts the GError to GVariant.
+ *
+ * Returns: (transfer full) #GVariant object if successful, NULL otherwise.
+ */
 GVariant *
 tlm_error_to_variant (
         GError *error)
