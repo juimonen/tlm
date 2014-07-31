@@ -191,7 +191,6 @@ _handle_session_terminated_from_session (
 {
     g_return_if_fail (self && TLM_IS_SESSION_DAEMON (self));
 
-    DBG ("");
     tlm_dbus_session_emit_session_terminated (self->priv->dbus_session);
 }
 
@@ -202,7 +201,6 @@ _handle_authenticated_from_session (
 {
     g_return_if_fail (self && TLM_IS_SESSION_DAEMON (self));
 
-    DBG ("");
     tlm_dbus_session_emit_authenticated (self->priv->dbus_session);
 }
 

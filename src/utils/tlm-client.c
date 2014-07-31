@@ -23,7 +23,6 @@
  */
 
 #include "config.h"
-#include <check.h>
 #include <error.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -78,7 +77,7 @@ _free_tlm_user (
 static gboolean
 _setup_daemon ()
 {
-    DBG ("");
+    DBG ("starting tlm daemon");
 
     GError *error = NULL;
     gchar *argv[2];

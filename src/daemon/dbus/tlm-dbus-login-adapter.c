@@ -256,7 +256,6 @@ _handle_login_user (
 {
     GError *error = NULL;
 
-    DBG ("");
     g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self), FALSE);
 
     if (!seat_id || !username || !password) {
@@ -266,6 +265,7 @@ _handle_login_user (
         g_error_free (error);
         return TRUE;
     }
+    DBG ("seat_id %s username %s", seat_id, username);
 
     g_signal_emit (self, signals[SIG_LOGIN_USER], 0, seat_id, username,
             password, environment, invocation);
@@ -282,7 +282,6 @@ _handle_logout_user (
 {
     GError *error = NULL;
 
-    DBG ("");
     g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self),
             FALSE);
 
@@ -293,6 +292,7 @@ _handle_logout_user (
         g_error_free (error);
         return TRUE;
     }
+    DBG ("seat_id %s", seat_id);
 
     g_signal_emit (self, signals[SIG_LOGOUT_USER], 0, seat_id, invocation);
 
@@ -311,7 +311,6 @@ _handle_switch_user (
 {
     GError *error = NULL;
 
-    DBG ("");
     g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self),
             FALSE);
 
@@ -322,6 +321,7 @@ _handle_switch_user (
         g_error_free (error);
         return TRUE;
     }
+    DBG ("seat_id %s username %s", seat_id, username);
 
     g_signal_emit (self, signals[SIG_SWITCH_USER], 0, seat_id, username,
             password, environment, invocation);

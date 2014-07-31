@@ -126,7 +126,6 @@ static void
 _close_active_session (TlmSeat *self)
 {
     TlmSeatPrivate *priv = TLM_SEAT_PRIV (self);
-    DBG ("seat %p session %p", self, priv->session);
     _disconnect_session_signals (self);
     if (priv->session)
         g_clear_object (&priv->session);
@@ -143,7 +142,7 @@ _handle_session_terminated (
     TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
     gboolean stop = FALSE;
 
-    DBG ("");
+    DBG ("seat %p session %p", self, priv->session);
     _close_active_session (seat);
 
     g_signal_emit (seat,

@@ -651,7 +651,7 @@ _session_terminated_cb (GObject *emitter, const gchar *seat_id,
         TlmManager *manager)
 {
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), TRUE);
-    DBG("");
+    DBG("seatid %s", seat_id);
 
     g_hash_table_remove (manager->priv->seats, seat_id);
     if (g_hash_table_size (manager->priv->seats) == 0) {

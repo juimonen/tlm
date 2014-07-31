@@ -117,7 +117,7 @@ tlm_session_remote_set_property (
         const GValue *value,
         GParamSpec *pspec)
 {
-	TlmSessionRemote *self = TLM_SESSION_REMOTE (object);
+    TlmSessionRemote *self = TLM_SESSION_REMOTE (object);
     switch (property_id) {
     	case PROP_CONFIG:
            self->priv->config = g_value_dup_object (value);
@@ -218,9 +218,9 @@ tlm_session_remote_dispose (GObject *object)
     TlmSessionRemote *self = TLM_SESSION_REMOTE (object);
     self->priv->can_emit_signal = FALSE;
 
-    DBG("");
+    DBG("self %p", self);
     if (self->priv->is_sessiond_up) {
-    	tlm_session_remote_terminate (self);
+        tlm_session_remote_terminate (self);
         while (self->priv->is_sessiond_up)
             g_main_context_iteration(NULL, TRUE);
         DBG ("Sessiond DESTROYED");
@@ -420,7 +420,6 @@ _on_authenticated_cb (
         gpointer user_data)
 {
     g_return_if_fail (self && TLM_IS_SESSION_REMOTE (self));
-    DBG("");
     g_signal_emit (self, signals[SIG_AUTHENTICATED], 0);
 }
 

@@ -366,7 +366,7 @@ _tlm_dbus_server_p2p_stop (
         TlmDbusServer *self)
 {
     g_return_val_if_fail (TLM_IS_DBUS_SERVER_P2P (self), FALSE);
-    DBG ("");
+    DBG ("self %p", self);
 
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (self);
 

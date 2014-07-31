@@ -51,7 +51,7 @@ G_DEFINE_TYPE (TlmDbusObserver, tlm_dbus_observer, G_TYPE_OBJECT);
 
 typedef struct
 {
-	TlmDbusRequest *dbus_request;
+    TlmDbusRequest *dbus_request;
     TlmSeat *seat;
 } TlmRequest;
 
@@ -176,7 +176,7 @@ _create_request (
         TlmDbusRequest *dbus_req,
         TlmSeat *seat)
 {
-	TlmRequest *request = g_malloc0 (sizeof (TlmRequest));
+    TlmRequest *request = g_malloc0 (sizeof (TlmRequest));
     if (!request) return NULL;
 
     request->dbus_request = dbus_req;
@@ -198,7 +198,7 @@ _dispose_request (
 
     if (request->dbus_request) {
         tlm_dbus_login_adapter_request_completed (request->dbus_request, NULL);
-    	tlm_dbus_utils_dispose_request (request->dbus_request);
+        tlm_dbus_utils_dispose_request (request->dbus_request);
     	request->dbus_request = NULL;
     }
     if (request->seat) {
@@ -287,7 +287,6 @@ _connect_dbus_adapter (
         TlmDbusObserver *self,
         TlmDbusLoginAdapter *adapter)
 {
-    DBG ("");
     if (self->priv->enable_flags & DBUS_OBSERVER_ENABLE_LOGIN_USER)
         g_signal_connect_swapped (G_OBJECT (adapter),
                 "login-user", G_CALLBACK(_handle_dbus_login_user), self);
@@ -304,7 +303,6 @@ _disconnect_dbus_adapter (
         TlmDbusObserver *self,
         TlmDbusLoginAdapter *adapter)
 {
-    DBG ("");
     if (self->priv->enable_flags & DBUS_OBSERVER_ENABLE_LOGIN_USER)
         g_signal_handlers_disconnect_by_func (G_OBJECT(adapter),
                 _handle_dbus_login_user, self);
@@ -322,7 +320,6 @@ _handle_dbus_client_added (
         GObject *dbus_adapter,
         GObject *dbus_server)
 {
-    DBG ("");
     g_return_if_fail (self && TLM_IS_DBUS_OBSERVER(self) && dbus_adapter &&
             TLM_IS_DBUS_LOGIN_ADAPTER(dbus_adapter));
     _connect_dbus_adapter (self, TLM_DBUS_LOGIN_ADAPTER(dbus_adapter));
@@ -336,7 +333,6 @@ _handle_dbus_client_removed (
         GObject *dbus_adapter,
         GObject *dbus_server)
 {
-    DBG ("");
     g_return_if_fail (self && TLM_IS_DBUS_OBSERVER(self) && dbus_adapter &&
             TLM_IS_DBUS_LOGIN_ADAPTER(dbus_adapter));
     _disconnect_dbus_adapter (self, TLM_DBUS_LOGIN_ADAPTER(dbus_adapter));
@@ -373,7 +369,7 @@ _complete_request (
         TlmRequest *request,
         GError *error)
 {
-	_complete_dbus_request (request->dbus_request, error);
+    _complete_dbus_request (request->dbus_request, error);
 	request->dbus_request = NULL;
     _dispose_request (self, request);
 }
@@ -651,7 +647,7 @@ _handle_dbus_switch_user (
 static void
 _stop_dbus_server (TlmDbusObserver *self)
 {
-    DBG("");
+    DBG("self %p", self);
     _clear_request (self->priv->active_request, self);
     self->priv->active_request = NULL;
 
@@ -675,7 +671,7 @@ _start_dbus_server (
         const gchar *address,
         uid_t uid)
 {
-    DBG("");
+    DBG("self %p address %s uid %d", self, address, uid);
     self->priv->dbus_server = TLM_DBUS_SERVER (tlm_dbus_server_p2p_new (address,
             uid));
     return tlm_dbus_server_start (self->priv->dbus_server);
