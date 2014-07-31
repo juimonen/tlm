@@ -52,6 +52,7 @@ static GPid daemon_pid = 0;
 typedef struct {
     gchar *username;
     gchar *password;
+    gchar *seatid;
     gchar **environment;
 } TlmUser;
 
@@ -66,37 +67,13 @@ _free_tlm_user (
         TlmUser *user)
 {
     if (user) {
-        g_free (user->username); g_free (user->password);
+        g_free (user->username);
+        g_free (user->password);
+        g_free (user->seatid);
         g_strfreev (user->environment);
         g_free (user);
     }
 }
-
-#if 0
-static void
-_stop_mainloop ()
-{
-    if (main_loop) {
-        g_main_loop_quit (main_loop);
-    }
-}
-
-static void
-_create_mainloop ()
-{
-    if (main_loop == NULL) {
-        main_loop = g_main_loop_new (NULL, FALSE);
-    }
-}
-
-static void
-_run_mainloop ()
-{
-    if (main_loop) {
-        g_main_loop_run (main_loop);
-    }
-}
-#endif
 
 static gboolean
 _setup_daemon ()
@@ -186,99 +163,6 @@ _get_login_object (
 }
 
 static GVariant *
-_get_session_property (
-        GDBusProxy *proxy,
-        const gchar *object_path,
-        const gchar *prop_key)
-{
-    GError *error = NULL;
-    GVariant *result = NULL;
-    GVariant *prop_value = NULL;
-
-    result = g_dbus_connection_call_sync (
-            g_dbus_proxy_get_connection (proxy),
-            g_dbus_proxy_get_name (proxy),
-            object_path,
-            "org.freedesktop.DBus.Properties",
-            "GetAll",
-            g_variant_new ("(s)",  "org.freedesktop.login1.Session"),
-            G_VARIANT_TYPE ("(a{sv})"),
-            G_DBUS_CALL_FLAGS_NONE,
-            -1,
-            NULL,
-            &error);
-    if (error) {
-        DBG ("Failed with error %d:%s", error->code, error->message);
-        g_error_free (error);
-        error = NULL;
-        return NULL;
-    }
-
-    if (g_variant_is_of_type (result, G_VARIANT_TYPE ("(a{sv})"))) {
-        GVariantIter *iter = NULL;
-        GVariant *item = NULL;
-        g_variant_get (result, "(a{sv})",  &iter);
-        while ((item = g_variant_iter_next_value (iter)))  {
-            gchar *key;
-            GVariant *value;
-            g_variant_get (item, "{sv}", &key, &value);
-            if (g_strcmp0 (key, prop_key) == 0) {
-                prop_value = value;
-                g_free (key); key = NULL;
-                break;
-            }
-            g_free (key); key = NULL;
-            g_variant_unref (value); value = NULL;
-        }
-    }
-    g_variant_unref (result);
-    return prop_value;
-}
-
-static GVariant *
-_get_property (
-        const gchar *prop_key)
-{
-    GError *error = NULL;
-    GDBusProxy *proxy = NULL;
-    GVariant *res = NULL;
-    GVariant *prop_value = NULL;
-
-    GDBusConnection *connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL,
-            &error);
-    if (error) goto _finished;
-
-    proxy = g_dbus_proxy_new_sync (connection,
-            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES, NULL,
-            "org.freedesktop.login1", //destination
-            "/org/freedesktop/login1", //path
-            "org.freedesktop.login1.Manager", //interface
-            NULL, &error);
-    if (error) goto _finished;
-
-    res = g_dbus_proxy_call_sync (proxy, "GetSessionByPID",
-            g_variant_new ("(u)", getpid()), G_DBUS_CALL_FLAGS_NONE, -1,
-            NULL, &error);
-    if (res) {
-        gchar *obj_path = NULL;
-        g_variant_get (res, "(o)", &obj_path);
-        prop_value = _get_session_property (proxy, obj_path, prop_key);
-        g_variant_unref (res); res = NULL;
-        g_free (obj_path);
-    }
-
-_finished:
-    if (error) {
-        DBG ("failed to listen for login events: %s", error->message);
-        g_error_free (error);
-    }
-    if (proxy) g_object_unref (proxy);
-    if (connection) g_object_unref (connection);
-
-    return prop_value;
-}
-
-static GVariant *
 _convert_environ_to_variant (gchar **env) {
 
     GVariantBuilder *builder = NULL;
@@ -307,28 +191,18 @@ static void
 _handle_user_login (
         TlmUser *user)
 {
-    DBG ("");
     GError *error = NULL;
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
     GVariant *venv = NULL;
-    GVariant *vseat = NULL;
-    gchar *seat = NULL;
 
-    if (!user || !user->username || !user->password) {
+    if (!user || !user->username || !user->password || !user->seatid) {
         WARN("Invalid username/password");
         return;
     }
+    DBG ("username %s seatid %s", user->username, user->seatid);
 
-    vseat = _get_property ("Seat");
-    if (!vseat) {
-        WARN("Unable to retrieve seat information");
-        return;
-    }
-    g_variant_get (vseat, "(so)", &seat, NULL);
-    g_variant_unref (vseat);
-
-    connection = _get_bus_connection (seat, &error);
+    connection = _get_bus_connection (user->seatid, &error);
     if (connection == NULL) {
         WARN("failed to get bus connection : error %s",
             error ? error->message : "(null)");
@@ -348,8 +222,8 @@ _handle_user_login (
         goto _finished;
     }
 
-    tlm_dbus_login_call_login_user_sync (login_object, seat, user->username,
-            user->password, venv, NULL, &error);
+    tlm_dbus_login_call_login_user_sync (login_object, user->seatid,
+            user->username, user->password, venv, NULL, &error);
     if (error) {
         WARN ("login failed with error: %d:%s", error->code, error->message);
         g_error_free (error);
@@ -359,7 +233,6 @@ _handle_user_login (
     }
 
 _finished:
-    g_free (seat);
     if (login_object) g_object_unref (login_object);
     if (connection) g_object_unref (connection);
 }
@@ -368,28 +241,17 @@ static void
 _handle_user_logout (
         TlmUser *user)
 {
-    DBG ("\n");
     GError *error = NULL;
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
-    GVariant *vseat = NULL;
-    gchar *seat = NULL;
 
-    if (!user) {
-        WARN("Invalid user");
+    if (!user || !user->seatid) {
+        WARN("Invalid user/seatid");
         return;
     }
+    DBG ("username %s seatid %s", user->username, user->seatid);
 
-    vseat = _get_property ("Seat");
-    if (!vseat) {
-        WARN("Unable to retrieve seat information");
-        return;
-    }
-
-    g_variant_get (vseat, "(so)", &seat, NULL);
-    g_variant_unref (vseat);
-
-    connection = _get_bus_connection (seat, &error);
+    connection = _get_bus_connection (user->seatid, &error);
     if (connection == NULL) {
         WARN("failed to get bus connection : error %s",
             error ? error->message : "(null)");
@@ -403,7 +265,8 @@ _handle_user_logout (
         goto _finished;
     }
 
-    tlm_dbus_login_call_logout_user_sync (login_object, seat,  NULL, &error);
+    tlm_dbus_login_call_logout_user_sync (login_object, user->seatid,  NULL,
+            &error);
     if (error) {
         WARN ("logout failed with error: %d:%s", error->code, error->message);
         g_error_free (error);
@@ -413,7 +276,6 @@ _handle_user_logout (
     }
 
 _finished:
-    g_free (seat);
     if (login_object) g_object_unref (login_object);
     if (connection) g_object_unref (connection);
 }
@@ -422,28 +284,18 @@ static void
 _handle_user_switch (
         TlmUser *user)
 {
-    DBG ("\n");
     GError *error = NULL;
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
     GVariant *venv = NULL;
-    GVariant *vseat = NULL;
-    gchar *seat = NULL;
 
-    if (!user || !user->username || !user->password) {
-        WARN("Invalid username/password");
+    if (!user || !user->username || !user->password || !user->seatid) {
+        WARN("Invalid username/password/seatid");
         return;
     }
+    DBG ("username %s seatid %s", user->username, user->seatid);
 
-    vseat = _get_property ("Seat");
-    if (!vseat) {
-        WARN("Unable to retrieve seat information");
-        return;
-    }
-    g_variant_get (vseat, "(so)", &seat, NULL);
-    g_variant_unref (vseat);
-
-    connection = _get_bus_connection (seat, &error);
+    connection = _get_bus_connection (user->seatid, &error);
     if (connection == NULL) {
         WARN("failed to get bus connection : error %s",
             error ? error->message : "(null)");
@@ -463,8 +315,8 @@ _handle_user_switch (
         goto _finished;
     }
 
-    tlm_dbus_login_call_switch_user_sync (login_object, seat, user->username,
-            user->password, venv, NULL, &error);
+    tlm_dbus_login_call_switch_user_sync (login_object, user->seatid,
+            user->username, user->password, venv, NULL, &error);
     if (error) {
         WARN ("switch user failed with error: %d:%s", error->code,
                 error->message);
@@ -475,7 +327,6 @@ _handle_user_switch (
     }
 
 _finished:
-    g_free (seat);
     if (login_object) g_object_unref (login_object);
     if (connection) g_object_unref (connection);
 }
@@ -495,12 +346,14 @@ int main (int argc, char *argv[])
     GOptionEntry main_entries[] =
     {
         { "login-user", 'l', 0, G_OPTION_ARG_NONE, &is_user_login_op,
-                "login user -- username and password is mandatory", NULL },
+                "login user -- username, password and seatid is mandatory",
+                NULL },
         { "logout-user", 'o', 0, G_OPTION_ARG_NONE, &is_user_logout_op,
-                "logout user -- seatid will be determined by GetSessionByPID",
+                "logout user -- seatid is mandatory",
                 NULL },
         { "switch-user", 's', 0, G_OPTION_ARG_NONE, &is_user_switch_op,
-                "switch user -- username and password is mandatory", NULL },
+                "switch user -- username, password and seatid is mandatory",
+                NULL },
         { "run-daemon", 'r', 0, G_OPTION_ARG_NONE, &run_tlm_daemon,
                 "run tlm daemon (by default tlm daemon is not run)",
                 NULL },
@@ -513,6 +366,8 @@ int main (int argc, char *argv[])
                 "user name", "user1" },
         { "password", 0, 0, G_OPTION_ARG_STRING, &user->password,
                 "user password", "mypass" },
+        { "seat", 0, 0, G_OPTION_ARG_STRING, &user->seatid,
+                 "user seat", "seat0" },
         { "env", 0, 0, G_OPTION_ARG_STRING_ARRAY, &user->environment,
                 "user environment", "a 1 b 2" },
         { NULL }
@@ -524,7 +379,7 @@ int main (int argc, char *argv[])
 
     context = g_option_context_new (" [tlm client Option]\n"
             "  e.g. To login a user, ./tlm-client -l --username user1 "
-            "--password p1 --env key1 val1 key2 val2");
+            "--password p1 --seat seat0 --env key1 val1 key2 val2");
     g_option_context_add_main_entries (context, main_entries, NULL);
 
     user_option = g_option_group_new ("user-options", "User specific options",
