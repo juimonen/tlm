@@ -41,7 +41,8 @@ SCAN_OPTIONS=
 # Extra options to supply to gtkdoc-mkdb.
 # e.g. MKDB_OPTIONS=--xml-mode --output-format=xml
 MKDB_OPTIONS=--xml-mode --output-format=xml \
---ignore-files="tlm-dbus-login-gen.c"
+--ignore-files="tlm-dbus-login-gen.c tlm-dbus-session-gen.c tlm-dbus-utils.c \
+tlm-pipe-stream.c tlm-utils.c"
 
 # Extra options to supply to gtkdoc-mktmpl
 # e.g. MKTMPL_OPTIONS=--only-section-tmpl
@@ -66,7 +67,8 @@ EXTRA_HFILES=
 
 # Header files or dirs to ignore when scanning. Use base file/dir names
 # e.g. IGNORE_HFILES=gtkdebug.h gtkintl.h private_code
-IGNORE_HFILES=tlm-dbus-login-gen.h tlm-dbus.h
+IGNORE_HFILES=tlm-dbus-login-gen.h tlm-dbus-session-gen.h tlm-dbus.h \
+tlm-dbus-utils.h tlm-pipe-stream.h tlm-utils.h
 
 # Images to copy into HTML directory.
 # e.g. HTML_IMAGES=$(top_srcdir)/gtk/stock-icons/stock_about_24.png
@@ -75,7 +77,8 @@ HTML_IMAGES=
 # Extra SGML files that are included by $(DOC_MAIN_SGML_FILE).
 # e.g. content_files=running.sgml building.sgml changes-2.0.sgml
 content_files=introduction.xml \
-tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml
+tlm-dbus-login-doc-gen-org.tizen.Tlm.Login.xml \
+tlm-dbus-session-doc-gen-org.tizen.Tlm.Session.xml
 
 # SGML files where gtk-doc abbrevations (#GtkWidget) are expanded
 # These files must be listed here *and* in content_files
@@ -89,7 +92,7 @@ expand_content_files=
 # e.g. GTKDOC_LIBS=$(top_builddir)/gtk/$(gtktargetlib)
 GTKDOC_CFLAGS=$(GLIB_CFLAGS)
 GTKDOC_LIBS=$(GLIB_LIBS) \
-            $(top_builddir)/src/common/libtlm-plugin.la \
+            $(top_builddir)/src/common/libtlm-common.la \
             $(top_builddir)/src/plugins/default/libtlm-plugin-default.la
 
 if HAVE_LIBGUM
@@ -115,7 +118,7 @@ EXTRA_DIST +=
 # Comment this out if you want 'make check' to test you doc status
 # and run some sanity checks
 if ENABLE_GTK_DOC
-TESTS_ENVIRONMENT = cd $(srcdir) && \
+TESTS_ENVIRONMENT = \
   DOC_MODULE=$(DOC_MODULE) DOC_MAIN_SGML_FILE=$(DOC_MAIN_SGML_FILE) \
   SRCDIR=$(abs_srcdir) BUILDDIR=$(abs_builddir)
 TESTS = $(GTKDOC_CHECK)

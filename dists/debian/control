@@ -16,7 +16,7 @@ Description: tlm daemon and default plugins
 
 Package: tlm-dev
 Architecture: any
-Depends: ${shlibs:Depens}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: development files for tlm
  Headers and libraries necessary for developing plugins.
 
@@ -25,3 +25,10 @@ Architecture: all
 Description: documentation for tlm
  Developer documentation for developing plugins.
 
+Package: tlm-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends: tlm (= ${binary:Version}), ${misc:Depends}
+Description: debugging symbols for tlm
+ Debugging symbols

@@ -13,6 +13,6 @@ configtest_CFLAGS = \
 configtest_LDADD = \
 	$(TLM_LIBS) \
 	$(CHECK_LIBS) \
-	$(abs_top_builddir)/src/common/libtlm_plugin_la-tlm-config.lo
+	$(abs_top_builddir)/src/common/libtlm_common_la-tlm-config.lo
 
 EXTRA_DIST = test.conf

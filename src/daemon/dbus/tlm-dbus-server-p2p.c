@@ -296,8 +296,7 @@ _tlm_dbus_server_p2p_add_login_obj (
 
     DBG("export interfaces on connection %p", connection);
 
-    login_object = tlm_dbus_login_adapter_new_with_connection (
-            g_object_ref (connection));
+    login_object = tlm_dbus_login_adapter_new_with_connection (connection);
 
     _add_login_object_watchers (connection, login_object, server);
     g_signal_emit (server, signals[SIG_CLIENT_ADDED], 0, login_object);
@@ -367,6 +366,7 @@ _tlm_dbus_server_p2p_stop (
         TlmDbusServer *self)
 {
     g_return_val_if_fail (TLM_IS_DBUS_SERVER_P2P (self), FALSE);
+    DBG ("self %p", self);
 
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (self);
 
@@ -380,6 +380,8 @@ _tlm_dbus_server_p2p_stop (
 
     if (server->priv->bus_server) {
         DBG("stop P2P DBus Server");
+        g_signal_handlers_disconnect_by_func (server->priv->bus_server,
+                _on_client_request, server);
         if (g_dbus_server_is_active (server->priv->bus_server))
             g_dbus_server_stop (server->priv->bus_server);
         g_object_unref (server->priv->bus_server);
@@ -431,11 +433,10 @@ tlm_dbus_server_p2p_new (
         const gchar *address,
         uid_t uid)
 {
-    DBG("create P2P DBus Server");
-
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (
         g_object_new (TLM_TYPE_DBUS_SERVER_P2P, "address", address, NULL));
 
+    DBG("create P2P DBus Server: %p", server);
     if (!server) {
         return NULL;
     }

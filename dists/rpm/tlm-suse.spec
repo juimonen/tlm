@@ -4,7 +4,7 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 0.0.2
+Version: 0.0.3
 Release: 1
 Group: System/Daemons
 License: LGPL-2.1+
@@ -76,6 +76,8 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %doc AUTHORS COPYING INSTALL NEWS README
 %{_bindir}/%{name}
+%{_bindir}/%{name}-sessiond
+%{_bindir}/%{name}-client
 %{_libdir}/lib%{name}*.so.*
 %{_libdir}/%{name}/plugins/*.so*
 %exclude %{_libdir}/tlm/plugins/*.la
@@ -97,6 +99,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Mon Jul 21 2014 Imran Zaman <imran.zaman@intel.com>
+- Update to 0.0.3; create a new process (tlm-sessiond) for each session
+
 * Thu Mar 13 2014 Jussi Laako <jussi.laako@linux.intel.com>
 - Update to 0.0.2
 

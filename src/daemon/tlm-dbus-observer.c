@@ -49,6 +49,12 @@ G_DEFINE_TYPE (TlmDbusObserver, tlm_dbus_observer, G_TYPE_OBJECT);
 #define TLM_DBUS_OBSERVER_PRIV(obj) G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
             TLM_TYPE_DBUS_OBSERVER, TlmDbusObserverPrivate)
 
+typedef struct
+{
+    TlmDbusRequest *dbus_request;
+    TlmSeat *seat;
+} TlmRequest;
+
 struct _TlmDbusObserverPrivate
 {
     TlmManager *manager;
@@ -56,7 +62,7 @@ struct _TlmDbusObserverPrivate
     TlmDbusServer *dbus_server;
     GQueue *request_queue;
     guint request_id;
-    TlmDbusRequest *active_request;
+    TlmRequest *active_request;
     DbusObserverEnableFlags enable_flags;
 };
 
@@ -128,6 +134,11 @@ _disconnect_seat (
         TlmSeat *seat);
 
 static void
+_connect_seat (
+        TlmDbusObserver *self,
+        TlmSeat *seat);
+
+static void
 _process_next_request_in_idle (
         TlmDbusObserver *self);
 
@@ -138,8 +149,65 @@ _on_seat_dispose (
 {
     g_return_if_fail (self && TLM_IS_DBUS_OBSERVER(self) && dead &&
                 TLM_IS_SEAT(dead));
-    _disconnect_seat (self, TLM_SEAT(dead));
     g_object_weak_unref (dead, (GWeakNotify)_on_seat_dispose, self);
+    _disconnect_seat (self, TLM_SEAT (dead));
+    if (self->priv->active_request &&
+        G_OBJECT(self->priv->active_request->seat) == dead) {
+    	self->priv->active_request->seat = NULL;
+    }
+    if (G_OBJECT(self->priv->seat) == dead)
+    	self->priv->seat = NULL;
+}
+
+static void
+_on_manager_dispose (
+        TlmDbusObserver *self,
+        GObject *dead)
+{
+    g_return_if_fail (self && TLM_IS_DBUS_OBSERVER(self) && dead &&
+                TLM_IS_MANAGER(dead));
+    g_object_weak_unref (dead, (GWeakNotify)_on_manager_dispose, self);
+    self->priv->manager = NULL;
+}
+
+static TlmRequest *
+_create_request (
+        TlmDbusObserver *self,
+        TlmDbusRequest *dbus_req,
+        TlmSeat *seat)
+{
+    TlmRequest *request = g_malloc0 (sizeof (TlmRequest));
+    if (!request) return NULL;
+
+    request->dbus_request = dbus_req;
+    request->seat = seat;
+    if (request->seat) {
+    	_connect_seat (self, request->seat);
+    	g_object_weak_ref (G_OBJECT (request->seat),
+    			(GWeakNotify)_on_seat_dispose, self);
+    }
+    return request;
+}
+
+static void
+_dispose_request (
+        TlmDbusObserver *self,
+        TlmRequest *request)
+{
+    if (!request) return;
+
+    if (request->dbus_request) {
+        tlm_dbus_login_adapter_request_completed (request->dbus_request, NULL);
+        tlm_dbus_utils_dispose_request (request->dbus_request);
+    	request->dbus_request = NULL;
+    }
+    if (request->seat) {
+    	_disconnect_seat (self, request->seat);
+    	g_object_weak_unref (G_OBJECT (request->seat),
+    			(GWeakNotify)_on_seat_dispose, self);
+    	request->seat = NULL;
+    }
+    g_free (request);
 }
 
 static void
@@ -148,6 +216,8 @@ _disconnect_seat (
         TlmSeat *seat)
 {
     DBG ("self %p seat %p", self, seat);
+    if (!seat) return;
+
     g_signal_handlers_disconnect_by_func (G_OBJECT (seat),
             _handle_seat_session_created, self);
     g_signal_handlers_disconnect_by_func (G_OBJECT (seat),
@@ -162,6 +232,8 @@ _connect_seat (
         TlmSeat *seat)
 {
     DBG ("self %p seat %p", self, seat);
+    if (!seat) return;
+
     g_signal_connect_swapped (G_OBJECT (seat), "session-created",
             G_CALLBACK(_handle_seat_session_created), self);
     g_signal_connect_swapped (G_OBJECT (seat), "session-terminated",
@@ -184,21 +256,23 @@ _on_dbus_adapter_dispose (
     if (self->priv->request_queue)
         head = elem = g_queue_peek_head_link (self->priv->request_queue);
     while (elem) {
-        TlmDbusRequest *request = elem->data;
+        TlmRequest *request = elem->data;
+        TlmDbusRequest *dbus_req = request->dbus_request;
         next = g_list_next (elem);
-        if (request && G_OBJECT (request->dbus_adapter) == dead) {
+        if (dbus_req && G_OBJECT (dbus_req->dbus_adapter) == dead) {
             DBG ("removing the request for dead dbus adapter");
             head = g_list_delete_link (head, elem);
-            tlm_dbus_utils_dispose_request (request);
+            _dispose_request (self, request);
         }
         elem = next;
     }
 
     /* check for active request */
     if (self->priv->active_request &&
-        G_OBJECT (self->priv->active_request->dbus_adapter) == dead) {
+        G_OBJECT (self->priv->active_request->dbus_request->dbus_adapter) ==
+        		dead) {
         DBG ("removing the request for dead dbus adapter");
-        tlm_dbus_utils_dispose_request (self->priv->active_request);
+        _dispose_request (self, self->priv->active_request);
         self->priv->active_request = NULL;
         if (self->priv->request_id) {
             g_source_remove (self->priv->request_id);
@@ -213,7 +287,6 @@ _connect_dbus_adapter (
         TlmDbusObserver *self,
         TlmDbusLoginAdapter *adapter)
 {
-    DBG ("");
     if (self->priv->enable_flags & DBUS_OBSERVER_ENABLE_LOGIN_USER)
         g_signal_connect_swapped (G_OBJECT (adapter),
                 "login-user", G_CALLBACK(_handle_dbus_login_user), self);
@@ -230,8 +303,6 @@ _disconnect_dbus_adapter (
         TlmDbusObserver *self,
         TlmDbusLoginAdapter *adapter)
 {
-    DBG ("");
-
     if (self->priv->enable_flags & DBUS_OBSERVER_ENABLE_LOGIN_USER)
         g_signal_handlers_disconnect_by_func (G_OBJECT(adapter),
                 _handle_dbus_login_user, self);
@@ -249,7 +320,6 @@ _handle_dbus_client_added (
         GObject *dbus_adapter,
         GObject *dbus_server)
 {
-    DBG ("");
     g_return_if_fail (self && TLM_IS_DBUS_OBSERVER(self) && dbus_adapter &&
             TLM_IS_DBUS_LOGIN_ADAPTER(dbus_adapter));
     _connect_dbus_adapter (self, TLM_DBUS_LOGIN_ADAPTER(dbus_adapter));
@@ -263,7 +333,6 @@ _handle_dbus_client_removed (
         GObject *dbus_adapter,
         GObject *dbus_server)
 {
-    DBG ("");
     g_return_if_fail (self && TLM_IS_DBUS_OBSERVER(self) && dbus_adapter &&
             TLM_IS_DBUS_LOGIN_ADAPTER(dbus_adapter));
     _disconnect_dbus_adapter (self, TLM_DBUS_LOGIN_ADAPTER(dbus_adapter));
@@ -287,9 +356,34 @@ static void
 _abort_dbus_request (
         TlmDbusRequest *request)
 {
-    GError *error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_DBUS_REQ_ABORTED,
+	if (!request) return;
+
+	GError *error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_DBUS_REQ_ABORTED,
             "Dbus request aborted");
     _complete_dbus_request (request, error);
+}
+
+static void
+_complete_request (
+		TlmDbusObserver *self,
+        TlmRequest *request,
+        GError *error)
+{
+    _complete_dbus_request (request->dbus_request, error);
+	request->dbus_request = NULL;
+    _dispose_request (self, request);
+}
+
+static void
+_clear_request (
+        TlmRequest *request,
+        TlmDbusObserver *self)
+{
+	if (!request) return;
+
+	_abort_dbus_request (request->dbus_request);
+	request->dbus_request = NULL;
+	_dispose_request (self, request);
 }
 
 static gboolean
@@ -314,7 +408,8 @@ _process_request (
 {
     g_return_val_if_fail (self && TLM_IS_DBUS_OBSERVER(self), FALSE);
     GError *err = NULL;
-    TlmDbusRequest* req = NULL;
+    TlmRequest* req = NULL;
+    TlmDbusRequest* dbus_req = NULL;
     TlmSeat *seat = NULL;
 
     self->priv->request_id = 0;
@@ -327,18 +422,28 @@ _process_request (
             DBG ("request queue is empty");
             goto _finished;
         }
-
-        if (!_is_request_supported (self, req->type)) {
-            WARN ("Request not supported -- req-type %d flags %d", req->type,
-                    self->priv->enable_flags);
+        dbus_req = req->dbus_request;
+        if (!_is_request_supported (self, dbus_req->type)) {
+            WARN ("Request not supported -- req-type %d flags %d",
+            		dbus_req->type, self->priv->enable_flags);
             err = TLM_GET_ERROR_FOR_ID (TLM_ERROR_DBUS_REQ_NOT_SUPPORTED,
                     "Dbus request not supported");
             goto _finished;
         }
 
         seat = self->priv->seat;
-        if (!seat) {
-            seat = tlm_manager_get_seat (self->priv->manager, req->seat_id);
+        if (!seat && self->priv->manager) {
+            seat = tlm_manager_get_seat (self->priv->manager,
+            		dbus_req->seat_id);
+            req->seat = seat;
+            /* NOTE: When no seat is set at dbus object creation time,
+             * seat is connected on per dbus request basis and then
+             * disconnected when the dbus request is completed or aborted */
+            if (seat) {
+            	_connect_seat (self, seat);
+            	g_object_weak_ref (G_OBJECT (seat),
+            			(GWeakNotify)_on_seat_dispose, self);
+            }
         }
 
         if (!seat) {
@@ -349,28 +454,21 @@ _process_request (
         }
 
         self->priv->active_request = req;
-        _connect_seat (self, seat);
-        g_object_weak_ref (G_OBJECT (seat), (GWeakNotify)_on_seat_dispose,
-                self);
-
-        switch(req->type) {
+        switch(dbus_req->type) {
         case TLM_DBUS_REQUEST_TYPE_LOGIN_USER:
-            //request is completed when the function returns
-            ret = tlm_seat_create_session (seat, NULL, req->username,
-                    req->password, req->environment);
+            ret = tlm_seat_create_session (seat, NULL, dbus_req->username,
+            		dbus_req->password, dbus_req->environment);
             break;
         case TLM_DBUS_REQUEST_TYPE_LOGOUT_USER:
             ret = tlm_seat_terminate_session (seat);
             break;
         case TLM_DBUS_REQUEST_TYPE_SWITCH_USER:
-            ret = tlm_seat_switch_user (seat, NULL, req->username,
-                    req->password, req->environment);
+            ret = tlm_seat_switch_user (seat, NULL, dbus_req->username,
+            		dbus_req->password, dbus_req->environment);
             break;
         }
         if (!ret) {
-            g_object_weak_unref (G_OBJECT (seat), (GWeakNotify)_on_seat_dispose,
-                    self);
-            _disconnect_seat (self, seat);
+            _dispose_request (self, self->priv->active_request);
             self->priv->active_request = NULL;
         }
     }
@@ -378,12 +476,13 @@ _process_request (
 _finished:
     if (err) {
         if (req) {
-            _complete_dbus_request (req, err);
+            _complete_request (self, req, err);
         } else {
             g_error_free (err);
         }
-        _process_next_request_in_idle (self);
     }
+    if (!self->priv->active_request)
+    	_process_next_request_in_idle (self);
 
     return FALSE;
 }
@@ -401,9 +500,9 @@ _process_next_request_in_idle (
 }
 
 static void
-_add_dbus_request (
+_add_request (
         TlmDbusObserver *self,
-        TlmDbusRequest *request)
+        TlmRequest *request)
 {
     g_queue_push_tail (self->priv->request_queue, request);
     _process_next_request_in_idle (self);
@@ -420,17 +519,16 @@ _handle_seat_session_created (
     g_return_if_fail (self && TLM_IS_DBUS_OBSERVER(self));
     g_return_if_fail (seat && TLM_IS_SEAT(seat));
 
-    /* Login/switch request should only be completed on session terminated
+    /* Login/switch request should only be completed on session created
      * signal from seat */
     if (!self->priv->active_request ||
-        self->priv->active_request->type == TLM_DBUS_REQUEST_TYPE_LOGOUT_USER)
+    	!self->priv->active_request->dbus_request ||
+        self->priv->active_request->dbus_request->type ==
+        		TLM_DBUS_REQUEST_TYPE_LOGOUT_USER)
         return;
 
-    _complete_dbus_request (self->priv->active_request, NULL);
-
+    _complete_request (self, self->priv->active_request, NULL);
     self->priv->active_request = NULL;
-
-    _disconnect_seat (self, TLM_SEAT (seat));
 
     _process_next_request_in_idle (self);
 }
@@ -449,17 +547,16 @@ _handle_seat_session_terminated (
     /* Logout request should only be completed on session terminated signal
      * from seat */
     if (!self->priv->active_request ||
-        self->priv->active_request->type != TLM_DBUS_REQUEST_TYPE_LOGOUT_USER)
+        !self->priv->active_request->dbus_request ||
+        self->priv->active_request->dbus_request->type !=
+        		TLM_DBUS_REQUEST_TYPE_LOGOUT_USER)
         return FALSE;
 
-    _disconnect_dbus_adapter (self,
-            TLM_DBUS_LOGIN_ADAPTER (self->priv->active_request->dbus_adapter));
+    _disconnect_dbus_adapter (self, TLM_DBUS_LOGIN_ADAPTER (
+    		self->priv->active_request->dbus_request->dbus_adapter));
 
-    _complete_dbus_request (self->priv->active_request, NULL);
-
+    _complete_request (self, self->priv->active_request, NULL);
     self->priv->active_request = NULL;
-
-    _disconnect_seat (self, TLM_SEAT (seat));
 
     _process_next_request_in_idle (self);
 
@@ -482,10 +579,8 @@ _handle_seat_session_error (
         return;
 
     error = TLM_GET_ERROR_FOR_ID (error_code, "Dbus request failed");
-    _complete_dbus_request (self->priv->active_request, error);
+    _complete_request (self, self->priv->active_request, error);
     self->priv->active_request = NULL;
-
-    _disconnect_seat (self, TLM_SEAT (seat));
 
     _process_next_request_in_idle (self);
 }
@@ -508,7 +603,7 @@ _handle_dbus_login_user (
     request = tlm_dbus_utils_create_request (dbus_adapter, invocation,
             TLM_DBUS_REQUEST_TYPE_LOGIN_USER, seat_id, username, password,
             environment);
-    _add_dbus_request (self, request);
+    _add_request (self, _create_request (self, request, NULL));
 }
 
 static void
@@ -525,7 +620,7 @@ _handle_dbus_logout_user (
 
     request = tlm_dbus_utils_create_request (dbus_adapter, invocation,
             TLM_DBUS_REQUEST_TYPE_LOGOUT_USER, seat_id, NULL, NULL, NULL);
-    _add_dbus_request (self, request);
+    _add_request (self, _create_request (self, request, NULL));
 }
 
 static void
@@ -546,18 +641,20 @@ _handle_dbus_switch_user (
     request = tlm_dbus_utils_create_request (dbus_adapter, invocation,
             TLM_DBUS_REQUEST_TYPE_SWITCH_USER, seat_id, username, password,
             environment);
-    _add_dbus_request (self, request);
+    _add_request (self, _create_request (self, request, NULL));
 }
 
 static void
 _stop_dbus_server (TlmDbusObserver *self)
 {
-    _abort_dbus_request (self->priv->active_request);
+    DBG("self %p", self);
+    _clear_request (self->priv->active_request, self);
     self->priv->active_request = NULL;
 
     if (self->priv->request_queue) {
-        g_queue_free_full (self->priv->request_queue,
-                           (GDestroyNotify) _abort_dbus_request);
+    	g_queue_foreach (self->priv->request_queue,
+                           (GFunc) _clear_request, self);
+    	g_queue_free (self->priv->request_queue);
         self->priv->request_queue = NULL;
     }
 
@@ -574,9 +671,9 @@ _start_dbus_server (
         const gchar *address,
         uid_t uid)
 {
+    DBG("self %p address %s uid %d", self, address, uid);
     self->priv->dbus_server = TLM_DBUS_SERVER (tlm_dbus_server_p2p_new (address,
             uid));
-
     return tlm_dbus_server_start (self->priv->dbus_server);
 }
 
@@ -592,14 +689,15 @@ tlm_dbus_observer_dispose (GObject *object)
     }
 
     _stop_dbus_server (self);
-
     if (self->priv->manager) {
-        g_object_unref (self->priv->manager);
+    	g_object_weak_unref (G_OBJECT (self->priv->manager),
+    			(GWeakNotify)_on_manager_dispose, self);
         self->priv->manager = NULL;
     }
 
     if (self->priv->seat) {
-        g_object_unref (self->priv->seat);
+    	g_object_weak_unref (G_OBJECT (self->priv->seat),
+    	    			(GWeakNotify)_on_seat_dispose, self);
         self->priv->seat = NULL;
     }
     DBG("disposing dbus_observer DONE: %p", self);
@@ -648,12 +746,23 @@ tlm_dbus_observer_new (
         uid_t uid,
         DbusObserverEnableFlags enable_flags)
 {
-    DBG ("");
-
     TlmDbusObserver *dbus_observer =
         g_object_new (TLM_TYPE_DBUS_OBSERVER,  NULL);
-    dbus_observer->priv->manager = g_object_ref (manager);
-    if (seat) dbus_observer->priv->seat = g_object_ref (seat);
+    DBG ("%p", dbus_observer);
+
+    if (manager) {
+    	dbus_observer->priv->manager = manager;
+    	g_object_weak_ref (G_OBJECT (manager), (GWeakNotify)_on_manager_dispose,
+    			dbus_observer);
+    }
+    /* NOTE: When no seat is set at dbus object creation time,
+     * seat is connected on per dbus request basis and then
+     * disconnected when the dbus request is completed or aborted */
+    if (seat) {
+        dbus_observer->priv->seat = seat;
+        g_object_weak_ref (G_OBJECT (seat), (GWeakNotify)_on_seat_dispose,
+        		dbus_observer);
+    }
     dbus_observer->priv->enable_flags = enable_flags;
 
     if (!_start_dbus_server (dbus_observer, address, uid)) {

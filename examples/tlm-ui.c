@@ -33,7 +33,7 @@
 #include "common/tlm-log.h"
 #include "common/dbus/tlm-dbus.h"
 #include "common/dbus/tlm-dbus-login-gen.h"
-#include "daemon/dbus/tlm-dbus-utils.h"
+#include "common/dbus/tlm-dbus-utils.h"
 
 #define BUFLEN 8096
 #define UID_MIN "UID_MIN"

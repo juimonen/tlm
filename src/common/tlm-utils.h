@@ -53,6 +53,9 @@ tlm_user_get_shell (const gchar *username);
 gboolean
 tlm_utils_delete_dir (const gchar *dir);
 
+void
+tlm_utils_log_utmp_entry (const gchar *username);
+
 G_END_DECLS
 
 #endif /* _TLM_UTILS_H */

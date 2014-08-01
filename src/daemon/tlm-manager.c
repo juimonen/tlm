@@ -454,7 +454,6 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
     TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
 
     TlmSeat *seat = tlm_seat_new (priv->config,
-                                  manager,
                                   seat_id,
                                   seat_path);
     g_signal_connect (seat,
@@ -652,10 +651,13 @@ _session_terminated_cb (GObject *emitter, const gchar *seat_id,
         TlmManager *manager)
 {
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), TRUE);
+    DBG("seatid %s", seat_id);
 
     g_hash_table_remove (manager->priv->seats, seat_id);
-    if (g_hash_table_size (manager->priv->seats) == 0)
+    if (g_hash_table_size (manager->priv->seats) == 0) {
+    	DBG ("signalling stopped");
         g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
+    }
 
     return TRUE;
 }
@@ -687,7 +689,7 @@ tlm_manager_stop (TlmManager *manager)
     }
     if (!delayed)
         g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
-    
+
     manager->priv->is_started = FALSE;
 
     return TRUE;

@@ -15,7 +15,7 @@ libtlm_plugin_default_la_CFLAGS = \
 libtlm_plugin_default_la_LDFLAGS = -avoid-version
 
 libtlm_plugin_default_la_LIBADD = \
-	$(abs_top_builddir)/src/common/libtlm-plugin.la \
+	$(abs_top_builddir)/src/common/libtlm-common.la \
 	$(GLIB_LIBS)
 
 all-local: slink

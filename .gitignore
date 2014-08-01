@@ -34,5 +34,6 @@ examples/tlm-ui
 data/tlm.conf
 tests/tlm-test.conf
 src/daemon/tlm
+src/sessiond/tlm-sessiond
 tests/config/configtest
 tests/daemon/daemontest

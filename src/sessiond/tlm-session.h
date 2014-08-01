@@ -29,7 +29,7 @@
 
 #include <glib-object.h>
 
-#include <tlm-config.h>
+#include "common/tlm-config.h"
 
 G_BEGIN_DECLS
 
@@ -62,14 +62,13 @@ struct _TlmSessionClass
 GType tlm_session_get_type(void);
 
 TlmSession *
-tlm_session_new (TlmConfig *config,
-                 const gchar *seat_id,
-                 const gchar *service,
-                 const gchar *username,
-                 const gchar *password,
-                 GHashTable *environment,
-                 gint notify_fd);
+tlm_session_new ();
 
+gboolean
+tlm_session_start (TlmSession *session,
+                   const gchar *seat_id, const gchar *service,
+                   const gchar *username, const gchar *password,
+                   GHashTable *environment);
 void
 tlm_session_terminate (TlmSession *session);
 

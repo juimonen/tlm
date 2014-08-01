@@ -29,7 +29,7 @@
 #include <config.h>
 #include <glib.h>
 #include "common/dbus/tlm-dbus-login-gen.h"
-#include "tlm-dbus-utils.h"
+#include "common/dbus/tlm-dbus-utils.h"
 
 G_BEGIN_DECLS
 

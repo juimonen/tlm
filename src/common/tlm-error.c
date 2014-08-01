@@ -62,7 +62,9 @@
  * @TLM_ERROR_SESSION_CREATION_FAILURE: Session creation failed
  * @TLM_ERROR_SESSION_ALREADY_EXISTS: Session already exists
  * @TLM_ERROR_SESSION_NOT_VALID: session is not valid anymore
+ * @TLM_ERROR_SESSION_TERMINATION_FAILURE: Session termination failed
  * @TLM_ERROR_DBUS_SERVER_START_FAILURE: dbus-server startup failed
+ * @TLM_ERROR_PAM_AUTH_FAILURE: PAM authentication failed
  * @TLM_ERROR_DBUS_REQ_ABORTED: Dbus request aborted
  * @TLM_ERROR_DBUS_REQ_NOT_SUPPORTED: Dbus request not supported
  * @TLM_ERROR_DBUS_REQ_UNKNOWN: Dbus request failed with unknown error
@@ -99,10 +101,14 @@ GDBusErrorEntry _tlm_errors[] =
     {TLM_ERROR_SEAT_NOT_FOUND, _ERROR_PREFIX".SeatNotFound"},
     {TLM_ERROR_SESSION_CREATION_FAILURE,
             _ERROR_PREFIX".SessionCreationFailure"},
+            {TLM_ERROR_SESSION_TERMINATION_FAILURE,
+                    _ERROR_PREFIX".SessionTerminationFailure"},
     {TLM_ERROR_SESSION_ALREADY_EXISTS, _ERROR_PREFIX".SessionAlreadyExists"},
     {TLM_ERROR_SESSION_NOT_VALID, _ERROR_PREFIX".SessionNotValid"},
     {TLM_ERROR_DBUS_SERVER_START_FAILURE,
             _ERROR_PREFIX".DBusServerStartFailure"},
+    {TLM_ERROR_PAM_AUTH_FAILURE,
+            _ERROR_PREFIX".PamAuthFailure"},
     {TLM_ERROR_DBUS_REQ_ABORTED, _ERROR_PREFIX".DBusRequestAborted"},
     {TLM_ERROR_DBUS_REQ_NOT_SUPPORTED, _ERROR_PREFIX".DBusRequestNotSupported"},
     {TLM_ERROR_DBUS_REQ_UNKNOWN, _ERROR_PREFIX".DBusRequestUknown"},
@@ -126,4 +132,50 @@ tlm_error_quark (void)
                                         G_N_ELEMENTS (_tlm_errors));
 
     return (GQuark) quark_volatile;
+}
+
+/**
+ * tlm_error_new_from_variant:
+ * @var: (transfer none): instance of #GVariant
+ *
+ * Converts the GVariant to GError.
+ *
+ * Returns: (transfer full): #GError object if successful, NULL otherwise.
+ */
+GError *
+tlm_error_new_from_variant (
+        GVariant *var)
+{
+    GError *error = NULL;
+    gchar *message;
+    GQuark domain;
+    gint code;
+
+    if (!var) {
+        return NULL;
+    }
+
+    g_variant_get (var, "(uis)", &domain, &code, &message);
+    error = g_error_new_literal (domain, code, message);
+    g_free (message);
+    return error;
+}
+
+/**
+ * tlm_error_to_variant:
+ * @error: (transfer none): instance of #GError
+ *
+ * Converts the GError to GVariant.
+ *
+ * Returns: (transfer full) #GVariant object if successful, NULL otherwise.
+ */
+GVariant *
+tlm_error_to_variant (
+        GError *error)
+{
+    if (!error) {
+        return NULL;
+    }
+
+    return g_variant_new ("(uis)", error->domain, error->code, error->message);
 }
