@@ -387,12 +387,15 @@ tlm_session_remote_create (
     GHashTable *environment)
 {
     GVariant *data = NULL;
-
+    gchar *pass = g_strdup (password);
     if (environment) data = tlm_dbus_utils_hash_table_to_variant (environment);
     if (!data) data = g_variant_new ("a{ss}", NULL);
+
+    if (!pass) pass = g_strdup ("");
     tlm_dbus_session_call_session_create (
-            session->priv->dbus_session_proxy, password, data, NULL,
+            session->priv->dbus_session_proxy, pass, data, NULL,
             _session_created_async_cb, session);
+    g_free (pass);
 }
 
 /* signals */
