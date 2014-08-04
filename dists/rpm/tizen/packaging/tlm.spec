@@ -11,9 +11,10 @@ License: LGPL-2.1+
 Source: %{name}-%{version}.tar.gz
 URL: https://github.com/01org/tlm
 Source1001: %{name}.manifest
-Requires(post): /sbin/ldconfig
-Requires(postun): /sbin/ldconfig
+Requires(post): /sbin/ldconfig, systemd
+Requires(postun): /sbin/ldconfig, systemd
 Requires: gumd
+Requires: libsystemd
 BuildRequires: pkgconfig(glib-2.0) >= 2.30
 BuildRequires: pkgconfig(gobject-2.0)
 BuildRequires: pkgconfig(gio-2.0)
@@ -64,17 +65,21 @@ make %{?_smp_mflags}
 %install
 rm -rf %{buildroot}
 %make_install
-install -m 755 -d %{buildroot}%{_libdir}/systemd/system
-install -m 644 data/tlm.service %{buildroot}%{_libdir}/systemd/system/
+install -m 755 -d %{buildroot}%{_unitdir}
+install -m 644 data/tlm.service %{buildroot}%{_unitdir}
 install -m 755 -d %{buildroot}%{_sysconfdir}/pam.d
 install -m 644 data/tlm-login %{buildroot}%{_sysconfdir}/pam.d/
 
 
 %post
 /sbin/ldconfig
+/usr/bin/systemctl enable tlm
+/usr/bin/systemctl daemon-reload
 
 
 %postun -p /sbin/ldconfig
+/usr/bin/systemctl disable tlm
+/usr/bin/systemctl daemon-reload
 
 
 %files
@@ -86,7 +91,7 @@ install -m 644 data/tlm-login %{buildroot}%{_sysconfdir}/pam.d/
 %{_bindir}/%{name}-client
 %{_libdir}/lib%{name}*.so.*
 %{_libdir}/%{name}/plugins/*.so*
-%{_libdir}/systemd/system/tlm.service
+%{_unitdir}/tlm.service
 %config(noreplace) %{_sysconfdir}/tlm.conf
 %config %{_sysconfdir}/pam.d/tlm-login
 
