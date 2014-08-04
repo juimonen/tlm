@@ -622,11 +622,21 @@ tlm_session_start (TlmSession *session,
 	g_return_val_if_fail (session && TLM_IS_SESSION(session), FALSE);
     TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
 
+    if (!seat_id || !service || !username) {
+        error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
+                "Unable to create PAM sesssion as input data is invalid "
+                "seatid(%p) service(%p) username(%p)", seat_id, service,
+                username);
+        g_signal_emit (session, signals[SIG_SESSION_ERROR], 0, error);
+        g_error_free (error);
+        return FALSE;
+    }
+
     g_object_set (G_OBJECT (session), "seat", seat_id, "service", service,
             "username", username, "environment", environment, NULL);
 
-    priv->auth_session = tlm_auth_session_new (priv->service,
-            priv->username, password);
+    priv->auth_session = tlm_auth_session_new (priv->service, priv->username,
+            password);
 
     if (!priv->auth_session) {
     	error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,

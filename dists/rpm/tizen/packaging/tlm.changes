@@ -1,3 +1,6 @@
+* Mon Aug 04 2014 Imran Zaman <imran.zaman@intel.com>
+- Updated pam configuration file and fixed bug related to dbus arguments
+
 * Mon Jul 21 2014 Imran Zaman <imran.zaman@intel.com>
 - Update to 0.0.3; create a new process (tlm-sessiond) for each session
 
