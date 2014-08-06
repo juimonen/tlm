@@ -547,7 +547,7 @@ gboolean
 tlm_session_remote_terminate (
         TlmSessionRemote *self)
 {
-    g_return_if_fail (self && TLM_IS_SESSION_REMOTE(self));
+    g_return_val_if_fail (self && TLM_IS_SESSION_REMOTE(self), FALSE);
     TlmSessionRemotePrivate *priv = TLM_SESSION_REMOTE_PRIV(self);
 
     if (!priv->is_sessiond_up) {
