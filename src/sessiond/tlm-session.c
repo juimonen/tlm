@@ -166,7 +166,7 @@ _session_set_property (GObject *obj,
             g_free (priv->seat_id);
             priv->seat_id = g_value_dup_string (value);
             break;
-        case PROP_SERVICE: 
+        case PROP_SERVICE:
             priv->service = g_value_dup_string (value);
             break;
         case PROP_USERNAME:
@@ -198,7 +198,7 @@ _session_get_property (GObject *obj,
         case PROP_SEAT:
             g_value_set_string (value, priv->seat_id);
             break;
-        case PROP_SERVICE: 
+        case PROP_SERVICE:
             g_value_set_string (value, priv->service);
             break;
         case PROP_USERNAME:
@@ -258,22 +258,22 @@ tlm_session_class_init (TlmSessionClass *klass)
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 
     signals[SIG_SESSION_CREATED] = g_signal_new ("session-created",
-    							TLM_TYPE_SESSION, G_SIGNAL_RUN_LAST,
+                                TLM_TYPE_SESSION, G_SIGNAL_RUN_LAST,
                                 0, NULL, NULL, NULL, G_TYPE_NONE,
                                 1, G_TYPE_STRING);
 
     signals[SIG_SESSION_TERMINATED] = g_signal_new ("session-terminated",
-    							TLM_TYPE_SESSION, G_SIGNAL_RUN_LAST,
+                                TLM_TYPE_SESSION, G_SIGNAL_RUN_LAST,
                                 0, NULL, NULL, NULL, G_TYPE_NONE,
                                 0, G_TYPE_NONE);
 
     signals[SIG_AUTHENTICATED] = g_signal_new ("authenticated",
-    							TLM_TYPE_SESSION, G_SIGNAL_RUN_LAST,
+                                TLM_TYPE_SESSION, G_SIGNAL_RUN_LAST,
                                 0, NULL, NULL, NULL, G_TYPE_NONE,
                                 0, G_TYPE_NONE);
 
     signals[SIG_SESSION_ERROR] = g_signal_new ("session-error",
-    							TLM_TYPE_SESSION, G_SIGNAL_RUN_LAST,
+                                TLM_TYPE_SESSION, G_SIGNAL_RUN_LAST,
                                 0, NULL, NULL, NULL, G_TYPE_NONE,
                                 1, G_TYPE_ERROR);
 
@@ -283,7 +283,7 @@ static void
 tlm_session_init (TlmSession *session)
 {
     TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
-    
+
     priv->service = NULL;
     priv->env_hash = NULL;
     priv->auth_session = NULL;
@@ -385,13 +385,13 @@ _set_environment (TlmSessionPrivate *priv)
 	const gchar *home_dir=NULL, *shell=NULL;
 
     if (envlist) {
-    	gchar **env = 0;
-    	for (env = envlist; *env != NULL; ++env) {
-    		DBG ("ENV : %s", *env);
-    		putenv(*env);
-    		g_free (*env);
-    	}
-    	g_free (envlist);
+        gchar **env = 0;
+        for (env = envlist; *env != NULL; ++env) {
+            DBG ("ENV : %s", *env);
+            putenv(*env);
+            g_free (*env);
+        }
+        g_free (envlist);
     }
 
     const gchar *path = tlm_config_get_string (priv->config,
@@ -462,7 +462,7 @@ _exec_user_session (
     priv = session->priv;
     if (!priv->username)
         priv->username = g_strdup (tlm_auth_session_get_username (
-        		priv->auth_session));
+                priv->auth_session));
     DBG ("session ID : %s", priv->sessionid);
 
     priv->child_pid = fork ();
@@ -483,7 +483,7 @@ _exec_user_session (
     //close all open descriptors other than stdin, stdout, stderr
     open_max = sysconf (_SC_OPEN_MAX);
     for (fd = 3; fd < open_max; fd++)
-    	fcntl (fd, F_SETFD, FD_CLOEXEC);
+        fcntl (fd, F_SETFD, FD_CLOEXEC);
 
     uid_t target_uid = tlm_user_get_uid (priv->username);
     gid_t target_gid = tlm_user_get_gid (priv->username);
@@ -534,7 +534,7 @@ _exec_user_session (
     home = getenv("HOME");
     if (home) {
         DBG ("changing directory to : %s", home);
-    	if (chdir (home) < 0)
+        if (chdir (home) < 0)
             WARN ("Failed to change directroy : %s", strerror (errno));
     } else WARN ("Could not get home directory");
 
@@ -639,44 +639,44 @@ tlm_session_start (TlmSession *session,
             password);
 
     if (!priv->auth_session) {
-    	error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
-    			"Unable to create PAM sesssion");
-    	g_signal_emit (session, signals[SIG_SESSION_ERROR], 0, error);
-    	g_error_free (error);
-    	return FALSE;
+        error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
+                "Unable to create PAM sesssion");
+        g_signal_emit (session, signals[SIG_SESSION_ERROR], 0, error);
+        g_error_free (error);
+        return FALSE;
     }
 
     tlm_auth_session_putenv (priv->auth_session, "XDG_SEAT", priv->seat_id);
 
     if (!tlm_auth_session_authenticate (priv->auth_session, &error)) {
-    	if (error) {
-    	    //consistant error message flow
-    		GError *err = TLM_GET_ERROR_FOR_ID (
-    		        TLM_ERROR_SESSION_CREATION_FAILURE,
-        			"%d:%s", error->code, error->message);
-    		g_error_free (error);
-    		error = err;
-    	} else {
+        if (error) {
+            //consistant error message flow
+            GError *err = TLM_GET_ERROR_FOR_ID (
+                    TLM_ERROR_SESSION_CREATION_FAILURE,
+                    "%d:%s", error->code, error->message);
+            g_error_free (error);
+            error = err;
+        } else {
             error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
                     "Unable to authenticate PAM sesssion");
-    	}
-    	g_signal_emit (session, signals[SIG_SESSION_ERROR], 0, error);
-    	g_error_free (error);
-    	return FALSE;
+        }
+        g_signal_emit (session, signals[SIG_SESSION_ERROR], 0, error);
+        g_error_free (error);
+        return FALSE;
     }
     g_signal_emit (session, signals[SIG_AUTHENTICATED], 0);
 
     if (!tlm_auth_session_open (priv->auth_session, &error)) {
-    	if (!error) {
-    		error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
-        			"Unable to open PAM sesssion");
-    	}
-    	g_signal_emit (session, signals[SIG_SESSION_ERROR], 0, error);
-    	g_error_free (error);
-    	return FALSE;
+        if (!error) {
+            error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
+                    "Unable to open PAM sesssion");
+        }
+        g_signal_emit (session, signals[SIG_SESSION_ERROR], 0, error);
+        g_error_free (error);
+        return FALSE;
     }
     priv->sessionid = g_strdup (tlm_auth_session_get_sessionid (
-    		priv->auth_session));
+            priv->auth_session));
     tlm_utils_log_utmp_entry (priv->username);
     _exec_user_session (session);
     g_signal_emit (session, signals[SIG_SESSION_CREATED], 0, priv->sessionid);

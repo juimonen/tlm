@@ -10,7 +10,7 @@ tlm_client_CFLAGS = \
     $(TLM_CFLAGS) \
     -DTLM_BIN_DIR='"$(bindir)"' \
     $(DEPS_CFLAGS)
-	
+
 tlm_client_LDADD = \
 	$(DEPS_LIBS) \
 	$(top_builddir)/src/common/libtlm-common.la \
