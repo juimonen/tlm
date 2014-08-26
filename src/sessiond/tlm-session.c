@@ -93,6 +93,7 @@ struct _TlmSessionPrivate
     gchar *sessionid;
     gboolean can_emit_signal;
     gboolean is_child_up;
+    gboolean session_pause;
 };
 
 static void
@@ -127,15 +128,13 @@ static void
 tlm_session_dispose (GObject *self)
 {
     TlmSession *session = TLM_SESSION(self);
-    DBG("disposing session: %s", session->priv->service);
-    session->priv->can_emit_signal = FALSE;
+    TlmSessionPrivate *priv = session->priv;
+    DBG("disposing session: %s", priv->service);
+    priv->can_emit_signal = FALSE;
 
-    if (session->priv->is_child_up) {
-        tlm_session_terminate (session);
-        while (session->priv->is_child_up)
-            g_main_context_iteration(NULL, TRUE);
-        DBG ("child DESTROYED");
-    }
+    tlm_session_terminate (session);
+    while (priv->is_child_up)
+        g_main_context_iteration(NULL, TRUE);
 
     g_clear_object (&session->priv->config);
 
@@ -538,15 +537,6 @@ _exec_user_session (
             WARN ("Failed to change directroy : %s", strerror (errno));
     } else WARN ("Could not get home directory");
 
-    if (tlm_config_get_boolean (priv->config,
-                                TLM_CONFIG_GENERAL,
-                                TLM_CONFIG_GENERAL_PAUSE_SESSION,
-                                FALSE)) {
-        pause ();
-        exit (0);
-        return;  /* this should be unreachable */
-    }
-
     shell = tlm_config_get_string (priv->config,
                                    TLM_CONFIG_GENERAL,
                                    TLM_CONFIG_GENERAL_SESSION_CMD);
@@ -666,6 +656,13 @@ tlm_session_start (TlmSession *session,
     }
     g_signal_emit (session, signals[SIG_AUTHENTICATED], 0);
 
+    priv->session_pause =  tlm_config_get_boolean (priv->config,
+                                             TLM_CONFIG_GENERAL,
+                                             TLM_CONFIG_GENERAL_PAUSE_SESSION,
+                                             FALSE);
+    if (priv->session_pause)
+        _set_environment (priv);
+
     if (!tlm_auth_session_open (priv->auth_session, &error)) {
     	if (!error) {
     		error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
@@ -678,7 +675,8 @@ tlm_session_start (TlmSession *session,
     priv->sessionid = g_strdup (tlm_auth_session_get_sessionid (
     		priv->auth_session));
     tlm_utils_log_utmp_entry (priv->username);
-    _exec_user_session (session);
+    if (!priv->session_pause)
+        _exec_user_session (session);
     g_signal_emit (session, signals[SIG_SESSION_CREATED], 0, priv->sessionid);
     return TRUE;
 }
