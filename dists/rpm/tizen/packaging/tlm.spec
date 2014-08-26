@@ -5,7 +5,7 @@
 Name: tlm
 Summary: Login manager for Tizen
 Version: 0.0.3
-Release: 1
+Release: 2
 Group: System/Service
 License: LGPL-2.1+
 Source: %{name}-%{version}.tar.gz
