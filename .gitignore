@@ -35,5 +35,6 @@ data/tlm.conf
 tests/tlm-test.conf
 src/daemon/tlm
 src/sessiond/tlm-sessiond
+src/utils/tlm-client
 tests/config/configtest
 tests/daemon/daemontest
