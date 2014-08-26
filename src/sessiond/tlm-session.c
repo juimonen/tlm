@@ -529,6 +529,7 @@ _exec_user_session (
     DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d (%s)",
          getuid(), geteuid(), getgid(), getegid(), priv->username);
     _set_environment (priv);
+    umask(0700);
 
     home = getenv("HOME");
     if (home) {
@@ -660,8 +661,10 @@ tlm_session_start (TlmSession *session,
                                              TLM_CONFIG_GENERAL,
                                              TLM_CONFIG_GENERAL_PAUSE_SESSION,
                                              FALSE);
-    if (priv->session_pause)
+    if (priv->session_pause) {
         _set_environment (priv);
+        umask(0700);
+    }
 
     if (!tlm_auth_session_open (priv->auth_session, &error)) {
         if (!error) {
