@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <security/pam_appl.h>
+#include <security/pam_misc.h>
 #include <gio/gio.h>
 
 #include "tlm-auth-session.h"
@@ -472,7 +473,17 @@ tlm_auth_session_get_sessionid (TlmAuthSession *auth_session)
 gchar **
 tlm_auth_session_get_envlist (TlmAuthSession *auth_session)
 {
-	g_return_val_if_fail(TLM_IS_AUTH_SESSION(auth_session), NULL);
+	g_return_val_if_fail(TLM_IS_AUTH_SESSION (auth_session), NULL);
 
-    return (gchar **)pam_getenvlist(auth_session->priv->pam_handle);
+    return (gchar **) pam_getenvlist(auth_session->priv->pam_handle);
 }
+
+void
+tlm_auth_session_set_env (TlmAuthSession *auth_session, const gchar *key,
+                          const gchar *value)
+{
+    g_return_if_fail (TLM_IS_AUTH_SESSION (auth_session));
+
+    pam_misc_setenv (auth_session->priv->pam_handle, key, value, 0);
+}
+

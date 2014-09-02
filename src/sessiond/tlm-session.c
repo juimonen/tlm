@@ -311,10 +311,16 @@ tlm_session_init (TlmSession *session)
 }
 
 static void
-_setenv_to_session (gpointer key, gpointer val, gpointer user_data)
+_setenv_to_session (const gchar *key, const gchar *val,
+                    TlmSessionPrivate *user_data)
 {
-    /*TlmSessionPrivate *priv = (TlmSessionPrivate *) user_data;*/
-    setenv ((const char *) key, (const char *) val, 1);
+    TlmSessionPrivate *priv = (TlmSessionPrivate *) user_data;
+    if (priv->session_pause)
+        tlm_auth_session_set_env (priv->auth_session,
+                                  (const gchar *) key,
+                                  (const gchar *) val);
+    else
+        setenv ((const char *) key, (const char *) val, 1);
 }
 
 static gboolean
@@ -381,7 +387,7 @@ static gboolean
 _set_environment (TlmSessionPrivate *priv)
 {
 	gchar **envlist = tlm_auth_session_get_envlist(priv->auth_session);
-	const gchar *home_dir=NULL, *shell=NULL;
+	const gchar *home_dir = NULL, *shell = NULL;
 
     if (envlist) {
         gchar **env = 0;
@@ -398,15 +404,15 @@ _set_environment (TlmSessionPrivate *priv)
                                                TLM_CONFIG_GENERAL_SESSION_PATH);
     if (!path)
         path = "/usr/local/bin:/usr/bin:/bin";
-    setenv ("PATH", path, 1);
+    _setenv_to_session ("PATH", path, priv);
 
-    setenv ("USER", priv->username, 1);
-    setenv ("LOGNAME", priv->username, 1);
+    _setenv_to_session ("USER", priv->username, priv);
+    _setenv_to_session ("LOGNAME", priv->username, priv);
     home_dir = tlm_user_get_home_dir (priv->username);
-    if (home_dir) setenv ("HOME", home_dir, 1);
+    if (home_dir) _setenv_to_session ("HOME", home_dir, priv);
     shell = tlm_user_get_shell (priv->username);
-    if (shell) setenv ("SHELL", shell, 1);
-    setenv ("XDG_SEAT", priv->seat_id, 1);
+    if (shell) _setenv_to_session ("SHELL", shell, priv);
+    _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
 
     const gchar *xdg_data_dirs =
         tlm_config_get_string (priv->config,
@@ -414,11 +420,11 @@ _set_environment (TlmSessionPrivate *priv)
                                TLM_CONFIG_GENERAL_DATA_DIRS);
     if (!xdg_data_dirs)
         xdg_data_dirs = "/usr/share:/usr/local/share";
-    setenv ("XDG_DATA_DIRS", xdg_data_dirs, 1);
+    _setenv_to_session ("XDG_DATA_DIRS", xdg_data_dirs, priv);
 
     if (priv->env_hash)
         g_hash_table_foreach (priv->env_hash,
-                              _setenv_to_session,
+                              (GHFunc) _setenv_to_session,
                               priv);
 
     return TRUE;
