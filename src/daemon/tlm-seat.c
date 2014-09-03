@@ -556,11 +556,11 @@ tlm_seat_create_session (TlmSeat *seat,
     if (!service) {
         service = tlm_config_get_string (priv->config,
                                          priv->id,
-                                         TLM_CONFIG_GENERAL_PAM_SERVICE);
+                                         username ? TLM_CONFIG_GENERAL_PAM_SERVICE : TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE);
         if (!service)
             service = tlm_config_get_string (priv->config,
                                              TLM_CONFIG_GENERAL,
-                                             TLM_CONFIG_GENERAL_PAM_SERVICE);
+                                             username ? TLM_CONFIG_GENERAL_PAM_SERVICE : TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE);
     }
     if (!username) {
         const gchar *name_tmpl =

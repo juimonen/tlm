@@ -4,8 +4,8 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 0.0.3
-Release: 2
+Version: 0.0.4
+Release: 1
 Group: System/Service
 License: LGPL-2.1+
 Source: %{name}-%{version}.tar.gz
@@ -69,6 +69,7 @@ install -m 755 -d %{buildroot}%{_unitdir}
 install -m 644 data/tlm.service %{buildroot}%{_unitdir}
 install -m 755 -d %{buildroot}%{_sysconfdir}/pam.d
 install -m 644 data/tlm-login %{buildroot}%{_sysconfdir}/pam.d/
+install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
 
 
 %post
