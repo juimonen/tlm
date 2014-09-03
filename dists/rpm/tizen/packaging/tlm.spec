@@ -1,6 +1,6 @@
 # enable debug features such as control environment variables
 # WARNING! do not use for production builds as it will break security
-%define debug_build 0
+%define debug_build 1
 
 Name: tlm
 Summary: Login manager for Tizen
@@ -23,6 +23,10 @@ BuildRequires: pkgconfig(gmodule-2.0)
 BuildRequires: pkgconfig(libgum)
 BuildRequires: pkgconfig(elementary)
 BuildRequires: pam-devel
+%if %{debug_build} == 1
+BuildRequires: gtk-doc
+%endif
+
 
 %description
 %{summary}.
@@ -55,6 +59,7 @@ cp %{SOURCE1001} .
 
 %build
 %if %{debug_build} == 1
+./autogen.sh
 %configure --enable-gum --enable-gtk-doc --enable-examples --enable-debug
 %else
 %configure --enable-gum --enable-examples
@@ -95,6 +100,7 @@ install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
 %{_unitdir}/tlm.service
 %config(noreplace) %{_sysconfdir}/tlm.conf
 %config %{_sysconfdir}/pam.d/tlm-login
+%config %{_sysconfdir}/pam.d/tlm-default-login
 
 
 %files devel
