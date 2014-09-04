@@ -4,6 +4,6 @@ EXTRA_DIST = \
       tlm.conf.in \
       tlm.service \
       tlm-login \
-      tlm-login.debian
+      tlm-default-login
 
 sysconf_DATA = tlm.conf

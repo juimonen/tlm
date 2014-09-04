@@ -1,6 +1,6 @@
 # enable debug features such as control environment variables
 # WARNING! do not use for production builds as it will break security
-%define debug_build 1
+%define debug_build 0
 
 Name: tlm
 Summary: Login manager for Tizen
@@ -83,7 +83,8 @@ install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
 /usr/bin/systemctl daemon-reload
 
 
-%postun -p /sbin/ldconfig
+%postun
+/sbin/ldconfig
 /usr/bin/systemctl disable tlm
 /usr/bin/systemctl daemon-reload
 
