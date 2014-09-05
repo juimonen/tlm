@@ -16,7 +16,7 @@ libtlm_session_daemon_la_CPPFLAGS = \
 libtlm_session_daemon_la_LIBADD =    \
         $(top_builddir)/src/common/libtlm-common.la \
         $(top_builddir)/src/common/dbus/libtlm-dbus-glue.la \
-        -lpam \
+        -lpam -lpam_misc \
         $(TLM_LIBS)
 
 libtlm_session_daemon_la_SOURCES = \

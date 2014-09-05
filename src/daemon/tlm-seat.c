@@ -91,9 +91,6 @@ typedef struct _DelayClosure
 static void
 _disconnect_session_signals (
         TlmSeat *seat);
-static void
-_destroy_dbus_observer (
-        TlmDbusObserver **dbus_observer);
 
 static void
 _reset_next (TlmSeatPrivate *priv)
@@ -119,7 +116,7 @@ _handle_session_created (
 
     g_signal_emit (self, signals[SIG_SESSION_CREATED], 0, self->priv->id);
 
-    _destroy_dbus_observer (&self->priv->prev_dbus_observer);
+    g_clear_object (&self->priv->prev_dbus_observer);
 }
 
 static void
@@ -154,7 +151,7 @@ _handle_session_terminated (
         DBG ("no relogin or switch user");
         return;
     }
-    _destroy_dbus_observer (&priv->dbus_observer);
+    g_clear_object (&priv->dbus_observer);
 
     if (tlm_config_get_boolean (priv->config,
                                 TLM_CONFIG_GENERAL,
@@ -197,7 +194,7 @@ _handle_error (
         error->code == TLM_ERROR_SESSION_TERMINATION_FAILURE) {
         DBG ("Destroy the session in case of creation/termination failure");
         _close_active_session (self);
-        _destroy_dbus_observer (&self->priv->dbus_observer);
+        g_clear_object (&self->priv->dbus_observer);
     }
 }
 
@@ -232,17 +229,6 @@ _connect_session_signals (
             G_CALLBACK(_handle_error), seat);
 }
 
-static void
-_destroy_dbus_observer (
-        TlmDbusObserver **dbus_observer)
-{
-    DBG ("destroy dbus obs: %p", *dbus_observer);
-    if (*dbus_observer) {
-        g_object_unref (*dbus_observer);
-        *dbus_observer = NULL;
-    }
-}
-
 static gboolean
 _create_dbus_observer (
         TlmSeat *seat,
@@ -274,8 +260,8 @@ tlm_seat_dispose (GObject *self)
 
     DBG("disposing seat: %s", seat->priv->id);
 
-    _destroy_dbus_observer (&seat->priv->dbus_observer);
-    _destroy_dbus_observer (&seat->priv->prev_dbus_observer);
+    g_clear_object (&seat->priv->dbus_observer);
+    g_clear_object (&seat->priv->prev_dbus_observer);
 
     _disconnect_session_signals (seat);
     if (seat->priv->session)
@@ -570,11 +556,11 @@ tlm_seat_create_session (TlmSeat *seat,
     if (!service) {
         service = tlm_config_get_string (priv->config,
                                          priv->id,
-                                         TLM_CONFIG_GENERAL_PAM_SERVICE);
+                                         username ? TLM_CONFIG_GENERAL_PAM_SERVICE : TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE);
         if (!service)
             service = tlm_config_get_string (priv->config,
                                              TLM_CONFIG_GENERAL,
-                                             TLM_CONFIG_GENERAL_PAM_SERVICE);
+                                             username ? TLM_CONFIG_GENERAL_PAM_SERVICE : TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE);
     }
     if (!username) {
         const gchar *name_tmpl =

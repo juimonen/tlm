@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([tlm], [0.0.3], [])
+AC_INIT([tlm], [0.0.4], [])
 AC_CONFIG_SRCDIR([src/daemon/tlm-main.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -40,6 +40,7 @@ AC_SUBST(LIBTLM_NFC_LIBS)
 AM_CONDITIONAL(HAVE_LIBTLM_NFC, [test x$have_libtlm_nfc = xyes])
 
 AC_CHECK_HEADERS([security/pam_appl.h],,[AC_MSG_ERROR("pam-devel is required")])
+AC_CHECK_HEADERS([security/pam_misc.h],,[AC_MSG_ERROR("pam-misc is required")])
 
 TLM_CFLAGS="$GLIB_CFLAGS $GIO_CFLAGS $GMODULE_CFLAGS -D_POSIX_C_SOURCE=\"200809L\" -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -Wall -Werror"
 TLM_LIBS="$GLIB_LIBS $GIO_LIBS $GMODULE_LIBS"

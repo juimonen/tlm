@@ -1,3 +1,12 @@
+* Wed Sep 03 2014 Jussi Laako <jussi.laako@linux.intel.com>
+- Added separate PAM configuration file for default user
+
+* Tue Aug 26 2014 Imran Zaman <imran.zaman@intel.com>
+- session: set umask when logging in
+- session: with pause session, set environment before PAM open session
+- updated gitignore file
+- Fixed white spaces
+
 * Mon Aug 04 2014 Imran Zaman <imran.zaman@intel.com>
 - Updated pam configuration file and fixed bug related to dbus arguments
 

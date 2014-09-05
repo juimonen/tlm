@@ -263,6 +263,16 @@ _set_defaults (
                                "tlm-login");
     }
 
+    /* default user PAM service => tlm-default-login */
+    if (!tlm_config_has_key (self,
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE)) {
+        tlm_config_set_string (self,
+                               TLM_CONFIG_GENERAL,
+                               TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE,
+                               "tlm-default-login");
+    }
+
     /* default user => guest */
     if (!tlm_config_has_key (self,
                              TLM_CONFIG_GENERAL,

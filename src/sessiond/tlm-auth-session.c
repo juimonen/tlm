@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -27,13 +27,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
-#include <string.h> 
+#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <security/pam_appl.h>
+#include <security/pam_misc.h>
 #include <gio/gio.h>
 
 #include "tlm-auth-session.h"
@@ -128,7 +129,7 @@ _auth_session_set_property (GObject *obj,
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
     switch (property_id) {
-        case PROP_SERVICE: 
+        case PROP_SERVICE:
             priv->service = g_value_dup_string (value);
             break;
         case PROP_USERNAME:
@@ -153,7 +154,7 @@ _auth_session_get_property (GObject *obj,
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
     switch (property_id) {
-        case PROP_SERVICE: 
+        case PROP_SERVICE:
             g_value_set_string (value, priv->service);
             break;
         case PROP_USERNAME:
@@ -209,7 +210,7 @@ static void
 tlm_auth_session_init (TlmAuthSession *auth_session)
 {
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
-    
+
     priv->service = priv->username = NULL;
 
     auth_session->priv = priv;
@@ -366,9 +367,9 @@ tlm_auth_session_authenticate (TlmAuthSession *auth_session, GError **error)
         WARN ("PAM authentication failure: %s",
               pam_strerror (priv->pam_handle, res));
         if (error)
-        	*error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_PAM_AUTH_FAILURE,
-        			"pam authenticaton failed : %s",
-        			pam_strerror (priv->pam_handle, res));
+            *error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_PAM_AUTH_FAILURE,
+                    "pam authenticaton failed : %s",
+                    pam_strerror (priv->pam_handle, res));
         return FALSE;
     }
 
@@ -379,7 +380,7 @@ gboolean
 tlm_auth_session_open (TlmAuthSession *auth_session, GError **error)
 {
     int res;
-    g_return_val_if_fail (auth_session && 
+    g_return_val_if_fail (auth_session &&
                 TLM_IS_AUTH_SESSION(auth_session), FALSE);
 
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
@@ -396,22 +397,22 @@ tlm_auth_session_open (TlmAuthSession *auth_session, GError **error)
 
     res = pam_setcred (priv->pam_handle, PAM_ESTABLISH_CRED);
     if (res != PAM_SUCCESS) {
-        WARN ("Failed to establish pam credentials: %s", 
-            pam_strerror (priv->pam_handle, res));
+        WARN ("Failed to establish pam credentials: %s",
+                pam_strerror (priv->pam_handle, res));
         return FALSE;
     }
 
     res = pam_open_session (priv->pam_handle, 0);
     if (res != PAM_SUCCESS) {
         WARN ("Failed to open pam session: %s",
-            pam_strerror (priv->pam_handle, res));
+                pam_strerror (priv->pam_handle, res));
         return FALSE;
     }
 
     res = pam_setcred (priv->pam_handle, PAM_REINITIALIZE_CRED);
     if (res != PAM_SUCCESS) {
-        WARN ("Failed to reinitialize pam credentials: %s", 
-            pam_strerror (priv->pam_handle, res));
+        WARN ("Failed to reinitialize pam credentials: %s",
+                pam_strerror (priv->pam_handle, res));
         pam_close_session (priv->pam_handle, 0);
         return FALSE;
     }
@@ -472,7 +473,17 @@ tlm_auth_session_get_sessionid (TlmAuthSession *auth_session)
 gchar **
 tlm_auth_session_get_envlist (TlmAuthSession *auth_session)
 {
-	g_return_val_if_fail(TLM_IS_AUTH_SESSION(auth_session), NULL);
+	g_return_val_if_fail(TLM_IS_AUTH_SESSION (auth_session), NULL);
 
-    return (gchar **)pam_getenvlist(auth_session->priv->pam_handle);
+    return (gchar **) pam_getenvlist(auth_session->priv->pam_handle);
 }
+
+void
+tlm_auth_session_set_env (TlmAuthSession *auth_session, const gchar *key,
+                          const gchar *value)
+{
+    g_return_if_fail (TLM_IS_AUTH_SESSION (auth_session));
+
+    pam_misc_setenv (auth_session->priv->pam_handle, key, value, 0);
+}
+

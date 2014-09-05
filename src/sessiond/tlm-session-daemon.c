@@ -142,10 +142,10 @@ _handle_session_create_from_dbus (
 
     data = tlm_dbus_utils_hash_table_from_variant (environment);
     g_object_get (self->priv->dbus_session, "seatid", &seatid,
-    		"username", &username, "service", &service, NULL);
+            "username", &username, "service", &service, NULL);
 
     tlm_session_start (self->priv->session, seatid, service, username,
-    		password, data);
+            password, data);
 
     g_hash_table_unref (data);
     g_free (seatid);

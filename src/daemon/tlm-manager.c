@@ -655,7 +655,7 @@ _session_terminated_cb (GObject *emitter, const gchar *seat_id,
 
     g_hash_table_remove (manager->priv->seats, seat_id);
     if (g_hash_table_size (manager->priv->seats) == 0) {
-    	DBG ("signalling stopped");
+        DBG ("signalling stopped");
         g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
     }
 

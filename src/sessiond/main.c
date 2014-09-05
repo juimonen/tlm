@@ -59,7 +59,7 @@ _handle_quit_signal (gpointer user_data)
     return FALSE;
 }
 
-static void 
+static void
 _install_sighandlers (GMainLoop *main_loop)
 {
     GSource *source = NULL;

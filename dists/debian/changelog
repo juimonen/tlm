@@ -1,3 +1,18 @@
+tlm (0.0.4-1) unstable; urgency=low
+
+  * Added separate PAM configuration file for default user
+
+ -- Imran Zaman <imran.zaman@intel.com>  Tue, 26 Aug 2014 19:04:53 +0200
+
+tlm (0.0.3-2) unstable; urgency=low
+
+  * session: set umask when logging in
+  * session: with pause session, set environment before PAM open session
+  * updated gitignore file
+  * Fixed white spaces
+
+ -- Imran Zaman <imran.zaman@intel.com>  Tue, 26 Aug 2014 19:04:53 +0200
+
 tlm (0.0.3-1) unstable; urgency=low
 
   * Create a new process (tlm-sessiond) for each session

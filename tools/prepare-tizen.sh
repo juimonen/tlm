@@ -9,6 +9,9 @@ if [ $# -ne 2 -o -z "$1" -o -z "$2" ]; then
     exit
 fi
 
+currdir=`pwd`;
+echo "CURR dir = $currdir"
+
 mkdir -p $2 && \
 cd $2 && \
 git rm -f -r *; rm -rf packaging;
@@ -17,4 +20,5 @@ mkdir -p packaging && \
 cp dists/rpm/tizen/packaging/tlm.spec packaging/ && \
 cp dists/rpm/tizen/packaging/tlm.manifest packaging/ && \
 cp dists/rpm/tizen/packaging/tlm.changes packaging/ && \
-git add -f *;
+cp $currdir/.gitignore $2/;
+git add -f *; git add .gitignore;

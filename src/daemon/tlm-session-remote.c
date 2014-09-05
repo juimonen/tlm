@@ -119,7 +119,7 @@ tlm_session_remote_set_property (
 {
     TlmSessionRemote *self = TLM_SESSION_REMOTE (object);
     switch (property_id) {
-    	case PROP_CONFIG:
+        case PROP_CONFIG:
            self->priv->config = g_value_dup_object (value);
            break;
 		case PROP_SEATID:
@@ -146,18 +146,18 @@ tlm_session_remote_get_property (
     TlmSessionRemote *self = TLM_SESSION_REMOTE (object);
 
     switch (property_id) {
-    	case PROP_CONFIG:
-    		g_value_set_object (value, self->priv->config);
-    		break;
-		case PROP_SEATID:
-		case PROP_USERNAME:
-		case PROP_SERVICE:
-		case PROP_SESSIONID: {
-			if (self->priv->dbus_session_proxy) {
-				g_object_get_property (G_OBJECT(self->priv->dbus_session_proxy),
-						pspec->name, value);
-			}
-			break;
+        case PROP_CONFIG:
+            g_value_set_object (value, self->priv->config);
+            break;
+        case PROP_SEATID:
+        case PROP_USERNAME:
+        case PROP_SERVICE:
+        case PROP_SESSIONID: {
+            if (self->priv->dbus_session_proxy) {
+                g_object_get_property (G_OBJECT(self->priv->dbus_session_proxy),
+                        pspec->name, value);
+            }
+            break;
 		}
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -193,7 +193,7 @@ _terminate_timeout (gpointer user_data)
             return G_SOURCE_CONTINUE;
         case SIGKILL:
             DBG ("child %u didn't respond to SIGKILL, "
-            		"process is stuck in kernel",  priv->cpid);
+                    "process is stuck in kernel",  priv->cpid);
             priv->timer_id = 0;
             if (self->priv->can_emit_signal) {
                 GError *error = TLM_GET_ERROR_FOR_ID (
@@ -547,7 +547,7 @@ gboolean
 tlm_session_remote_terminate (
         TlmSessionRemote *self)
 {
-    g_return_if_fail (self && TLM_IS_SESSION_REMOTE(self));
+    g_return_val_if_fail (self && TLM_IS_SESSION_REMOTE(self), FALSE);
     TlmSessionRemotePrivate *priv = TLM_SESSION_REMOTE_PRIV(self);
 
     if (!priv->is_sessiond_up) {
@@ -565,5 +565,4 @@ tlm_session_remote_terminate (
             _terminate_timeout, self);
     return TRUE;
 }
-
 

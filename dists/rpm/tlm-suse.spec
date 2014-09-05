@@ -5,7 +5,7 @@
 Name: tlm
 Summary: Login manager for Tizen
 Version: 0.0.3
-Release: 1
+Release: 2
 Group: System/Daemons
 License: LGPL-2.1+
 Source: %{name}-%{version}.tar.gz
@@ -99,6 +99,15 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Wed Sep 03 2014 Jussi Laako <jussi.laako@linux.intel.com>
+- Added separate PAM configuration file for default user
+
+* Tue Aug 26 2014 Imran Zaman <imran.zaman@intel.com>
+- session: set umask when logging in
+- session: with pause session, set environment before PAM open session
+- updated gitignore file
+- Fixed white spaces
+
 * Mon Jul 21 2014 Imran Zaman <imran.zaman@intel.com>
 - Update to 0.0.3; create a new process (tlm-sessiond) for each session
 

@@ -106,6 +106,13 @@
 #define TLM_CONFIG_GENERAL_PAM_SERVICE      "PAM_SERVICE"
 
 /**
+ * TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE:
+ *
+ * PAM service file to use for default user authentication and session setup. Default value: "tlm-default-login".
+ */
+#define TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE "DEFAULT_PAM_SERVICE"
+
+/**
  * TLM_CONFIG_GENERAL_DEFAULT_USER:
  *
  * Default username for autologin. Default value: "guest".

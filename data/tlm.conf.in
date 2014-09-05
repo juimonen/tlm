@@ -21,6 +21,9 @@ PREPARE_DEFAULT=1
 # PAM service file to use
 PAM_SERVICE=tlm-login
 #
+# PAM service file for default user
+PAM_DEFAULT_SERVICE=tlm-default-login
+#
 # Default (guest) username or template to use
 #  %S - seat number
 #  %I - seat id string

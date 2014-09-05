@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -83,6 +83,10 @@ tlm_auth_session_get_sessionid (TlmAuthSession *auth_session);
 
 gchar **
 tlm_auth_session_get_envlist (TlmAuthSession *auth_session);
+
+void
+tlm_auth_session_set_env (TlmAuthSession *auth_session, const gchar *key,
+                          const gchar *value);
 
 G_END_DECLS
 
