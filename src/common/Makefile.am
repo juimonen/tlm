@@ -21,6 +21,7 @@ libtlm_common_la_SOURCES = \
 	tlm-config.h \
 	tlm-config.c \
 	tlm-config-general.h \
+	tlm-config-seat.h \
 	tlm-pipe-stream.c \
 	tlm-pipe-stream.h \
 	tlm-utils.h \
