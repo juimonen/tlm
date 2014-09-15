@@ -31,6 +31,7 @@
 #include "tlm-auth-plugin.h"
 #include "tlm-config.h"
 #include "tlm-config-general.h"
+#include "tlm-config-seat.h"
 #include "tlm-dbus-observer.h"
 #include "tlm-utils.h"
 #include "config.h"
@@ -452,6 +453,12 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
     g_return_if_fail (manager && TLM_IS_MANAGER (manager));
 
     TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
+
+    if (!tlm_config_get_boolean (priv->config,
+                                 seat_id,
+                                 TLM_CONFIG_SEAT_ACTIVE,
+                                 TRUE))
+        return;
 
     TlmSeat *seat = tlm_seat_new (priv->config,
                                   seat_id,

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([tlm], [0.0.4], [])
+AC_INIT([tlm], [0.0.5], [])
 AC_CONFIG_SRCDIR([src/daemon/tlm-main.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])

@@ -4,8 +4,8 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 0.0.3
-Release: 2
+Version: 0.0.5
+Release: 1
 Group: System/Daemons
 License: LGPL-2.1+
 Source: %{name}-%{version}.tar.gz
@@ -99,6 +99,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Mon Sep 15 2014 Imran Zaman <imran.zaman@intel.com>
+- Updated tizen configuration file for tizen
+
 * Wed Sep 03 2014 Jussi Laako <jussi.laako@linux.intel.com>
 - Added separate PAM configuration file for default user
 

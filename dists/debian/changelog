@@ -1,3 +1,9 @@
+tlm (0.0.5-1) unstable; urgency=low
+
+  * Updated tizen configuration file for tizen
+
+ -- Imran Zaman <imran.zaman@intel.com>  Mon, 15 Sep 2014 15:02:53 +0200
+
 tlm (0.0.4-1) unstable; urgency=low
 
   * Added separate PAM configuration file for default user
