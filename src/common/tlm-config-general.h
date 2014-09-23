@@ -159,4 +159,12 @@
  */
 #define TLM_CONFIG_GENERAL_PAUSE_SESSION    "PAUSE_SESSION"
 
+/**
+ * TLM_CONFIG_GENERAL_SESSION_TYPE
+ *
+ * Specify session type, one of "unspecified", "tty", "x11", "wayland" or
+ * "mir".
+ */
+#define TLM_CONFIG_GENERAL_SESSION_TYPE     "SESSION_TYPE"
+
 #endif /* __TLM_GENERAL_CONFIG_H_ */

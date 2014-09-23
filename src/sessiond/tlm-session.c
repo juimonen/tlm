@@ -618,6 +618,7 @@ tlm_session_start (TlmSession *session,
 	GError *error = NULL;
 	g_return_val_if_fail (session && TLM_IS_SESSION(session), FALSE);
     TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
+    const gchar *session_type;
 
     if (!seat_id || !service || !username) {
         error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
@@ -643,7 +644,17 @@ tlm_session_start (TlmSession *session,
         return FALSE;
     }
 
+    session_type = tlm_config_get_string_default (priv->config,
+                                                  TLM_CONFIG_GENERAL,
+                                                  TLM_CONFIG_GENERAL_SESSION_TYPE,
+                                                  "unspecified");
     tlm_auth_session_putenv (priv->auth_session, "XDG_SEAT", priv->seat_id);
+    tlm_auth_session_putenv (priv->auth_session, "XDG_SESSION_CLASS", "user");
+    if (session_type)
+        tlm_auth_session_putenv (priv->auth_session,
+                                 "XDG_SESSION_TYPE",
+                                 session_type);
+
 
     if (!tlm_auth_session_authenticate (priv->auth_session, &error)) {
         if (error) {

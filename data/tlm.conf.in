@@ -51,6 +51,10 @@ DEFAULT_USER=app
 # Default: off
 PAUSE_SESSION=1
 #
+# Specify session type
+# Default: unspecified
+SESSION_TYPE=wayland
+#
 #
 # Seat specific settings where the group name is seat id
 #[seat0]
