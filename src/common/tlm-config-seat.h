@@ -43,4 +43,13 @@
  */
 #define TLM_CONFIG_SEAT_ACTIVE          "ACTIVE"
 
+/**
+ * TLM_CONFIG_SEAT_VTNR:
+ *
+ * Specifies virtual terminal number to be used for the seat, note that
+ * this has effect only when SETUP_TERMINAL is enabled.
+ * Default value: 0
+ */
+#define TLM_CONFIG_SEAT_VTNR            "VTNR"
+
 #endif /* __TLM_CONFIG_SEAT_H_ */

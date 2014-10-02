@@ -49,6 +49,7 @@
 #include "common/tlm-utils.h"
 #include "common/tlm-error.h"
 #include "common/tlm-config-general.h"
+#include "common/tlm-config-seat.h"
 
 G_DEFINE_TYPE (TlmSession, tlm_session, G_TYPE_OBJECT);
 
@@ -81,6 +82,7 @@ struct _TlmSessionPrivate
     pid_t child_pid;
     uid_t tty_uid;
     gid_t tty_gid;
+    unsigned vtnr;
     struct termios stdin_state, stdout_state, stderr_state;
     gchar *seat_id;
     gchar *service;
@@ -326,42 +328,54 @@ _setenv_to_session (const gchar *key, const gchar *val,
 static gboolean
 _set_terminal (TlmSessionPrivate *priv)
 {
+    gboolean res = TRUE;
     int i;
     int tty_fd;
     pid_t tty_pgid;
-    const char *tty_dev;
+    gchar *tty_dev = NULL;
     struct stat tty_stat;
 
-    tty_dev = ttyname (0);
+    DBG ("VTNR is %u", priv->vtnr);
+    if (priv->vtnr > 0) {
+        tty_dev = g_strdup_printf ("/dev/tty%u", priv->vtnr);
+    } else {
+        tty_dev = g_strdup (ttyname (0));
+    }
     DBG ("trying to setup TTY '%s'", tty_dev);
     if (!tty_dev) {
         WARN ("No TTY");
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (access (tty_dev, R_OK|W_OK)) {
         WARN ("TTY not accessible: %s", strerror(errno));
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (lstat (tty_dev, &tty_stat)) {
         WARN ("lstat() failed: %s", strerror(errno));
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (tty_stat.st_nlink > 1 ||
         !S_ISCHR (tty_stat.st_mode) ||
         strncmp (tty_dev, "/dev/", 5)) {
         WARN ("Invalid TTY");
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
 
     tty_fd = open (tty_dev, O_RDWR | O_NONBLOCK);
     if (tty_fd < 0) {
         WARN ("open() failed: %s", strerror(errno));
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (!isatty (tty_fd)) {
         close (tty_fd);
         WARN ("isatty() failed");
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (ioctl (tty_fd, TIOCSCTTY, 1))
         WARN ("ioctl(TIOCSCTTY) failed: %s", strerror(errno));
@@ -380,7 +394,9 @@ _set_terminal (TlmSessionPrivate *priv)
     dup2 (tty_fd, 2);
     close (tty_fd);
 
-    return TRUE;
+term_exit:
+    g_free (tty_dev);
+    return res;
 }
 
 static gboolean
@@ -545,8 +561,12 @@ _exec_user_session (
     } else WARN ("Could not get home directory");
 
     shell = tlm_config_get_string (priv->config,
-                                   TLM_CONFIG_GENERAL,
+                                   priv->seat_id,
                                    TLM_CONFIG_GENERAL_SESSION_CMD);
+    if (!shell)
+        shell = tlm_config_get_string (priv->config,
+                                       TLM_CONFIG_GENERAL,
+                                       TLM_CONFIG_GENERAL_SESSION_CMD);
     if (shell) {
         DBG ("Session command : %s", shell);
         temp_strv = g_regex_split_simple (pattern,
@@ -644,6 +664,10 @@ tlm_session_start (TlmSession *session,
         return FALSE;
     }
 
+    priv->vtnr = tlm_config_get_uint (priv->config,
+                                      priv->seat_id,
+                                      TLM_CONFIG_SEAT_VTNR,
+                                      0);
     session_type = tlm_config_get_string_default (priv->config,
                                                   TLM_CONFIG_GENERAL,
                                                   TLM_CONFIG_GENERAL_SESSION_TYPE,
@@ -654,7 +678,13 @@ tlm_session_start (TlmSession *session,
         tlm_auth_session_putenv (priv->auth_session,
                                  "XDG_SESSION_TYPE",
                                  session_type);
-
+    if (priv->vtnr > 0) {
+        gchar *vtnr_str = g_strdup_printf("%u", priv->vtnr);
+        tlm_auth_session_putenv (priv->auth_session,
+                                 "XDG_VTNR",
+                                 vtnr_str);
+        g_free (vtnr_str);
+    }
 
     if (!tlm_auth_session_authenticate (priv->auth_session, &error)) {
         if (error) {
@@ -697,7 +727,8 @@ tlm_session_start (TlmSession *session,
     tlm_utils_log_utmp_entry (priv->username);
     if (!priv->session_pause)
         _exec_user_session (session);
-    g_signal_emit (session, signals[SIG_SESSION_CREATED], 0, priv->sessionid);
+    g_signal_emit (session, signals[SIG_SESSION_CREATED], 0,
+                   priv->sessionid ? priv->sessionid : "");
     return TRUE;
 }
 
