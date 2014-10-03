@@ -418,8 +418,11 @@ tlm_manager_init (TlmManager *manager)
 
     manager->priv = priv;
 
-    _load_accounts_plugin (manager, tlm_config_get_string (priv->config,
-            TLM_CONFIG_GENERAL, TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN));
+    _load_accounts_plugin (manager,
+                           tlm_config_get_string_default (priv->config,
+                                                          TLM_CONFIG_GENERAL,
+                                                          TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN,
+                                                          "default"));
     _load_auth_plugins (manager);
 
     /* delete tlm runtime directory */
@@ -746,7 +749,10 @@ tlm_manager_sighup_received (TlmManager *manager)
     DBG ("sighup recvd. reload configuration and account plugin");
     tlm_config_reload (manager->priv->config);
     g_clear_object (&manager->priv->account_plugin);
-    _load_accounts_plugin (manager, tlm_config_get_string (
-            manager->priv->config, TLM_CONFIG_GENERAL,
-            TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN));
+    _load_accounts_plugin (manager,
+                           tlm_config_get_string_default (manager->priv->config,
+                                                          TLM_CONFIG_GENERAL,
+                                                          TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN,
+                                                          "default"));
 }
+

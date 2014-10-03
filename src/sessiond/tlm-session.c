@@ -526,10 +526,21 @@ _exec_user_session (
         WARN ("setsid() failed: %s", strerror (errno));
     DBG ("new pgid=%u", getpgrp());
 
-    if (tlm_config_get_boolean (priv->config,
-                                TLM_CONFIG_GENERAL,
-                                TLM_CONFIG_GENERAL_SETUP_TERMINAL,
-                                FALSE)) {
+    gboolean setup_terminal;
+    if (tlm_config_has_key (priv->config,
+                            priv->seat_id,
+                            TLM_CONFIG_GENERAL_SETUP_TERMINAL)) {
+        setup_terminal = tlm_config_get_boolean (priv->config,
+                                                 priv->seat_id,
+                                                 TLM_CONFIG_GENERAL_SETUP_TERMINAL,
+                                                 FALSE);
+    } else {
+        setup_terminal = tlm_config_get_boolean (priv->config,
+                                                 TLM_CONFIG_GENERAL,
+                                                 TLM_CONFIG_GENERAL_SETUP_TERMINAL,
+                                                 FALSE);
+    }
+    if (setup_terminal) {
         /* usually terminal settings are handled by PAM */
         _set_terminal (priv);
     }

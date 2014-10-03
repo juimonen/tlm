@@ -554,6 +554,7 @@ tlm_seat_create_session (TlmSeat *seat,
     gchar *default_user = NULL;
 
     if (!service) {
+        DBG ("PAM service not defined, looking up configuration");
         service = tlm_config_get_string (priv->config,
                                          priv->id,
                                          username ? TLM_CONFIG_GENERAL_PAM_SERVICE : TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE);
@@ -561,16 +562,22 @@ tlm_seat_create_session (TlmSeat *seat,
             service = tlm_config_get_string (priv->config,
                                              TLM_CONFIG_GENERAL,
                                              username ? TLM_CONFIG_GENERAL_PAM_SERVICE : TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE);
+        if (!service)
+            service = username ? "tlm-login" : "tlm-default-login";
     }
+    DBG ("using PAM service %s for seat %s", service, priv->id);
+
     if (!username) {
         const gchar *name_tmpl =
-            tlm_config_get_string (priv->config,
-                                   priv->id,
-                                   TLM_CONFIG_GENERAL_DEFAULT_USER);
+            tlm_config_get_string_default (priv->config,
+                                           priv->id,
+                                           TLM_CONFIG_GENERAL_DEFAULT_USER,
+                                           "guest");
         if (!name_tmpl)
-            name_tmpl = tlm_config_get_string (priv->config,
-                                               TLM_CONFIG_GENERAL,
-                                               TLM_CONFIG_GENERAL_DEFAULT_USER);
+            name_tmpl = tlm_config_get_string_default (priv->config,
+                                                       TLM_CONFIG_GENERAL,
+                                                       TLM_CONFIG_GENERAL_DEFAULT_USER,
+                                                       "guest");
         if (name_tmpl) default_user = _build_user_name (name_tmpl, priv->id);
         if (default_user)
             g_signal_emit (seat,

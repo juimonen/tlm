@@ -238,52 +238,6 @@ _load_environment (
 }
 #endif  /* ENABLE_DEBUG */
 
-static void
-_set_defaults (
-        TlmConfig *self)
-{
-
-    /* accounts plugin => default */
-    if (!tlm_config_has_key (self,
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN)) {
-        tlm_config_set_string (self,
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN,
-                               "default");
-    }
-
-    /* default PAM service => tlm-login */
-    if (!tlm_config_has_key (self,
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_PAM_SERVICE)) {
-        tlm_config_set_string (self,
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_PAM_SERVICE,
-                               "tlm-login");
-    }
-
-    /* default user PAM service => tlm-default-login */
-    if (!tlm_config_has_key (self,
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE)) {
-        tlm_config_set_string (self,
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE,
-                               "tlm-default-login");
-    }
-
-    /* default user => guest */
-    if (!tlm_config_has_key (self,
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_DEFAULT_USER)) {
-        tlm_config_set_string (self,
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_DEFAULT_USER,
-                               "guest");
-    }
-}
-
 /**
  * tlm_config_get_group:
  * @self: (transfer none): an instance of #TlmConfig
@@ -680,7 +634,6 @@ _initialize (TlmConfig *self)
 #ifdef ENABLE_DEBUG
     _load_environment (self);
 #endif
-    _set_defaults (self);
 }
 
 static void
