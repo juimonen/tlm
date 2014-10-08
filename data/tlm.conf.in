@@ -10,6 +10,10 @@
 # Name of the account plugin to use to manage(add/remove) guest user accounts
 ACCOUNTS_PLUGIN=@ACCOUNT_PLUGIN_NAME@
 #
+# Number of seats
+# Default: obtain from systemd
+#NSEATS=2
+#
 # Auto-login default user
 # Default: off
 AUTO_LOGIN=1
@@ -58,11 +62,12 @@ SESSION_TYPE=wayland
 #
 # Seat specific settings where the group name is seat id
 #[seat0]
-#DEFAULT_USER=system
+#DEFAULT_USER=tizen
 #SETUP_TERMINAL=1
 #VTNR=7
 #SESSION_CMD=weston-launch
 #DEFAULT_PAM_SERVICE=tlm-system-login
+#SETUP_RUNTIME_DIR=1
 #
 #[seat1]
 #ACTIVE=0

@@ -5,6 +5,10 @@ Requires=systemd-logind.service
 
 [Service]
 ExecStart=/usr/bin/tlm
+#StandardInput=tty
+#StandardOutput=journal
+#StandardError=journal
+#TTYPath=/dev/tty1
 
 [Install]
 WantedBy=default.target

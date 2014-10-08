@@ -43,6 +43,9 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#include <glib.h>
+#include <glib/gstdio.h>
+
 #include "tlm-session.h"
 #include "tlm-auth-session.h"
 #include "common/tlm-log.h"
@@ -93,6 +96,7 @@ struct _TlmSessionPrivate
     guint timer_id;
     guint child_watch_id;
     gchar *sessionid;
+    gchar *xdg_runtime_dir;
     gboolean can_emit_signal;
     gboolean is_child_up;
     gboolean session_pause;
@@ -102,6 +106,8 @@ static void
 _clear_session (TlmSession *session)
 {
     tlm_session_reset_tty (session);
+    if (session->priv->xdg_runtime_dir)
+        tlm_utils_delete_dir (session->priv->xdg_runtime_dir);
 
     if (session->priv->timer_id) {
         g_source_remove (session->priv->timer_id);
@@ -124,6 +130,7 @@ _clear_session (TlmSession *session)
     g_clear_string (&session->priv->service);
     g_clear_string (&session->priv->username);
     g_clear_string (&session->priv->sessionid);
+    g_clear_string (&session->priv->xdg_runtime_dir);
 }
 
 static void
@@ -438,6 +445,9 @@ _set_environment (TlmSessionPrivate *priv)
         xdg_data_dirs = "/usr/share:/usr/local/share";
     _setenv_to_session ("XDG_DATA_DIRS", xdg_data_dirs, priv);
 
+    if (priv->xdg_runtime_dir)
+        _setenv_to_session ("XDG_RUNTIME_DIR", priv->xdg_runtime_dir, priv);
+
     if (priv->env_hash)
         g_hash_table_foreach (priv->env_hash,
                               (GHFunc) _setenv_to_session,
@@ -471,6 +481,7 @@ _exec_user_session (
 		TlmSession *session)
 {
     gint i;
+    gboolean setup_runtime_dir = FALSE;
     const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
     const char *home;
     const char *shell = NULL;
@@ -485,6 +496,34 @@ _exec_user_session (
         priv->username = g_strdup (tlm_auth_session_get_username (
                 priv->auth_session));
     DBG ("session ID : %s", priv->sessionid);
+
+    if (tlm_config_has_key (priv->config,
+                            priv->seat_id,
+                            TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR)) {
+        setup_runtime_dir = tlm_config_get_boolean (priv->config,
+                                           priv->seat_id,
+                                           TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR,
+                                           FALSE);
+    } else {
+        setup_runtime_dir = tlm_config_get_boolean (priv->config,
+                                           TLM_CONFIG_GENERAL,
+                                           TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR,
+                                           FALSE);
+    }
+    if (setup_runtime_dir) {
+        if (g_mkdir_with_parents ("/run/user", 0755))
+            WARN ("g_mkdir_with_parents(\"/run/user\") failed");
+        priv->xdg_runtime_dir = g_build_filename ("/run/user",
+                                                  priv->username,
+                                                  NULL);
+        DBG ("setting up XDG_RUNTIME_DIR=%s", priv->xdg_runtime_dir);
+        if (g_mkdir (priv->xdg_runtime_dir, 0700))
+            WARN ("g_mkdir(\"%s\") failed", priv->xdg_runtime_dir);
+        if (chown (priv->xdg_runtime_dir,
+               tlm_user_get_uid (priv->username),
+               tlm_user_get_gid (priv->username)))
+            WARN ("chown(\"%s\"): %s", priv->xdg_runtime_dir, strerror(errno));
+    }
 
     priv->child_pid = fork ();
     if (priv->child_pid) {

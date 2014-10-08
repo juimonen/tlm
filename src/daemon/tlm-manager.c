@@ -647,8 +647,22 @@ tlm_manager_start (TlmManager *manager)
 {
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
 
-    _manager_sync_seats (manager);
-    _manager_subscribe_seat_changes (manager);
+    guint nseats = tlm_config_get_uint (manager->priv->config,
+                                        TLM_CONFIG_GENERAL,
+                                        TLM_CONFIG_GENERAL_NSEATS,
+                                        0);
+    if (nseats) {
+        guint i;
+
+        for (i = 0; i < nseats; i++) {
+            gchar *id = g_strdup_printf("seat%u", i);
+            _add_seat (manager, id, NULL);
+            g_free (id);
+        }
+    } else {
+        _manager_sync_seats (manager);
+        _manager_subscribe_seat_changes (manager);
+    }
 
     manager->priv->is_started = TRUE;
 

@@ -7,6 +7,7 @@
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
  *          Amarnath Valluri <amarnath.valluri@linux.intel.com>
+ *          Jussi Laako <jussi.laako@linux.intel.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -51,6 +52,13 @@
  * value can be overriden with TLM_ACCOUNT_PLUGIN environment variable.
  */
 #define TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN  "ACCOUNTS_PLUGIN"
+
+/**
+ * TLM_CONFIG_GENERAL_NSEATS:
+ *
+ * Number of seats, instead seat information from systemd.
+ */
+#define TLM_CONFIG_GENERAL_NSEATS           "NSEATS"
 
 /**
  * TLM_CONFIG_GENERAL_SESSION_CMD:
@@ -130,6 +138,13 @@
  * created session to the terminal device.
  */
 #define TLM_CONFIG_GENERAL_SETUP_TERMINAL   "SETUP_TERMINAL"
+
+/**
+ * TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR
+ *
+ * Setup XDG_RUNTIME_DIR for the user.
+ */
+#define TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR "SETUP_RUNTIME_DIR"
 
 /**
  * TLM_CONFIG_GENERAL_TERMINATE_TIMEOUT
