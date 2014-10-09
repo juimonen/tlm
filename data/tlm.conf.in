@@ -12,7 +12,7 @@ ACCOUNTS_PLUGIN=@ACCOUNT_PLUGIN_NAME@
 #
 # Number of seats
 # Default: obtain from systemd
-#NSEATS=2
+NSEATS=2
 #
 # Auto-login default user
 # Default: off
@@ -32,7 +32,7 @@ DEFAULT_PAM_SERVICE=tlm-default-login
 #  %S - seat number
 #  %I - seat id string
 # Default: "guest"
-DEFAULT_USER=app
+DEFAULT_USER=guest_%S
 #
 # Session command : The command run after successfull login
 # Default: $SHELL
@@ -53,9 +53,10 @@ DEFAULT_USER=app
 #
 # Do not launch anything, let systemd handle it through PAM
 # Default: off
-PAUSE_SESSION=1
+#PAUSE_SESSION=1
 #
-# Specify session type
+# Specify session type, needs to be specified for
+# XDG_SESSION_CLASS and XDG_SESSION_TYPE to be set
 # Default: unspecified
 SESSION_TYPE=wayland
 #
@@ -68,10 +69,12 @@ SESSION_TYPE=wayland
 #SESSION_CMD=weston-launch
 #DEFAULT_PAM_SERVICE=tlm-system-login
 #SETUP_RUNTIME_DIR=1
+#RUNTIME_MODE=0700
 #
 #[seat1]
 #ACTIVE=0
 #DEFAULT_USER=guest_%S
+DEFAULT_USER=app
 #
 #
 # plugin specific settings.

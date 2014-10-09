@@ -435,7 +435,10 @@ _set_environment (TlmSessionPrivate *priv)
     if (home_dir) _setenv_to_session ("HOME", home_dir, priv);
     shell = tlm_user_get_shell (priv->username);
     if (shell) _setenv_to_session ("SHELL", shell, priv);
-    _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
+    if (!tlm_config_has_key (priv->config,
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_NSEATS))
+        _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
 
     const gchar *xdg_data_dirs =
         tlm_config_get_string (priv->config,
@@ -481,8 +484,10 @@ _exec_user_session (
 		TlmSession *session)
 {
     gint i;
-    gboolean setup_runtime_dir = FALSE;
+    gint rtdir_perm = 0700;
+    gboolean setup_runtime_dir;
     const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
+    const gchar *rtdir_perm_str;
     const char *home;
     const char *shell = NULL;
     const char *env_shell = NULL;
@@ -510,19 +515,32 @@ _exec_user_session (
                                            TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR,
                                            FALSE);
     }
+    rtdir_perm_str = tlm_config_get_string (priv->config,
+                                            priv->seat_id,
+                                            TLM_CONFIG_GENERAL_RUNTIME_MODE);
+    if (!rtdir_perm_str)
+        rtdir_perm_str = tlm_config_get_string (priv->config,
+                                               TLM_CONFIG_GENERAL,
+                                               TLM_CONFIG_GENERAL_RUNTIME_MODE);
     if (setup_runtime_dir) {
         if (g_mkdir_with_parents ("/run/user", 0755))
             WARN ("g_mkdir_with_parents(\"/run/user\") failed");
         priv->xdg_runtime_dir = g_build_filename ("/run/user",
                                                   priv->username,
                                                   NULL);
-        DBG ("setting up XDG_RUNTIME_DIR=%s", priv->xdg_runtime_dir);
-        if (g_mkdir (priv->xdg_runtime_dir, 0700))
+        if (rtdir_perm_str)
+            sscanf(rtdir_perm_str, "%i", &rtdir_perm);
+        DBG ("setting up XDG_RUNTIME_DIR=%s mode=%o",
+             priv->xdg_runtime_dir,
+             rtdir_perm);
+        if (g_mkdir (priv->xdg_runtime_dir, rtdir_perm))
             WARN ("g_mkdir(\"%s\") failed", priv->xdg_runtime_dir);
         if (chown (priv->xdg_runtime_dir,
                tlm_user_get_uid (priv->username),
                tlm_user_get_gid (priv->username)))
             WARN ("chown(\"%s\"): %s", priv->xdg_runtime_dir, strerror(errno));
+        if (chmod (priv->xdg_runtime_dir, rtdir_perm))
+            WARN ("chmod(\"%s\"): %s", priv->xdg_runtime_dir, strerror(errno));
     }
 
     priv->child_pid = fork ();
@@ -718,16 +736,27 @@ tlm_session_start (TlmSession *session,
                                       priv->seat_id,
                                       TLM_CONFIG_SEAT_VTNR,
                                       0);
-    session_type = tlm_config_get_string_default (priv->config,
-                                                  TLM_CONFIG_GENERAL,
-                                                  TLM_CONFIG_GENERAL_SESSION_TYPE,
-                                                  "unspecified");
-    tlm_auth_session_putenv (priv->auth_session, "XDG_SEAT", priv->seat_id);
-    tlm_auth_session_putenv (priv->auth_session, "XDG_SESSION_CLASS", "user");
-    if (session_type)
+    session_type = tlm_config_get_string (priv->config,
+                                          priv->seat_id,
+                                          TLM_CONFIG_GENERAL_SESSION_TYPE);
+    if (!session_type)
+        session_type = tlm_config_get_string (priv->config,
+                                              TLM_CONFIG_GENERAL,
+                                              TLM_CONFIG_GENERAL_SESSION_TYPE);
+    if (!tlm_config_has_key (priv->config,
+                            TLM_CONFIG_GENERAL,
+                            TLM_CONFIG_GENERAL_NSEATS))
+        tlm_auth_session_putenv (priv->auth_session,
+                                 "XDG_SEAT",
+                                 priv->seat_id);
+    if (session_type) {
+        tlm_auth_session_putenv (priv->auth_session,
+                                 "XDG_SESSION_CLASS",
+                                 "user");
         tlm_auth_session_putenv (priv->auth_session,
                                  "XDG_SESSION_TYPE",
                                  session_type);
+    }
     if (priv->vtnr > 0) {
         gchar *vtnr_str = g_strdup_printf("%u", priv->vtnr);
         tlm_auth_session_putenv (priv->auth_session,

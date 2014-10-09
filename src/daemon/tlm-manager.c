@@ -653,9 +653,9 @@ tlm_manager_start (TlmManager *manager)
                                         0);
     if (nseats) {
         guint i;
-
         for (i = 0; i < nseats; i++) {
             gchar *id = g_strdup_printf("seat%u", i);
+            DBG ("adding virtual seat '%s'", id);
             _add_seat (manager, id, NULL);
             g_free (id);
         }

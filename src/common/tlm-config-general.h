@@ -147,6 +147,13 @@
 #define TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR "SETUP_RUNTIME_DIR"
 
 /**
+ * TLM_CONFIG_GENERAL_RUNTIME_MODE
+ *
+ * Access mode for the XDG_RUNTIME_DIR.
+ */
+#define TLM_CONFIG_GENERAL_RUNTIME_MODE     "RUNTIME_MODE"
+
+/**
  * TLM_CONFIG_GENERAL_TERMINATE_TIMEOUT
  *
  * Timeout for session termination in seconds. Default value: 10
