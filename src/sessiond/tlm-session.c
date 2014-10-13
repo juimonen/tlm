@@ -97,6 +97,7 @@ struct _TlmSessionPrivate
     guint child_watch_id;
     gchar *sessionid;
     gchar *xdg_runtime_dir;
+    gboolean setup_runtime_dir;
     gboolean can_emit_signal;
     gboolean is_child_up;
     gboolean session_pause;
@@ -106,7 +107,7 @@ static void
 _clear_session (TlmSession *session)
 {
     tlm_session_reset_tty (session);
-    if (session->priv->xdg_runtime_dir)
+    if (session->priv->setup_runtime_dir)
         tlm_utils_delete_dir (session->priv->xdg_runtime_dir);
 
     if (session->priv->timer_id) {
@@ -435,10 +436,7 @@ _set_environment (TlmSessionPrivate *priv)
     if (home_dir) _setenv_to_session ("HOME", home_dir, priv);
     shell = tlm_user_get_shell (priv->username);
     if (shell) _setenv_to_session ("SHELL", shell, priv);
-    if (!tlm_config_has_key (priv->config,
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_NSEATS))
-        _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
+    if (priv->seat_id) _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
 
     const gchar *xdg_data_dirs =
         tlm_config_get_string (priv->config,
@@ -485,12 +483,12 @@ _exec_user_session (
 {
     gint i;
     gint rtdir_perm = 0700;
-    gboolean setup_runtime_dir;
     const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
     const gchar *rtdir_perm_str;
     const char *home;
     const char *shell = NULL;
     const char *env_shell = NULL;
+    gchar *uid_str;
     gchar **args = NULL;
     gchar **args_iter = NULL;
     TlmSessionPrivate *priv = session->priv;
@@ -505,12 +503,12 @@ _exec_user_session (
     if (tlm_config_has_key (priv->config,
                             priv->seat_id,
                             TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR)) {
-        setup_runtime_dir = tlm_config_get_boolean (priv->config,
+        priv->setup_runtime_dir = tlm_config_get_boolean (priv->config,
                                            priv->seat_id,
                                            TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR,
                                            FALSE);
     } else {
-        setup_runtime_dir = tlm_config_get_boolean (priv->config,
+        priv->setup_runtime_dir = tlm_config_get_boolean (priv->config,
                                            TLM_CONFIG_GENERAL,
                                            TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR,
                                            FALSE);
@@ -522,17 +520,18 @@ _exec_user_session (
         rtdir_perm_str = tlm_config_get_string (priv->config,
                                                TLM_CONFIG_GENERAL,
                                                TLM_CONFIG_GENERAL_RUNTIME_MODE);
-    if (setup_runtime_dir) {
+    uid_str = g_strdup_printf ("%u", tlm_user_get_uid (priv->username));
+    priv->xdg_runtime_dir = g_build_filename ("/run/user",
+                                              uid_str,
+                                              NULL);
+    g_free (uid_str);
+    if (priv->setup_runtime_dir) {
         if (g_mkdir_with_parents ("/run/user", 0755))
             WARN ("g_mkdir_with_parents(\"/run/user\") failed");
-        priv->xdg_runtime_dir = g_build_filename ("/run/user",
-                                                  priv->username,
-                                                  NULL);
         if (rtdir_perm_str)
             sscanf(rtdir_perm_str, "%i", &rtdir_perm);
         DBG ("setting up XDG_RUNTIME_DIR=%s mode=%o",
-             priv->xdg_runtime_dir,
-             rtdir_perm);
+             priv->xdg_runtime_dir, rtdir_perm);
         if (g_mkdir (priv->xdg_runtime_dir, rtdir_perm))
             WARN ("g_mkdir(\"%s\") failed", priv->xdg_runtime_dir);
         if (chown (priv->xdg_runtime_dir,
@@ -541,6 +540,8 @@ _exec_user_session (
             WARN ("chown(\"%s\"): %s", priv->xdg_runtime_dir, strerror(errno));
         if (chmod (priv->xdg_runtime_dir, rtdir_perm))
             WARN ("chmod(\"%s\"): %s", priv->xdg_runtime_dir, strerror(errno));
+    } else {
+        DBG ("not setting up XDG_RUNTIME_DIR");
     }
 
     priv->child_pid = fork ();
