@@ -497,8 +497,13 @@ _delayed_session (gpointer user_data)
 {
     DelayClosure *delay_closure = (DelayClosure *) user_data;
 
-    g_return_val_if_fail (user_data, FALSE);
+    DBG ("delayed relogin for closure %p", delay_closure);
+    g_return_val_if_fail (user_data, G_SOURCE_REMOVE);
 
+    DBG ("delayed relogin for seat=%s, service=%s, user=%s",
+         delay_closure->seat->priv->id,
+         delay_closure->service,
+         delay_closure->username);
     tlm_seat_create_session (delay_closure->seat,
                              delay_closure->service,
                              delay_closure->username,
@@ -511,7 +516,7 @@ _delayed_session (gpointer user_data)
     if (delay_closure->environment)
         g_hash_table_unref (delay_closure->environment);
     g_slice_free (DelayClosure, delay_closure);
-    return FALSE;
+    return G_SOURCE_REMOVE;
 }
 
 gboolean
