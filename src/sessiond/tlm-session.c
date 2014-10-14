@@ -482,7 +482,7 @@ _exec_user_session (
 		TlmSession *session)
 {
     gint i;
-    gint rtdir_perm = 0700;
+    guint rtdir_perm = 0700;
     const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
     const gchar *rtdir_perm_str;
     const char *home;
@@ -529,7 +529,7 @@ _exec_user_session (
         if (g_mkdir_with_parents ("/run/user", 0755))
             WARN ("g_mkdir_with_parents(\"/run/user\") failed");
         if (rtdir_perm_str)
-            sscanf(rtdir_perm_str, "%i", &rtdir_perm);
+            sscanf(rtdir_perm_str, "%o", &rtdir_perm);
         DBG ("setting up XDG_RUNTIME_DIR=%s mode=%o",
              priv->xdg_runtime_dir, rtdir_perm);
         if (g_mkdir (priv->xdg_runtime_dir, rtdir_perm))
