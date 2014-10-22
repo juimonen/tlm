@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+export WAYLAND_SERVER_DIR=/tmp
+#mkdir /run/memory/display
+#chmod 0750 /run/memory/display
+#chgrp weston-launch /run/memory/display
+#export WAYLAND_SERVER_DIR=/run/memory/display
+export WAYLAND_SERVER_GROUP=weston-launch
+export WAYLAND_SERVER_MODE=0660
+/usr/bin/weston-launch -- -i0 --current-mode --log=/tmp/tizen-weston.log --shell=desktop-shell.so
