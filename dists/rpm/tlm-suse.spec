@@ -4,8 +4,8 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 0.0.5
-Release: 1
+Version: 0.0.6
+Release: 0
 Group: System/Daemons
 License: LGPL-2.1+
 Source: %{name}-%{version}.tar.gz
@@ -99,6 +99,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Fri Oct 24 2014 Imran Zaman <imran.zaman@intel.com>
+- Updated tlm to libgum API changes
+
 * Mon Sep 15 2014 Imran Zaman <imran.zaman@intel.com>
 - Updated tizen configuration file for tizen
 

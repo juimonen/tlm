@@ -71,7 +71,7 @@ _setup_guest_account (
     g_return_val_if_fail (plugin && TLM_IS_ACCOUNT_PLUGIN_GUMD(plugin), FALSE);
     g_return_val_if_fail (user_name && user_name[0], FALSE);
 
-    GumUser *guser = gum_user_create_sync ();
+    GumUser *guser = gum_user_create_sync (FALSE);
     if (!guser) {
         WARN ("Failed user %s creation", user_name);
         return FALSE;
@@ -109,7 +109,7 @@ _cleanup_guest_user (
     g_return_val_if_fail (plugin && TLM_IS_ACCOUNT_PLUGIN_GUMD(plugin), FALSE);
     g_return_val_if_fail (user_name && user_name[0], FALSE);
 
-    GumUser *guser = gum_user_get_by_name_sync (user_name);
+    GumUser *guser = gum_user_get_by_name_sync (user_name, FALSE);
     if (!guser) {
         WARN ("Failed to cleanup user %s", user_name);
         return FALSE;
@@ -144,7 +144,7 @@ _is_valid_user (
     g_return_val_if_fail (plugin && TLM_IS_ACCOUNT_PLUGIN_GUMD(plugin), FALSE);
     g_return_val_if_fail (user_name && user_name[0], FALSE);
 
-    GumUser *guser = gum_user_get_by_name_sync (user_name);
+    GumUser *guser = gum_user_get_by_name_sync (user_name, FALSE);
     if (!guser) {
         WARN ("Failed to find user %s", user_name);
         return FALSE;
