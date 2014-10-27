@@ -436,6 +436,7 @@ _set_environment (TlmSessionPrivate *priv)
     if (home_dir) _setenv_to_session ("HOME", home_dir, priv);
     shell = tlm_user_get_shell (priv->username);
     if (shell) _setenv_to_session ("SHELL", shell, priv);
+    // TODO: figure out if this should be set or not for logical seats (NSEATS)
     if (priv->seat_id) _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
 
     const gchar *xdg_data_dirs =
@@ -526,6 +527,7 @@ _exec_user_session (
                                               NULL);
     g_free (uid_str);
     if (priv->setup_runtime_dir) {
+        tlm_utils_delete_dir (priv->xdg_runtime_dir);
         if (g_mkdir_with_parents ("/run/user", 0755))
             WARN ("g_mkdir_with_parents(\"/run/user\") failed");
         if (rtdir_perm_str)
