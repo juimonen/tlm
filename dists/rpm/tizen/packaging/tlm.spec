@@ -75,6 +75,7 @@ install -m 644 data/tlm.service %{buildroot}%{_unitdir}
 install -m 755 -d %{buildroot}%{_sysconfdir}/pam.d
 install -m 644 data/tlm-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
+install -m 644 data/tlm-system-login %{buildroot}%{_sysconfdir}/pam.d/
 
 
 %post
@@ -98,10 +99,11 @@ install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
 %{_bindir}/%{name}-client
 %{_libdir}/lib%{name}*.so.*
 %{_libdir}/%{name}/plugins/*.so*
-%{_unitdir}/tlm.service
+%config %{_unitdir}/tlm.service
 %config(noreplace) %{_sysconfdir}/tlm.conf
 %config %{_sysconfdir}/pam.d/tlm-login
 %config %{_sysconfdir}/pam.d/tlm-default-login
+%config %{_sysconfdir}/pam.d/tlm-system-login
 
 
 %files devel
