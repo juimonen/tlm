@@ -317,6 +317,7 @@ tlm_auth_session_putenv (
         env_item = g_strdup_printf ("%s=%s", var, value);
     else
         env_item = g_strdup_printf ("%s", var);
+    DBG (" pam_putenv(\"%s\")", env_item);
     res = pam_putenv (auth_session->priv->pam_handle, env_item);
     g_free (env_item);
     if (res != PAM_SUCCESS) {
@@ -418,10 +419,6 @@ tlm_auth_session_open (TlmAuthSession *auth_session, GError **error)
     }
 
     priv->session_id = _auth_session_get_logind_session_id (error);
-    if (!priv->session_id) {
-        pam_close_session (priv->pam_handle, 0);
-        return FALSE;
-    }
 
     return TRUE;
 }

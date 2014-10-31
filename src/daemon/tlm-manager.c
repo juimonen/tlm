@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -37,9 +37,14 @@
 #include "config.h"
 
 #include <glib.h>
+#include <glib-unix.h>
 #include <gio/gio.h>
+#include <glib/gstdio.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <limits.h>
+#include <sys/inotify.h>
 
 G_DEFINE_TYPE (TlmManager, tlm_manager, G_TYPE_OBJECT);
 
@@ -80,6 +85,15 @@ enum {
 };
 
 static guint signals[SIG_MAX];
+
+typedef struct _TlmSeatWatchClosure
+{
+    TlmManager *manager;
+    gchar *seat_id;
+    gchar *seat_path;
+    guint nwatch;
+    GList *watch_list;
+} TlmSeatWatchClosure;
 
 static void
 _unref_auth_plugins (gpointer data)
@@ -181,7 +195,7 @@ tlm_manager_class_init (TlmManagerClass *klass)
 {
     GObjectClass *g_klass = G_OBJECT_CLASS (klass);
 
-    g_type_class_add_private (klass, sizeof(TlmManagerPrivate));
+    g_type_class_add_private (klass, sizeof (TlmManagerPrivate));
 
     g_klass->constructor = tlm_manager_constructor;    
     g_klass->dispose = tlm_manager_dispose ;
@@ -418,8 +432,11 @@ tlm_manager_init (TlmManager *manager)
 
     manager->priv = priv;
 
-    _load_accounts_plugin (manager, tlm_config_get_string (priv->config,
-            TLM_CONFIG_GENERAL, TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN));
+    _load_accounts_plugin (manager,
+                           tlm_config_get_string_default (priv->config,
+                                                          TLM_CONFIG_GENERAL,
+                                                          TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN,
+                                                          "default"));
     _load_auth_plugins (manager);
 
     /* delete tlm runtime directory */
@@ -447,18 +464,14 @@ _prepare_user_cb (TlmSeat *seat, const gchar *user_name, gpointer user_data)
     }
 }
 
+
 static void
-_add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
+_create_seat (TlmManager *manager,
+              const gchar *seat_id, const gchar *seat_path)
 {
     g_return_if_fail (manager && TLM_IS_MANAGER (manager));
 
     TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
-
-    if (!tlm_config_get_boolean (priv->config,
-                                 seat_id,
-                                 TLM_CONFIG_SEAT_ACTIVE,
-                                 TRUE))
-        return;
 
     TlmSeat *seat = tlm_seat_new (priv->config,
                                   seat_id,
@@ -467,9 +480,7 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
                       "prepare-user",
                       G_CALLBACK (_prepare_user_cb),
                       manager);
-
     g_hash_table_insert (priv->seats, g_strdup (seat_id), seat);
-
     g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);
 
     if (tlm_config_get_boolean (priv->config,
@@ -485,6 +496,110 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
                                       NULL))
             WARN("Failed to create session for default user");
     }
+}
+
+
+gboolean
+_seat_watch_cb (gint ifd, GIOCondition condition, gpointer user_data)
+{
+    g_return_val_if_fail (user_data, G_SOURCE_REMOVE);
+    TlmSeatWatchClosure *closure = (TlmSeatWatchClosure *) user_data;
+    struct inotify_event *ievent;
+    gsize size_event;
+
+    size_event = sizeof (struct inotify_event) + PATH_MAX + 1;
+    ievent = (struct inotify_event *) g_malloc (size_event);
+    DBG ("seat %s inotify wakeup", closure->seat_id);
+    while (read (ifd, ievent, size_event) > (ssize_t) sizeof (struct inotify_event) &&
+           closure->nwatch) {
+        DBG ("seat %s notify for %s", closure->seat_id, ievent->name);
+        GList *res = g_list_find_custom (closure->watch_list, ievent->name,
+                                         (GCompareFunc) g_strcmp0);
+        if (res) {
+            DBG ("seat %s watch for %s succeeded, %u left",
+                 closure->seat_id, (gchar *) res->data, closure->nwatch - 1);
+            g_free (res->data);
+            closure->watch_list = g_list_remove (closure->watch_list, res);
+            inotify_rm_watch (ifd, ievent->wd);
+            closure->nwatch--;
+        }
+    }
+    g_free (ievent);
+    if (!closure->nwatch) {
+        _create_seat (closure->manager, closure->seat_id, closure->seat_path);
+        close (ifd);
+        g_object_unref (closure->manager);
+        g_free (closure->seat_id);
+        g_free (closure->seat_path);
+        g_list_free_full (closure->watch_list, g_free);
+        g_free (closure);
+        return G_SOURCE_REMOVE;
+    }
+    return G_SOURCE_CONTINUE;
+}
+
+
+static void
+_add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
+{
+    g_return_if_fail (manager && TLM_IS_MANAGER (manager));
+
+    TlmManagerPrivate *priv = TLM_MANAGER_PRIV (manager);
+
+    if (!tlm_config_get_boolean (priv->config,
+                                 seat_id,
+                                 TLM_CONFIG_SEAT_ACTIVE,
+                                 TRUE))
+        return;
+
+    guint nwatch = tlm_config_get_uint (priv->config,
+                                        seat_id,
+                                        TLM_CONFIG_SEAT_NWATCH,
+                                        0);
+    if (nwatch) {
+        GList *watch_list = NULL;
+        guint x, watch_len = 0;
+        int ifd = inotify_init1 (IN_NONBLOCK|IN_CLOEXEC);
+        if (ifd < 0)
+            ERR ("inotify_init(): %s", strerror (errno));
+        for (x = 0; x < nwatch; x++) {
+            gchar *watchx = g_strdup_printf ("%s%u",
+                                             TLM_CONFIG_SEAT_WATCHX,
+                                             x);
+            const gchar *watch_item = tlm_config_get_string (priv->config,
+                                                             seat_id,
+                                                             watchx);
+            g_free (watchx);
+            if (!watch_item)
+                continue;
+            gchar *watch_path = g_path_get_dirname (watch_item);
+            if (inotify_add_watch (ifd, watch_path, IN_CREATE) < 0)
+                WARN ("inotify_add_watch(): %s", strerror (errno));
+            g_free (watch_path);
+            if (g_access (watch_item, 0)) {
+                watch_list = g_list_append (watch_list,
+                                            g_path_get_basename (watch_item));
+                watch_len++;
+                DBG ("seat %s waiting for %s", seat_id, watch_item);
+            }
+        }
+
+        if (watch_len) {
+            TlmSeatWatchClosure *watch_closure =
+                g_new0 (TlmSeatWatchClosure, 1);
+            watch_closure->manager = g_object_ref (manager);
+            watch_closure->seat_id = g_strdup (seat_id);
+            watch_closure->seat_path = g_strdup (seat_path);
+            watch_closure->nwatch = watch_len;
+            watch_closure->watch_list = watch_list;
+            g_unix_fd_add (ifd, G_IO_IN, _seat_watch_cb, watch_closure);
+            return;
+        } else {
+            close (ifd);
+        }
+    }
+
+    _create_seat (manager, seat_id, seat_path);
 }
 
 static void
@@ -644,8 +759,22 @@ tlm_manager_start (TlmManager *manager)
 {
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
 
-    _manager_sync_seats (manager);
-    _manager_subscribe_seat_changes (manager);
+    guint nseats = tlm_config_get_uint (manager->priv->config,
+                                        TLM_CONFIG_GENERAL,
+                                        TLM_CONFIG_GENERAL_NSEATS,
+                                        0);
+    if (nseats) {
+        guint i;
+        for (i = 0; i < nseats; i++) {
+            gchar *id = g_strdup_printf("seat%u", i);
+            DBG ("adding virtual seat '%s'", id);
+            _add_seat (manager, id, NULL);
+            g_free (id);
+        }
+    } else {
+        _manager_sync_seats (manager);
+        _manager_subscribe_seat_changes (manager);
+    }
 
     manager->priv->is_started = TRUE;
 
@@ -746,7 +875,10 @@ tlm_manager_sighup_received (TlmManager *manager)
     DBG ("sighup recvd. reload configuration and account plugin");
     tlm_config_reload (manager->priv->config);
     g_clear_object (&manager->priv->account_plugin);
-    _load_accounts_plugin (manager, tlm_config_get_string (
-            manager->priv->config, TLM_CONFIG_GENERAL,
-            TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN));
+    _load_accounts_plugin (manager,
+                           tlm_config_get_string_default (manager->priv->config,
+                                                          TLM_CONFIG_GENERAL,
+                                                          TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN,
+                                                          "default"));
 }
+

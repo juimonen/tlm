@@ -238,52 +238,6 @@ _load_environment (
 }
 #endif  /* ENABLE_DEBUG */
 
-static void
-_set_defaults (
-        TlmConfig *self)
-{
-
-    /* accounts plugin => default */
-    if (!tlm_config_has_key (self,
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN)) {
-        tlm_config_set_string (self,
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_ACCOUNTS_PLUGIN,
-                               "default");
-    }
-
-    /* default PAM service => tlm-login */
-    if (!tlm_config_has_key (self,
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_PAM_SERVICE)) {
-        tlm_config_set_string (self,
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_PAM_SERVICE,
-                               "tlm-login");
-    }
-
-    /* default user PAM service => tlm-default-login */
-    if (!tlm_config_has_key (self,
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE)) {
-        tlm_config_set_string (self,
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE,
-                               "tlm-default-login");
-    }
-
-    /* default user => guest */
-    if (!tlm_config_has_key (self,
-                             TLM_CONFIG_GENERAL,
-                             TLM_CONFIG_GENERAL_DEFAULT_USER)) {
-        tlm_config_set_string (self,
-                               TLM_CONFIG_GENERAL,
-                               TLM_CONFIG_GENERAL_DEFAULT_USER,
-                               "guest");
-    }
-}
-
 /**
  * tlm_config_get_group:
  * @self: (transfer none): an instance of #TlmConfig
@@ -315,7 +269,7 @@ tlm_config_get_group (
  * Get a string configuration value.
  *
  * Returns: the value corresponding to the key as an string. If the
- * key does not exist or cannot be converted to the integer, NULL is returned.
+ * key does not exist, NULL is returned.
  */
 const gchar *
 tlm_config_get_string (
@@ -330,6 +284,38 @@ tlm_config_get_string (
     if (!group_table) return NULL;
 
     return (const gchar *) g_hash_table_lookup (group_table, key);
+}
+
+/**
+ * tlm_config_get_string_default:
+ * @self: (transfer none): an instance of #TlmConfig
+ * @group: (transfer none): the group name, NULL refers to General
+ * @key: (transfer none): the key name
+ * @value: (transfer none): default value
+ *
+ * Get a string configuration value.
+ *
+ * Returns: the value corresponding to the key as an string. If the
+ * key does not exist, given default value is returned.
+ */
+const gchar *
+tlm_config_get_string_default (
+        TlmConfig *self,
+        const gchar *group,
+        const gchar *key,
+        const gchar *value)
+{
+    const gchar *res;
+    g_return_val_if_fail (self && TLM_IS_CONFIG (self), NULL);
+    g_return_val_if_fail (key && key[0], NULL);
+
+    GHashTable *group_table = tlm_config_get_group (self, group);
+    if (!group_table) return NULL;
+
+    res = g_hash_table_lookup (group_table, key);
+    if (!res)
+        return value;
+    return res;
 }
 
 /**
@@ -648,7 +634,6 @@ _initialize (TlmConfig *self)
 #ifdef ENABLE_DEBUG
     _load_environment (self);
 #endif
-    _set_defaults (self);
 }
 
 static void

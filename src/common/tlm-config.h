@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm
  *
- * Copyright (C) 2013 Intel Corporation.
+ * Copyright (C) 2013-2014 Intel Corporation.
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
  *          Amarnath Valluri <amarnath.valluri@linux.intel.com>
@@ -101,6 +101,13 @@ tlm_config_get_string (
         TlmConfig *self,
         const gchar *group,
         const gchar *key);
+
+const gchar*
+tlm_config_get_string_default (
+        TlmConfig *self,
+        const gchar *group,
+        const gchar *key,
+        const gchar *value);
 
 void
 tlm_config_set_string (

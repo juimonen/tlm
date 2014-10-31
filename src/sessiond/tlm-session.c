@@ -43,12 +43,16 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#include <glib.h>
+#include <glib/gstdio.h>
+
 #include "tlm-session.h"
 #include "tlm-auth-session.h"
 #include "common/tlm-log.h"
 #include "common/tlm-utils.h"
 #include "common/tlm-error.h"
 #include "common/tlm-config-general.h"
+#include "common/tlm-config-seat.h"
 
 G_DEFINE_TYPE (TlmSession, tlm_session, G_TYPE_OBJECT);
 
@@ -81,6 +85,7 @@ struct _TlmSessionPrivate
     pid_t child_pid;
     uid_t tty_uid;
     gid_t tty_gid;
+    unsigned vtnr;
     struct termios stdin_state, stdout_state, stderr_state;
     gchar *seat_id;
     gchar *service;
@@ -91,6 +96,8 @@ struct _TlmSessionPrivate
     guint timer_id;
     guint child_watch_id;
     gchar *sessionid;
+    gchar *xdg_runtime_dir;
+    gboolean setup_runtime_dir;
     gboolean can_emit_signal;
     gboolean is_child_up;
     gboolean session_pause;
@@ -100,6 +107,8 @@ static void
 _clear_session (TlmSession *session)
 {
     tlm_session_reset_tty (session);
+    if (session->priv->setup_runtime_dir)
+        tlm_utils_delete_dir (session->priv->xdg_runtime_dir);
 
     if (session->priv->timer_id) {
         g_source_remove (session->priv->timer_id);
@@ -122,6 +131,7 @@ _clear_session (TlmSession *session)
     g_clear_string (&session->priv->service);
     g_clear_string (&session->priv->username);
     g_clear_string (&session->priv->sessionid);
+    g_clear_string (&session->priv->xdg_runtime_dir);
 }
 
 static void
@@ -326,42 +336,54 @@ _setenv_to_session (const gchar *key, const gchar *val,
 static gboolean
 _set_terminal (TlmSessionPrivate *priv)
 {
+    gboolean res = TRUE;
     int i;
     int tty_fd;
     pid_t tty_pgid;
-    const char *tty_dev;
+    gchar *tty_dev = NULL;
     struct stat tty_stat;
 
-    tty_dev = ttyname (0);
+    DBG ("VTNR is %u", priv->vtnr);
+    if (priv->vtnr > 0) {
+        tty_dev = g_strdup_printf ("/dev/tty%u", priv->vtnr);
+    } else {
+        tty_dev = g_strdup (ttyname (0));
+    }
     DBG ("trying to setup TTY '%s'", tty_dev);
     if (!tty_dev) {
         WARN ("No TTY");
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (access (tty_dev, R_OK|W_OK)) {
         WARN ("TTY not accessible: %s", strerror(errno));
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (lstat (tty_dev, &tty_stat)) {
         WARN ("lstat() failed: %s", strerror(errno));
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (tty_stat.st_nlink > 1 ||
         !S_ISCHR (tty_stat.st_mode) ||
         strncmp (tty_dev, "/dev/", 5)) {
         WARN ("Invalid TTY");
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
 
     tty_fd = open (tty_dev, O_RDWR | O_NONBLOCK);
     if (tty_fd < 0) {
         WARN ("open() failed: %s", strerror(errno));
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (!isatty (tty_fd)) {
         close (tty_fd);
         WARN ("isatty() failed");
-        return FALSE;
+        res = FALSE;
+        goto term_exit;
     }
     if (ioctl (tty_fd, TIOCSCTTY, 1))
         WARN ("ioctl(TIOCSCTTY) failed: %s", strerror(errno));
@@ -380,7 +402,9 @@ _set_terminal (TlmSessionPrivate *priv)
     dup2 (tty_fd, 2);
     close (tty_fd);
 
-    return TRUE;
+term_exit:
+    g_free (tty_dev);
+    return res;
 }
 
 static gboolean
@@ -412,7 +436,8 @@ _set_environment (TlmSessionPrivate *priv)
     if (home_dir) _setenv_to_session ("HOME", home_dir, priv);
     shell = tlm_user_get_shell (priv->username);
     if (shell) _setenv_to_session ("SHELL", shell, priv);
-    _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
+    // TODO: figure out if this should be set or not for logical seats (NSEATS)
+    if (priv->seat_id) _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
 
     const gchar *xdg_data_dirs =
         tlm_config_get_string (priv->config,
@@ -421,6 +446,9 @@ _set_environment (TlmSessionPrivate *priv)
     if (!xdg_data_dirs)
         xdg_data_dirs = "/usr/share:/usr/local/share";
     _setenv_to_session ("XDG_DATA_DIRS", xdg_data_dirs, priv);
+
+    if (priv->xdg_runtime_dir)
+        _setenv_to_session ("XDG_RUNTIME_DIR", priv->xdg_runtime_dir, priv);
 
     if (priv->env_hash)
         g_hash_table_foreach (priv->env_hash,
@@ -455,10 +483,13 @@ _exec_user_session (
 		TlmSession *session)
 {
     gint i;
+    guint rtdir_perm = 0700;
     const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
+    const gchar *rtdir_perm_str;
     const char *home;
     const char *shell = NULL;
     const char *env_shell = NULL;
+    gchar *uid_str;
     gchar **args = NULL;
     gchar **args_iter = NULL;
     TlmSessionPrivate *priv = session->priv;
@@ -469,6 +500,51 @@ _exec_user_session (
         priv->username = g_strdup (tlm_auth_session_get_username (
                 priv->auth_session));
     DBG ("session ID : %s", priv->sessionid);
+
+    if (tlm_config_has_key (priv->config,
+                            priv->seat_id,
+                            TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR)) {
+        priv->setup_runtime_dir = tlm_config_get_boolean (priv->config,
+                                           priv->seat_id,
+                                           TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR,
+                                           FALSE);
+    } else {
+        priv->setup_runtime_dir = tlm_config_get_boolean (priv->config,
+                                           TLM_CONFIG_GENERAL,
+                                           TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR,
+                                           FALSE);
+    }
+    rtdir_perm_str = tlm_config_get_string (priv->config,
+                                            priv->seat_id,
+                                            TLM_CONFIG_GENERAL_RUNTIME_MODE);
+    if (!rtdir_perm_str)
+        rtdir_perm_str = tlm_config_get_string (priv->config,
+                                               TLM_CONFIG_GENERAL,
+                                               TLM_CONFIG_GENERAL_RUNTIME_MODE);
+    uid_str = g_strdup_printf ("%u", tlm_user_get_uid (priv->username));
+    priv->xdg_runtime_dir = g_build_filename ("/run/user",
+                                              uid_str,
+                                              NULL);
+    g_free (uid_str);
+    if (priv->setup_runtime_dir) {
+        tlm_utils_delete_dir (priv->xdg_runtime_dir);
+        if (g_mkdir_with_parents ("/run/user", 0755))
+            WARN ("g_mkdir_with_parents(\"/run/user\") failed");
+        if (rtdir_perm_str)
+            sscanf(rtdir_perm_str, "%o", &rtdir_perm);
+        DBG ("setting up XDG_RUNTIME_DIR=%s mode=%o",
+             priv->xdg_runtime_dir, rtdir_perm);
+        if (g_mkdir (priv->xdg_runtime_dir, rtdir_perm))
+            WARN ("g_mkdir(\"%s\") failed", priv->xdg_runtime_dir);
+        if (chown (priv->xdg_runtime_dir,
+               tlm_user_get_uid (priv->username),
+               tlm_user_get_gid (priv->username)))
+            WARN ("chown(\"%s\"): %s", priv->xdg_runtime_dir, strerror(errno));
+        if (chmod (priv->xdg_runtime_dir, rtdir_perm))
+            WARN ("chmod(\"%s\"): %s", priv->xdg_runtime_dir, strerror(errno));
+    } else {
+        DBG ("not setting up XDG_RUNTIME_DIR");
+    }
 
     priv->child_pid = fork ();
     if (priv->child_pid) {
@@ -510,10 +586,21 @@ _exec_user_session (
         WARN ("setsid() failed: %s", strerror (errno));
     DBG ("new pgid=%u", getpgrp());
 
-    if (tlm_config_get_boolean (priv->config,
-                                TLM_CONFIG_GENERAL,
-                                TLM_CONFIG_GENERAL_SETUP_TERMINAL,
-                                FALSE)) {
+    gboolean setup_terminal;
+    if (tlm_config_has_key (priv->config,
+                            priv->seat_id,
+                            TLM_CONFIG_GENERAL_SETUP_TERMINAL)) {
+        setup_terminal = tlm_config_get_boolean (priv->config,
+                                                 priv->seat_id,
+                                                 TLM_CONFIG_GENERAL_SETUP_TERMINAL,
+                                                 FALSE);
+    } else {
+        setup_terminal = tlm_config_get_boolean (priv->config,
+                                                 TLM_CONFIG_GENERAL,
+                                                 TLM_CONFIG_GENERAL_SETUP_TERMINAL,
+                                                 FALSE);
+    }
+    if (setup_terminal) {
         /* usually terminal settings are handled by PAM */
         _set_terminal (priv);
     }
@@ -535,7 +622,7 @@ _exec_user_session (
     DBG (" state:\n\truid=%d, euid=%d, rgid=%d, egid=%d (%s)",
          getuid(), geteuid(), getgid(), getegid(), priv->username);
     _set_environment (priv);
-    umask(0700);
+    umask(0077);
 
     home = getenv("HOME");
     if (home) {
@@ -545,8 +632,12 @@ _exec_user_session (
     } else WARN ("Could not get home directory");
 
     shell = tlm_config_get_string (priv->config,
-                                   TLM_CONFIG_GENERAL,
+                                   priv->seat_id,
                                    TLM_CONFIG_GENERAL_SESSION_CMD);
+    if (!shell)
+        shell = tlm_config_get_string (priv->config,
+                                       TLM_CONFIG_GENERAL,
+                                       TLM_CONFIG_GENERAL_SESSION_CMD);
     if (shell) {
         DBG ("Session command : %s", shell);
         temp_strv = g_regex_split_simple (pattern,
@@ -618,6 +709,7 @@ tlm_session_start (TlmSession *session,
 	GError *error = NULL;
 	g_return_val_if_fail (session && TLM_IS_SESSION(session), FALSE);
     TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
+    const gchar *session_type;
 
     if (!seat_id || !service || !username) {
         error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
@@ -643,7 +735,38 @@ tlm_session_start (TlmSession *session,
         return FALSE;
     }
 
-    tlm_auth_session_putenv (priv->auth_session, "XDG_SEAT", priv->seat_id);
+    priv->vtnr = tlm_config_get_uint (priv->config,
+                                      priv->seat_id,
+                                      TLM_CONFIG_SEAT_VTNR,
+                                      0);
+    session_type = tlm_config_get_string (priv->config,
+                                          priv->seat_id,
+                                          TLM_CONFIG_GENERAL_SESSION_TYPE);
+    if (!session_type)
+        session_type = tlm_config_get_string (priv->config,
+                                              TLM_CONFIG_GENERAL,
+                                              TLM_CONFIG_GENERAL_SESSION_TYPE);
+    if (!tlm_config_has_key (priv->config,
+                            TLM_CONFIG_GENERAL,
+                            TLM_CONFIG_GENERAL_NSEATS))
+        tlm_auth_session_putenv (priv->auth_session,
+                                 "XDG_SEAT",
+                                 priv->seat_id);
+    if (session_type) {
+        tlm_auth_session_putenv (priv->auth_session,
+                                 "XDG_SESSION_CLASS",
+                                 "user");
+        tlm_auth_session_putenv (priv->auth_session,
+                                 "XDG_SESSION_TYPE",
+                                 session_type);
+    }
+    if (priv->vtnr > 0) {
+        gchar *vtnr_str = g_strdup_printf("%u", priv->vtnr);
+        tlm_auth_session_putenv (priv->auth_session,
+                                 "XDG_VTNR",
+                                 vtnr_str);
+        g_free (vtnr_str);
+    }
 
     if (!tlm_auth_session_authenticate (priv->auth_session, &error)) {
         if (error) {
@@ -669,7 +792,7 @@ tlm_session_start (TlmSession *session,
                                              FALSE);
     if (priv->session_pause) {
         _set_environment (priv);
-        umask(0700);
+        umask(0077);
     }
 
     if (!tlm_auth_session_open (priv->auth_session, &error)) {
@@ -686,7 +809,8 @@ tlm_session_start (TlmSession *session,
     tlm_utils_log_utmp_entry (priv->username);
     if (!priv->session_pause)
         _exec_user_session (session);
-    g_signal_emit (session, signals[SIG_SESSION_CREATED], 0, priv->sessionid);
+    g_signal_emit (session, signals[SIG_SESSION_CREATED], 0,
+                   priv->sessionid ? priv->sessionid : "");
     return TRUE;
 }
 

@@ -280,7 +280,7 @@ tlm_session_daemon_new (
         g_object_unref (daemon);
         return NULL;
     }
-    DBG("Started session daemon '%p' at path '%s' on conneciton '%p'",
+    DBG("Started session daemon '%p' at path '%s' on connection '%p'",
             daemon, TLM_SESSION_OBJECTPATH, daemon->priv->connection);
 
     g_dbus_connection_start_message_processing (daemon->priv->connection);

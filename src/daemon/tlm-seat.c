@@ -497,8 +497,13 @@ _delayed_session (gpointer user_data)
 {
     DelayClosure *delay_closure = (DelayClosure *) user_data;
 
-    g_return_val_if_fail (user_data, FALSE);
+    DBG ("delayed relogin for closure %p", delay_closure);
+    g_return_val_if_fail (user_data, G_SOURCE_REMOVE);
 
+    DBG ("delayed relogin for seat=%s, service=%s, user=%s",
+         delay_closure->seat->priv->id,
+         delay_closure->service,
+         delay_closure->username);
     tlm_seat_create_session (delay_closure->seat,
                              delay_closure->service,
                              delay_closure->username,
@@ -511,7 +516,7 @@ _delayed_session (gpointer user_data)
     if (delay_closure->environment)
         g_hash_table_unref (delay_closure->environment);
     g_slice_free (DelayClosure, delay_closure);
-    return FALSE;
+    return G_SOURCE_REMOVE;
 }
 
 gboolean
@@ -554,6 +559,7 @@ tlm_seat_create_session (TlmSeat *seat,
     gchar *default_user = NULL;
 
     if (!service) {
+        DBG ("PAM service not defined, looking up configuration");
         service = tlm_config_get_string (priv->config,
                                          priv->id,
                                          username ? TLM_CONFIG_GENERAL_PAM_SERVICE : TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE);
@@ -561,16 +567,22 @@ tlm_seat_create_session (TlmSeat *seat,
             service = tlm_config_get_string (priv->config,
                                              TLM_CONFIG_GENERAL,
                                              username ? TLM_CONFIG_GENERAL_PAM_SERVICE : TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE);
+        if (!service)
+            service = username ? "tlm-login" : "tlm-default-login";
     }
+    DBG ("using PAM service %s for seat %s", service, priv->id);
+
     if (!username) {
         const gchar *name_tmpl =
-            tlm_config_get_string (priv->config,
-                                   priv->id,
-                                   TLM_CONFIG_GENERAL_DEFAULT_USER);
+            tlm_config_get_string_default (priv->config,
+                                           priv->id,
+                                           TLM_CONFIG_GENERAL_DEFAULT_USER,
+                                           "guest");
         if (!name_tmpl)
-            name_tmpl = tlm_config_get_string (priv->config,
-                                               TLM_CONFIG_GENERAL,
-                                               TLM_CONFIG_GENERAL_DEFAULT_USER);
+            name_tmpl = tlm_config_get_string_default (priv->config,
+                                                       TLM_CONFIG_GENERAL,
+                                                       TLM_CONFIG_GENERAL_DEFAULT_USER,
+                                                       "guest");
         if (name_tmpl) default_user = _build_user_name (name_tmpl, priv->id);
         if (default_user)
             g_signal_emit (seat,

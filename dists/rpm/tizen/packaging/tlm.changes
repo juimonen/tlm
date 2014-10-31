@@ -1,6 +1,9 @@
 * Fri Oct 24 2014 Imran Zaman <imran.zaman@intel.com>
 - Updated tlm to libgum API changes
 
+* Fri Sep 26 2014 Jussi Laako <jussi.laako@intel.com>
+- Add support for more XDG environment variables
+
 * Mon Sep 15 2014 Imran Zaman <imran.zaman@intel.com>
 - Updated tizen configuration file for tizen
 
