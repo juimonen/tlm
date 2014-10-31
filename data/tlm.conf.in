@@ -12,7 +12,7 @@ ACCOUNTS_PLUGIN=@ACCOUNT_PLUGIN_NAME@
 #
 # Number of seats
 # Default: obtain from systemd
-NSEATS=2
+#NSEATS=2
 #
 # Auto-login default user
 # Default: off
@@ -62,7 +62,8 @@ SESSION_TYPE=wayland
 #
 #
 # Seat specific settings where the group name is seat id
-#[seat0]
+[seat0]
+DEFAULT_USER=app
 #DEFAULT_USER=tizen
 #SETUP_TERMINAL=1
 #VTNR=7
@@ -74,7 +75,7 @@ SESSION_TYPE=wayland
 #[seat1]
 #ACTIVE=0
 #DEFAULT_USER=guest_%S
-DEFAULT_USER=app
+#DEFAULT_USER=app
 #
 #
 # plugin specific settings.

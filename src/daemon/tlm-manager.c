@@ -518,6 +518,7 @@ _seat_watch_cb (gint ifd, GIOCondition condition, gpointer user_data)
         if (res) {
             DBG ("seat %s watch for %s succeeded, %u left",
                  closure->seat_id, (gchar *) res->data, closure->nwatch - 1);
+            g_free (res->data);
             closure->watch_list = g_list_remove (closure->watch_list, res);
             inotify_rm_watch (ifd, ievent->wd);
             closure->nwatch--;
@@ -530,6 +531,7 @@ _seat_watch_cb (gint ifd, GIOCondition condition, gpointer user_data)
         g_object_unref (closure->manager);
         g_free (closure->seat_id);
         g_free (closure->seat_path);
+        g_list_free_full (closure->watch_list, g_free);
         g_free (closure);
         return G_SOURCE_REMOVE;
     }
