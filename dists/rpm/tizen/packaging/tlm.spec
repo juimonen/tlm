@@ -4,7 +4,7 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 0.0.6
+Version: 0.0.7
 Release: 0
 Group: System/Service
 License: LGPL-2.1+
@@ -29,7 +29,7 @@ BuildRequires: gtk-doc
 
 
 %description
-%{summary}.
+%{summary} files
 
 
 %package devel
@@ -39,7 +39,7 @@ Requires:   %{name} = %{version}-%{release}
 
 
 %description devel
-%{summary}.
+%{summary} files
 
 
 %package doc
@@ -49,7 +49,7 @@ Requires:   %{name} = %{version}-%{release}
 
 
 %description doc
-%{summary}.
+%{summary} files
 
 
 %prep
@@ -93,7 +93,8 @@ install -m 644 data/tlm-system-login %{buildroot}%{_sysconfdir}/pam.d/
 %files
 %defattr(-,root,root,-)
 %manifest %{name}.manifest
-%doc AUTHORS COPYING INSTALL NEWS README
+%license COPYING
+%doc AUTHORS NEWS README
 %{_bindir}/%{name}
 %{_bindir}/%{name}-sessiond
 %{_bindir}/%{name}-client
