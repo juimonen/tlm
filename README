@@ -1,0 +1,3 @@
+TLM is a daemon that handles user logins in a multi-user, multi-seat system by
+authenticating the users through PAM, and setting up, launching, and tracking user
+sessions.
