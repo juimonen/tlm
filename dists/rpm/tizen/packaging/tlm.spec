@@ -4,7 +4,7 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 0.0.6
+Version: 0.0.7
 Release: 0
 Group: System/Service
 License: LGPL-2.1+
