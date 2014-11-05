@@ -15,6 +15,7 @@ daemontest_SOURCES = daemon-test.c
 
 daemontest_CFLAGS = \
     -I$(abs_top_srcdir)/src \
+    -I$(abs_top_builddir)/src \
     $(TLM_CFLAGS) \
     $(CHECK_CFLAGS) \
     -U G_LOG_DOMAIN \

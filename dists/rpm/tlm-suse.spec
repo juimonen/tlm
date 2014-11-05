@@ -4,7 +4,7 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 0.0.6
+Version: 0.0.7
 Release: 0
 Group: System/Daemons
 License: LGPL-2.1+
@@ -99,6 +99,11 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Fri Oct 31 2014 Imran Zaman <imran.zaman@intel.com>
+- iNotify support
+- Support for fake seats
+- Bug fixes and improvements
+
 * Fri Oct 24 2014 Imran Zaman <imran.zaman@intel.com>
 - Updated tlm to libgum API changes
 
