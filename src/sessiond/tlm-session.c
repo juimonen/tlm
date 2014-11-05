@@ -563,8 +563,12 @@ _exec_user_session (
 
     //close all open descriptors other than stdin, stdout, stderr
     open_max = sysconf (_SC_OPEN_MAX);
-    for (fd = 3; fd < open_max; fd++)
-        fcntl (fd, F_SETFD, FD_CLOEXEC);
+    for (fd = 3; fd < open_max; fd++) {
+        if (fcntl (fd, F_SETFD, FD_CLOEXEC) < -1) {
+            WARN("Failed to close desriptor '%d', error: %s",
+                fd, strerror(errno));
+        }
+    }
 
     uid_t target_uid = tlm_user_get_uid (priv->username);
     gid_t target_gid = tlm_user_get_gid (priv->username);

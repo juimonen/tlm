@@ -169,7 +169,7 @@ tlm_auth_plugin_default_class_init (TlmAuthPluginDefaultClass *kls)
 static void
 tlm_auth_plugin_default_init (TlmAuthPluginDefault *self)
 {
-    struct sigaction sa;
+    struct sigaction sa = { 0 };
 
     g_weak_ref_init (&__self, self);
 
