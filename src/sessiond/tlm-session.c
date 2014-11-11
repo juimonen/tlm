@@ -750,7 +750,7 @@ tlm_session_start (TlmSession *session,
         session_type = tlm_config_get_string (priv->config,
                                               TLM_CONFIG_GENERAL,
                                               TLM_CONFIG_GENERAL_SESSION_TYPE);
-    if (!tlm_config_has_key (priv->config,
+    if (tlm_config_has_key (priv->config,
                             TLM_CONFIG_GENERAL,
                             TLM_CONFIG_GENERAL_NSEATS))
         tlm_auth_session_putenv (priv->auth_session,
