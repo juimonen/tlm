@@ -1,7 +1,7 @@
 [Unit]
 Description=Tizen Login Manager
-After=systemd-user-sessions.service systemd-logind.service
-Requires=systemd-logind.service
+After=systemd-user-sessions.service systemd-logind.service dbus.service
+Requires=multi-user.target
 
 [Service]
 ExecStart=/usr/bin/tlm

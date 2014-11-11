@@ -436,8 +436,7 @@ _set_environment (TlmSessionPrivate *priv)
     if (home_dir) _setenv_to_session ("HOME", home_dir, priv);
     shell = tlm_user_get_shell (priv->username);
     if (shell) _setenv_to_session ("SHELL", shell, priv);
-    // TODO: figure out if this should be set or not for logical seats (NSEATS)
-    if (priv->seat_id) _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
+    //if (priv->seat_id) _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
 
     const gchar *xdg_data_dirs =
         tlm_config_get_string (priv->config,
@@ -563,8 +562,12 @@ _exec_user_session (
 
     //close all open descriptors other than stdin, stdout, stderr
     open_max = sysconf (_SC_OPEN_MAX);
-    for (fd = 3; fd < open_max; fd++)
-        fcntl (fd, F_SETFD, FD_CLOEXEC);
+    for (fd = 3; fd < open_max; fd++) {
+        if (fcntl (fd, F_SETFD, FD_CLOEXEC) < -1) {
+            WARN("Failed to close desriptor '%d', error: %s",
+                fd, strerror(errno));
+        }
+    }
 
     uid_t target_uid = tlm_user_get_uid (priv->username);
     gid_t target_gid = tlm_user_get_gid (priv->username);

@@ -474,17 +474,11 @@ _process_request (
     }
 
 _finished:
-    if (err) {
-        if (req) {
-            _complete_request (self, req, err);
-        } else {
-            g_error_free (err);
-        }
+    if (req && err) {
+        _complete_request (self, req, err);
     }
-    if (!self->priv->active_request)
-        _process_next_request_in_idle (self);
 
-    return FALSE;
+    return self->priv->active_request != NULL ? FALSE : TRUE;
 }
 
 static void

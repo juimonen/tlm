@@ -353,7 +353,10 @@ _tlm_dbus_server_p2p_start (
             if (chown (path, server->priv->uid, -1) < 0) {
                 WARN("Unable to set ownership");
             }
-            g_chmod (path, S_IRUSR | S_IWUSR);
+            if (g_chmod (path, S_IRUSR | S_IWUSR) < 0) {
+                WARN("Unable to set mode '%d' for '%s'",
+                    S_IRUSR|S_IWUSR, path);
+            }
         }
     }
     DBG("dbus server started at : %s", server->priv->address);

@@ -1,3 +1,10 @@
+tlm (1.0.0-0) unstable; urgency=low
+
+  * Configuration for multiseat
+  * Bug fixes and improvements
+
+ -- Imran Zaman <imran.zaman@intel.com>  Tue, 11 Nov 2014 17:55:53 +0200
+
 tlm (0.0.7-0) unstable; urgency=low
 
   * iNotify support

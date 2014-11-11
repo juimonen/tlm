@@ -1,4 +1,0 @@
-#!/bin/sh
-#
-export WAYLAND_CLIENT_DIR=/tmp
-weston --backend=wayland-backend.so --log=/tmp/app-weston.log #--width=1920 --height=1080

@@ -519,7 +519,7 @@ _seat_watch_cb (gint ifd, GIOCondition condition, gpointer user_data)
             DBG ("seat %s watch for %s succeeded, %u left",
                  closure->seat_id, (gchar *) res->data, closure->nwatch - 1);
             g_free (res->data);
-            closure->watch_list = g_list_remove (closure->watch_list, res);
+            closure->watch_list = g_list_delete_link (closure->watch_list, res);
             inotify_rm_watch (ifd, ievent->wd);
             closure->nwatch--;
         }
