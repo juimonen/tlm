@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+export WAYLAND_CLIENT_DIR=/tmp
+#export XDG_SEAT=seat0
+weston --backend=wayland-backend.so --log=/tmp/user-weston.log --width=960 --height=1080
+#weston-terminal
