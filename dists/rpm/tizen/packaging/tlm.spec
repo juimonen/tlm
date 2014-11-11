@@ -4,7 +4,7 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 0.0.7
+Version: 1.0.0
 Release: 0
 Group: System/Service
 License: LGPL-2.1+
@@ -103,7 +103,7 @@ install -m 755 data/multi-seat/etc/session.d/* %{buildroot}%{_sysconfdir}/sessio
 %{_bindir}/%{name}-client
 %{_libdir}/lib%{name}*.so.*
 %{_libdir}/%{name}/plugins/*.so*
-%config %{_unitdir}/tlm.service
+%{_unitdir}/tlm.service
 %config(noreplace) %{_sysconfdir}/tlm.conf
 %config %{_sysconfdir}/pam.d/tlm-login
 %config %{_sysconfdir}/pam.d/tlm-default-login
