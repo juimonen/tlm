@@ -78,7 +78,7 @@ install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 644 data/tlm-system-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 644 data/multi-seat/etc/tlm.conf %{buildroot}%{_sysconfdir}
 install -m 755 -d %{buildroot}%{_sysconfdir}/session.d
-install -m 644 data/multi-seat/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
+install -m 755 data/multi-seat/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
 
 
 %post
