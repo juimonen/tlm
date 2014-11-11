@@ -436,8 +436,7 @@ _set_environment (TlmSessionPrivate *priv)
     if (home_dir) _setenv_to_session ("HOME", home_dir, priv);
     shell = tlm_user_get_shell (priv->username);
     if (shell) _setenv_to_session ("SHELL", shell, priv);
-    // TODO: figure out if this should be set or not for logical seats (NSEATS)
-    if (priv->seat_id) _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
+    //if (priv->seat_id) _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
 
     const gchar *xdg_data_dirs =
         tlm_config_get_string (priv->config,
@@ -750,7 +749,7 @@ tlm_session_start (TlmSession *session,
         session_type = tlm_config_get_string (priv->config,
                                               TLM_CONFIG_GENERAL,
                                               TLM_CONFIG_GENERAL_SESSION_TYPE);
-    if (tlm_config_has_key (priv->config,
+    if (!tlm_config_has_key (priv->config,
                             TLM_CONFIG_GENERAL,
                             TLM_CONFIG_GENERAL_NSEATS))
         tlm_auth_session_putenv (priv->auth_session,
