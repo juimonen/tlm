@@ -6,6 +6,7 @@ EXTRA_DIST = \
       tlm-login \
       tlm-default-login \
       tlm-system-login \
-      multi-seat
+      tizen-common \
+      tizen-ivi
 
 sysconf_DATA = tlm.conf
