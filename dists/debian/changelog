@@ -1,5 +1,11 @@
 tlm (1.0.0-0) unstable; urgency=low
 
+  * Build package with profile specific configuration
+
+ -- Imran Zaman <imran.zaman@intel.com>  Mon, 17 Nov 2014 17:55:53 +0200
+
+tlm (1.0.0-0) unstable; urgency=low
+
   * Configuration for multiseat
   * Bug fixes and improvements
 

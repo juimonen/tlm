@@ -99,6 +99,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Mon Nov 17 2014 Imran Zaman <imran.zaman@intel.com>
+- Build package with profile specific configuration
+
 * Tue Nov 11 2014 Imran Zaman <imran.zaman@intel.com>
 - Configuration for multiseat
 - Bug fixes and improvements
