@@ -89,13 +89,12 @@ install -m 644 data/tlm-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 644 data/tlm-system-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 755 -d %{buildroot}%{_sysconfdir}/session.d
-%if "%{profile}" == "common"
-install -m 644 data/tizen-common/etc/tlm.conf %{buildroot}%{_sysconfdir}
-install -m 755 data/tizen-common/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
-%endif
 %if "%{profile}" == "ivi"
 install -m 644 data/tizen-ivi/etc/tlm.conf %{buildroot}%{_sysconfdir}
 install -m 755 data/tizen-ivi/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
+%else
+install -m 644 data/tizen-common/etc/tlm.conf %{buildroot}%{_sysconfdir}
+install -m 755 data/tizen-common/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
 %endif
 
 
