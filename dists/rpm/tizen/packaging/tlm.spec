@@ -1,6 +1,16 @@
 # enable debug features such as control environment variables
 # WARNING! do not use for production builds as it will break security
 %define debug_build 0
+%define efl 0
+
+%if %{debug_build} == 1
+%define extra_config_options1 --enable-gtk-doc --enable-debug
+%endif
+
+%if %{efl} == 1
+%define extra_config_options1 --enable-examples
+%endif
+
 
 Name: tlm
 Summary: Login manager for Tizen
@@ -21,10 +31,12 @@ BuildRequires: pkgconfig(gio-2.0)
 BuildRequires: pkgconfig(gio-unix-2.0)
 BuildRequires: pkgconfig(gmodule-2.0)
 BuildRequires: pkgconfig(libgum)
-BuildRequires: pkgconfig(elementary)
 BuildRequires: pam-devel
 %if %{debug_build} == 1
 BuildRequires: gtk-doc
+%endif
+%if %{efl} == 1
+BuildRequires: pkgconfig(elementary)
 %endif
 
 
@@ -60,10 +72,10 @@ cp %{SOURCE1001} .
 %build
 %if %{debug_build} == 1
 ./autogen.sh
-%configure --enable-gum --enable-gtk-doc --enable-examples --enable-debug
-%else
-%configure --enable-gum --enable-examples
 %endif
+%reconfigure --enable-gum \
+             %{?extra_config_options1:%extra_config_options1} \
+             %{?extra_config_options2:%extra_config_options2}
 make %{?_smp_mflags}
 
 
@@ -76,9 +88,15 @@ install -m 755 -d %{buildroot}%{_sysconfdir}/pam.d
 install -m 644 data/tlm-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 644 data/tlm-system-login %{buildroot}%{_sysconfdir}/pam.d/
-install -m 644 data/multi-seat/etc/tlm.conf %{buildroot}%{_sysconfdir}
 install -m 755 -d %{buildroot}%{_sysconfdir}/session.d
-install -m 755 data/multi-seat/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
+%if "%{profile}" == "common"
+install -m 644 data/tizen-common/etc/tlm.conf %{buildroot}%{_sysconfdir}
+install -m 755 data/tizen-common/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
+%endif
+%if "%{profile}" == "ivi"
+install -m 644 data/tizen-ivi/etc/tlm.conf %{buildroot}%{_sysconfdir}
+install -m 755 data/tizen-ivi/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
+%endif
 
 
 %post
@@ -116,7 +134,9 @@ install -m 755 data/multi-seat/etc/session.d/* %{buildroot}%{_sysconfdir}/sessio
 %{_includedir}/%{name}/*.h
 %{_libdir}/lib%{name}*.so
 %{_libdir}/pkgconfig/%{name}.pc
+%if %{efl} == 1
 %{_bindir}/tlm-ui
+%endif
 
 
 %files doc

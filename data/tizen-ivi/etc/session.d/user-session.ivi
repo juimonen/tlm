@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/dbus/user_bus_socket
+export WAYLAND_CLIENT_DIR=/tmp
+weston --log=$XDG_RUNTIME_DIR/weston.log --backend=wayland-backend.so --width=960 --height=1080 &
+xwalk-launcher Modello005.Homescreen

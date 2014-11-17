@@ -436,7 +436,12 @@ _set_environment (TlmSessionPrivate *priv)
     if (home_dir) _setenv_to_session ("HOME", home_dir, priv);
     shell = tlm_user_get_shell (priv->username);
     if (shell) _setenv_to_session ("SHELL", shell, priv);
-    //if (priv->seat_id) _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
+
+    // seat is not set for fake seats
+    if (!tlm_config_has_key (priv->config,
+                            TLM_CONFIG_GENERAL,
+                            TLM_CONFIG_GENERAL_NSEATS))
+        _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
 
     const gchar *xdg_data_dirs =
         tlm_config_get_string (priv->config,
