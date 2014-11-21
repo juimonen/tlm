@@ -1,0 +1,16 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+ACTION=="remove", GOTO="seat_end"
+
+SUBSYSTEM=="usb", ATTR{idVendor}=="05e3", ATTR{idProduct}=="0608", ENV{ID_AUTOSEAT}="1", ENV{ID_SEAT}="seat1", ENV{WL_SEAT}+="seat1", TAG+="master-of-seat"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1a40", ATTR{idProduct}=="0101", ENV{ID_AUTOSEAT}="1", ENV{ID_SEAT}="seat2", ENV{WL_SEAT}+="seat2", TAG+="master-of-seat"
+ 
+ACTION=="add", SUBSYSTEM=="input",DEVPATH=="/devices/pci0000:00/0000:00:1d.0/usb1/1-1/1-1.1/*", ENV{WL_SEAT}+="seat1", ENV{WL_OUTPUT}="VGA1"
+ACTION=="add", SUBSYSTEM=="input",DEVPATH=="/devices/pci0000:00/0000:00:1d.0/usb1/1-1/1-1.2/*", ENV{WL_SEAT}+="seat2", ENV{WL_OUTPUT}="DP1"
+
+LABEL="seat_end"
