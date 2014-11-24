@@ -163,6 +163,43 @@ install -m 644 data/tizen-common/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/wes
 /usr/bin/systemctl daemon-reload
 
 
+%if "%{profile}" == "ivi"
+
+%post config-ivi-singleseat
+if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
+ln -s -f /etc/tlm/tlm-singleseat.conf /etc/tlm.conf
+fi
+
+%postun config-ivi-singleseat
+if [ -h /etc/tlm.conf]; then
+rm -f /etc/tlm.conf
+fi
+
+
+%post config-ivi-multiseat
+if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
+ln -s -f /etc/tlm/tlm-multiseat.conf /etc/tlm.conf
+fi
+
+%postun config-ivi-multiseat
+if [ -h /etc/tlm.conf]; then
+rm -f /etc/tlm.conf
+fi
+
+
+%post config-ivi-vtc1010
+if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
+ln -s -f /etc/tlm/tlm-vtc1010.conf /etc/tlm.conf
+fi
+
+%postun config-ivi-vtc1010
+if [ -h /etc/tlm.conf]; then
+rm -f /etc/tlm.conf
+fi
+
+%endif
+
+
 %files
 %defattr(-,root,root,-)
 %manifest %{name}.manifest
@@ -198,6 +235,7 @@ install -m 644 data/tizen-common/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/wes
 
 %files config-common
 %defattr(-,root,root,-)
+%manifest %{name}.manifest
 %config(noreplace) %{_sysconfdir}/tlm.conf
 %config(noreplace) %{_sysconfdir}/session.d/*
 %config(noreplace) %{_sysconfdir}/xdg/weston/*
@@ -206,6 +244,7 @@ install -m 644 data/tizen-common/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/wes
 
 %files config-ivi-singleseat
 %defattr(-,root,root,-)
+%manifest %{name}.manifest
 %config(noreplace) %{_sysconfdir}/tlm-singleseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-singleseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
@@ -216,6 +255,7 @@ install -m 644 data/tizen-common/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/wes
 
 %files config-ivi-multiseat
 %defattr(-,root,root,-)
+%manifest %{name}.manifest
 %config(noreplace) %{_sysconfdir}/tlm-multiseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-multiseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
@@ -225,6 +265,7 @@ install -m 644 data/tizen-common/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/wes
 
 %files config-ivi-vtc1010
 %defattr(-,root,root,-)
+%manifest %{name}.manifest
 %config(noreplace) %{_sysconfdir}/tlm-vtc1010.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-vtc1010
 %config(noreplace) %{_sysconfdir}/session.d/user-session
