@@ -4,7 +4,7 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 1.0.0
+Version: 1.0.1
 Release: 0
 Group: System/Daemons
 License: LGPL-2.1+
@@ -99,6 +99,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Mon Nov 24 2014 Imran Zaman <imran.zaman@intel.com>
+- Add multi-configuration for Tizen IVI and Tizen Common
+
 * Mon Nov 17 2014 Imran Zaman <imran.zaman@intel.com>
 - Build package with profile specific configuration
 
