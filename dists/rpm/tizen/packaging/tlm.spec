@@ -1,6 +1,6 @@
 # enable debug features such as control environment variables
 # WARNING! do not use for production builds as it will break security
-%define debug_build 1
+%define debug_build 0
 %define efl 0
 
 %if %{debug_build} == 1
@@ -167,33 +167,33 @@ install -m 644 data/tizen-common/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/wes
 
 %post config-ivi-singleseat
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
-ln -s -f /etc/tlm/tlm-singleseat.conf /etc/tlm.conf
+ln -s -f /etc/tlm-singleseat.conf /etc/tlm.conf
 fi
 
 %postun config-ivi-singleseat
-if [ -h /etc/tlm.conf]; then
+if [ -h /etc/tlm.conf ]; then
 rm -f /etc/tlm.conf
 fi
 
 
 %post config-ivi-multiseat
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
-ln -s -f /etc/tlm/tlm-multiseat.conf /etc/tlm.conf
+ln -s -f /etc/tlm-multiseat.conf /etc/tlm.conf
 fi
 
 %postun config-ivi-multiseat
-if [ -h /etc/tlm.conf]; then
+if [ -h /etc/tlm.conf ]; then
 rm -f /etc/tlm.conf
 fi
 
 
 %post config-ivi-vtc1010
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
-ln -s -f /etc/tlm/tlm-vtc1010.conf /etc/tlm.conf
+ln -s -f /etc/tlm-vtc1010.conf /etc/tlm.conf
 fi
 
 %postun config-ivi-vtc1010
-if [ -h /etc/tlm.conf]; then
+if [ -h /etc/tlm.conf ]; then
 rm -f /etc/tlm.conf
 fi
 
@@ -248,7 +248,7 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-singleseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-singleseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
-%config(noreplace) %{_sysconfdir}/session.d/user-session.ivi
+%config(noreplace) %{_sysconfdir}/session.d/user-session.modello
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 
@@ -259,6 +259,7 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-multiseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-multiseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
+%config(noreplace) %{_sysconfdir}/session.d/user-session.modello
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 
@@ -269,6 +270,7 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-vtc1010.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-vtc1010
 %config(noreplace) %{_sysconfdir}/session.d/user-session
+%config(noreplace) %{_sysconfdir}/session.d/user-session.modello
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi-vtc1010.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 %config(noreplace) %{_sysconfdir}/udev/rules.d/*
