@@ -2,5 +2,5 @@
 #
 export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/dbus/user_bus_socket
 export WAYLAND_CLIENT_DIR=/tmp
-weston --log=$XDG_RUNTIME_DIR/weston.log --backend=wayland-backend.so --width=960 --height=1080
-#weston-terminal
+export WESTON_CONFIG=/etc/xdg/weston/weston-user.ini
+weston --log=$XDG_RUNTIME_DIR/weston.log --backend=wayland-backend.so

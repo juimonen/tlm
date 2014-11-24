@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+export WAYLAND_SERVER_DIR=/tmp
+export WAYLAND_SERVER_GROUP=weston-launch
+export WAYLAND_SERVER_MODE=0660
+export WESTON_CONFIG=/etc/xdg/weston/weston-genivi-vtc1010.ini
+/usr/bin/weston-launch -- -i0 --current-mode --log=/tmp/genivi-weston.log
