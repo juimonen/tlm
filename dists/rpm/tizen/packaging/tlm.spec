@@ -208,6 +208,7 @@ fi
 %{_bindir}/%{name}
 %{_bindir}/%{name}-sessiond
 %{_bindir}/%{name}-client
+%{_bindir}/%{name}-weston-launch
 %{_libdir}/lib%{name}*.so.*
 %{_libdir}/%{name}/plugins/*.so*
 %{_unitdir}/tlm.service
