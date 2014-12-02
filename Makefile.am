@@ -22,7 +22,7 @@ AM_DISTCHECK_CONFIGURE_FLAGS += --enable-tests
 SUBDIRS += tests
 endif
 
-EXTRA_DIST = dists tools
+EXTRA_DIST = dists tools autogen.sh
 
 valgrind:
 	cd tests; make valgrind

@@ -1,5 +1,5 @@
 #!/bin/sh
 #
-export XDG_RUNTIME_DIR=/run/display
+for entries in $(/etc/sysconfig/weston-user); do export $entries; done;
 /usr/bin/ln -sf /run/display/wayland-0 /run/user/$UID/
 /bin/sh -l -c "/usr/bin/tz-launcher -c /usr/share/applications/tizen/launcher.conf $HOME/.applications/desktop"
