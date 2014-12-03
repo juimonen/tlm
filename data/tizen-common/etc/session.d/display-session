@@ -1,4 +1,0 @@
-#!/bin/sh
-#
-export XDG_RUNTIME_DIR=/run/display
-/bin/sh -c 'backend=drm ; [ -d /dev/dri ] || backend=fbdev ; exec /usr/bin/weston --backend=$backend-backend.so -i0 --log=/run/display/weston.log

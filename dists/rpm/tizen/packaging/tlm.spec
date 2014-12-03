@@ -25,6 +25,7 @@ Requires(post): /sbin/ldconfig, systemd
 Requires(postun): /sbin/ldconfig, systemd
 Requires: gumd
 Requires: libsystemd
+Requires: tlm-config
 BuildRequires: pkgconfig(glib-2.0) >= 2.30
 BuildRequires: pkgconfig(gobject-2.0)
 BuildRequires: pkgconfig(gio-2.0)
@@ -147,7 +148,6 @@ install -m 644 data/tizen-ivi/10-multiseat-vtc1010.rules %{buildroot}%{_sysconfd
 %else
 install -m 644 data/tizen-common/etc/tlm.conf %{buildroot}%{_sysconfdir}
 install -m 755 data/tizen-common/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
-install -m 644 data/tizen-common/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/weston/
 %endif
 
 
@@ -242,7 +242,6 @@ fi
 %manifest %{name}.manifest
 %config(noreplace) %{_sysconfdir}/tlm.conf
 %config(noreplace) %{_sysconfdir}/session.d/*
-%config(noreplace) %{_sysconfdir}/xdg/weston/*
 
 %else
 
