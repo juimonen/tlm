@@ -157,10 +157,13 @@ install -m 644 data/tizen-common/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/wes
 /usr/bin/systemctl daemon-reload
 
 
-%postun
-/sbin/ldconfig
-/usr/bin/systemctl disable tlm
-/usr/bin/systemctl daemon-reload
+%preun
+if [ $1 == 0 ]; then
+	/usr/bin/systemctl disable tlm
+	/usr/bin/systemctl daemon-reload
+fi
+
+%postun -p /sbin/ldconfig
 
 
 %if "%{profile}" == "ivi"
