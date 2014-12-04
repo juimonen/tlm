@@ -36,5 +36,6 @@ tests/tlm-test.conf
 src/daemon/tlm
 src/sessiond/tlm-sessiond
 src/utils/tlm-client
+src/utils/tlm-weston-launch
 tests/config/configtest
 tests/daemon/daemontest

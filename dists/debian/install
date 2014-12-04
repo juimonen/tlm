@@ -4,3 +4,4 @@
 /usr/lib/tlm/plugins/*.so*
 /etc/tlm.conf
 /usr/bin/tlm-client
+/usr/bin/tlm-weston-launch
