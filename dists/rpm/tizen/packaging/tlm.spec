@@ -25,7 +25,6 @@ Requires(post): /sbin/ldconfig, systemd
 Requires(postun): /sbin/ldconfig, systemd
 Requires: gumd
 Requires: libsystemd
-Requires: tlm-config
 BuildRequires: pkgconfig(glib-2.0) >= 2.30
 BuildRequires: pkgconfig(gobject-2.0)
 BuildRequires: pkgconfig(gio-2.0)
@@ -153,15 +152,7 @@ install -m 755 data/tizen-common/etc/session.d/* %{buildroot}%{_sysconfdir}/sess
 
 %post
 /sbin/ldconfig
-/usr/bin/systemctl enable tlm
-/usr/bin/systemctl daemon-reload
 
-
-%preun
-if [ $1 == 0 ]; then
-	/usr/bin/systemctl disable tlm
-	/usr/bin/systemctl daemon-reload
-fi
 
 %postun -p /sbin/ldconfig
 
@@ -171,6 +162,14 @@ fi
 %post config-ivi-singleseat
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
 ln -s -f /etc/tlm-singleseat.conf /etc/tlm.conf
+fi
+/usr/bin/systemctl enable tlm
+/usr/bin/systemctl daemon-reload
+
+%preun config-ivi-singleseat
+if [ $1 == 0 ]; then
+	/usr/bin/systemctl disable tlm
+	/usr/bin/systemctl daemon-reload
 fi
 
 %postun config-ivi-singleseat
@@ -183,6 +182,14 @@ fi
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
 ln -s -f /etc/tlm-multiseat.conf /etc/tlm.conf
 fi
+/usr/bin/systemctl enable tlm
+/usr/bin/systemctl daemon-reload
+
+%preun config-ivi-multiseat
+if [ $1 == 0 ]; then
+	/usr/bin/systemctl disable tlm
+	/usr/bin/systemctl daemon-reload
+fi
 
 %postun config-ivi-multiseat
 if [ -h /etc/tlm.conf ]; then
@@ -193,6 +200,14 @@ fi
 %post config-ivi-vtc1010
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
 ln -s -f /etc/tlm-vtc1010.conf /etc/tlm.conf
+fi
+/usr/bin/systemctl enable tlm
+/usr/bin/systemctl daemon-reload
+
+%preun config-ivi-vtc1010
+if [ $1 == 0 ]; then
+	/usr/bin/systemctl disable tlm
+	/usr/bin/systemctl daemon-reload
 fi
 
 %postun config-ivi-vtc1010
