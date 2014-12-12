@@ -437,10 +437,9 @@ _set_environment (TlmSessionPrivate *priv)
     shell = tlm_user_get_shell (priv->username);
     if (shell) _setenv_to_session ("SHELL", shell, priv);
 
-    // seat is not set for fake seats
     if (!tlm_config_has_key (priv->config,
-                            TLM_CONFIG_GENERAL,
-                            TLM_CONFIG_GENERAL_NSEATS))
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_NSEATS))
         _setenv_to_session ("XDG_SEAT", priv->seat_id, priv);
 
     const gchar *xdg_data_dirs =
@@ -732,8 +731,15 @@ tlm_session_start (TlmSession *session,
     g_object_set (G_OBJECT (session), "seat", seat_id, "service", service,
             "username", username, "environment", environment, NULL);
 
+    priv->vtnr = tlm_config_get_uint (priv->config,
+                                      priv->seat_id,
+                                      TLM_CONFIG_SEAT_VTNR,
+                                      0);
+    gchar *tty_name = priv->vtnr > 0 ?
+        g_strdup_printf ("tty%u", priv->vtnr) : NULL;
     priv->auth_session = tlm_auth_session_new (priv->service, priv->username,
-            password);
+            password, tty_name);
+    g_free (tty_name);
 
     if (!priv->auth_session) {
         error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
@@ -743,10 +749,6 @@ tlm_session_start (TlmSession *session,
         return FALSE;
     }
 
-    priv->vtnr = tlm_config_get_uint (priv->config,
-                                      priv->seat_id,
-                                      TLM_CONFIG_SEAT_VTNR,
-                                      0);
     session_type = tlm_config_get_string (priv->config,
                                           priv->seat_id,
                                           TLM_CONFIG_GENERAL_SESSION_TYPE);
@@ -755,8 +757,8 @@ tlm_session_start (TlmSession *session,
                                               TLM_CONFIG_GENERAL,
                                               TLM_CONFIG_GENERAL_SESSION_TYPE);
     if (!tlm_config_has_key (priv->config,
-                            TLM_CONFIG_GENERAL,
-                            TLM_CONFIG_GENERAL_NSEATS))
+                             TLM_CONFIG_GENERAL,
+                             TLM_CONFIG_GENERAL_NSEATS))
         tlm_auth_session_putenv (priv->auth_session,
                                  "XDG_SEAT",
                                  priv->seat_id);
