@@ -168,20 +168,20 @@ systemctl daemon-reload
 
 %preun config-common
 if [ $1 == 0 ]; then
-  systemctl disable tlm
-  systemctl daemon-reload
+	systemctl disable tlm
+	systemctl daemon-reload
 fi
 
 %postun config-common
-if [ -h /etc/tlm.conf ]; then
-rm -f /etc/tlm.conf
+if [ -h /etc/tlm.conf ] && [ $1 == 0 ]; then
+	rm -f /etc/tlm.conf
 fi
 
 %else
 
 %post config-ivi-singleseat
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
-ln -s -f /etc/tlm-singleseat.conf /etc/tlm.conf
+	ln -s -f /etc/tlm-singleseat.conf /etc/tlm.conf
 fi
 systemctl enable tlm
 systemctl daemon-reload
@@ -193,14 +193,14 @@ if [ $1 == 0 ]; then
 fi
 
 %postun config-ivi-singleseat
-if [ -h /etc/tlm.conf ]; then
-rm -f /etc/tlm.conf
+if [ -h /etc/tlm.conf ] && [ $1 == 0 ]; then
+	rm -f /etc/tlm.conf
 fi
 
 
 %post config-ivi-multiseat
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
-ln -s -f /etc/tlm-multiseat.conf /etc/tlm.conf
+	ln -s -f /etc/tlm-multiseat.conf /etc/tlm.conf
 fi
 systemctl enable tlm
 systemctl daemon-reload
@@ -212,14 +212,14 @@ if [ $1 == 0 ]; then
 fi
 
 %postun config-ivi-multiseat
-if [ -h /etc/tlm.conf ]; then
-rm -f /etc/tlm.conf
+if [ -h /etc/tlm.conf ] && [ $1 == 0 ]; then
+	rm -f /etc/tlm.conf
 fi
 
 
 %post config-ivi-vtc1010
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
-ln -s -f /etc/tlm-vtc1010.conf /etc/tlm.conf
+	ln -s -f /etc/tlm-vtc1010.conf /etc/tlm.conf
 fi
 systemctl enable tlm
 systemctl daemon-reload
@@ -231,8 +231,8 @@ if [ $1 == 0 ]; then
 fi
 
 %postun config-ivi-vtc1010
-if [ -h /etc/tlm.conf ]; then
-rm -f /etc/tlm.conf
+if [ -h /etc/tlm.conf ] && [ $1 == 0 ]; then
+	rm -f /etc/tlm.conf
 fi
 
 %endif
