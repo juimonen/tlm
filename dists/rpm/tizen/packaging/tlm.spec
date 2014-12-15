@@ -12,17 +12,19 @@
 %endif
 
 
-Name: tlm
+Name:    tlm
 Summary: Login manager for Tizen
-Version: 1.0.1
+Version: 1.0.2
 Release: 0
-Group: System/Service
+Group:   System/Service
 License: LGPL-2.1+
-Source: %{name}-%{version}.tar.gz
-URL: https://github.com/01org/tlm
+URL:     https://github.com/01org/tlm
+Source:     %{name}-%{version}.tar.gz
 Source1001: %{name}.manifest
-Requires(post): /sbin/ldconfig, systemd
-Requires(postun): /sbin/ldconfig, systemd
+Requires(post): /sbin/ldconfig
+Requires(post): systemd
+Requires(postun): /sbin/ldconfig
+Requires(postun): systemd
 Requires: gumd
 Requires: libsystemd
 BuildRequires: pkgconfig(glib-2.0) >= 2.30
@@ -40,25 +42,26 @@ BuildRequires: pkgconfig(elementary)
 %endif
 
 %description
-Login manager daemon for Tizen.
-
+TLM is a daemon that handles user logins in a multi-user, multi-seat system by
+authenticating the users through PAM, and setting up, launching, and tracking
+user sessions.
 
 %package devel
-Summary:    Development files for %{name}
+Summary:    Dev files for %{name}
 Group:      Development/Libraries
 Requires:   %{name} = %{version}-%{release}
 
 %description devel
-%{summary} package.
+Development files for %{name}.
 
 
 %package doc
-Summary:    Documentation files for %{name}
+Summary:    Doc files for %{name}
 Group:      Development/Libraries
 Requires:   %{name} = %{version}-%{release}
 
 %description doc
-%{summary} package.
+Documentation files for %{name}.
 
 
 %if "%{profile}" != "ivi"
@@ -123,7 +126,7 @@ cp %{SOURCE1001} .
 %reconfigure --enable-gum \
              %{?extra_config_options1:%extra_config_options1} \
              %{?extra_config_options2:%extra_config_options2}
-make %{?_smp_mflags}
+%__make %{?_smp_mflags}
 
 
 %install
@@ -137,8 +140,8 @@ install -m 644 data/tlm-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 644 data/tlm-system-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 755 -d %{buildroot}%{_sysconfdir}/session.d
-install -m 755 -d %{buildroot}%{_sysconfdir}/xdg/weston
 %if "%{profile}" == "ivi"
+install -m 755 -d %{buildroot}%{_sysconfdir}/xdg/weston
 install -m 644 data/tizen-ivi/etc/tlm*.conf %{buildroot}%{_sysconfdir}
 install -m 755 data/tizen-ivi/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
 install -m 644 data/tizen-ivi/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/weston/
@@ -157,19 +160,36 @@ install -m 755 data/tizen-common/etc/session.d/* %{buildroot}%{_sysconfdir}/sess
 %postun -p /sbin/ldconfig
 
 
-%if "%{profile}" == "ivi"
+%if "%{profile}" != "ivi"
+
+%post config-common
+systemctl enable tlm
+systemctl daemon-reload
+
+%preun config-common
+if [ $1 == 0 ]; then
+  systemctl disable tlm
+  systemctl daemon-reload
+fi
+
+%postun config-common
+if [ -h /etc/tlm.conf ]; then
+rm -f /etc/tlm.conf
+fi
+
+%else
 
 %post config-ivi-singleseat
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
 ln -s -f /etc/tlm-singleseat.conf /etc/tlm.conf
 fi
-/usr/bin/systemctl enable tlm
-/usr/bin/systemctl daemon-reload
+systemctl enable tlm
+systemctl daemon-reload
 
 %preun config-ivi-singleseat
 if [ $1 == 0 ]; then
-	/usr/bin/systemctl disable tlm
-	/usr/bin/systemctl daemon-reload
+	systemctl disable tlm
+	systemctl daemon-reload
 fi
 
 %postun config-ivi-singleseat
@@ -182,13 +202,13 @@ fi
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
 ln -s -f /etc/tlm-multiseat.conf /etc/tlm.conf
 fi
-/usr/bin/systemctl enable tlm
-/usr/bin/systemctl daemon-reload
+systemctl enable tlm
+systemctl daemon-reload
 
 %preun config-ivi-multiseat
 if [ $1 == 0 ]; then
-	/usr/bin/systemctl disable tlm
-	/usr/bin/systemctl daemon-reload
+	systemctl disable tlm
+	systemctl daemon-reload
 fi
 
 %postun config-ivi-multiseat
@@ -201,13 +221,13 @@ fi
 if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
 ln -s -f /etc/tlm-vtc1010.conf /etc/tlm.conf
 fi
-/usr/bin/systemctl enable tlm
-/usr/bin/systemctl daemon-reload
+systemctl enable tlm
+systemctl daemon-reload
 
 %preun config-ivi-vtc1010
 if [ $1 == 0 ]; then
-	/usr/bin/systemctl disable tlm
-	/usr/bin/systemctl daemon-reload
+	systemctl disable tlm
+	systemctl daemon-reload
 fi
 
 %postun config-ivi-vtc1010

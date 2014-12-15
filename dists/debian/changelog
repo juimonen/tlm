@@ -1,3 +1,10 @@
+tlm (1.0.2-0) unstable; urgency=low
+
+  * set PAM_TTY to the to-be-session-TTY
+  * cleaned up spec file for yocto compliance
+
+ -- Imran Zaman <imran.zaman@intel.com>  Mon, 17 Dec 2014 17:56:53 +0200
+
 tlm (1.0.1-0) unstable; urgency=low
 
   * Add multi-configuration for Tizen IVI and Tizen Common
