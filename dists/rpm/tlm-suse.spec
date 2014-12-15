@@ -4,7 +4,7 @@
 
 Name: tlm
 Summary: Login manager for Tizen
-Version: 1.0.1
+Version: 1.0.2
 Release: 0
 Group: System/Daemons
 License: LGPL-2.1+
@@ -100,6 +100,10 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Mon Dec 15 2014 Imran Zaman <imran.zaman@intel.com>
+- set PAM_TTY to the to-be-session-TTY
+- cleaned up spec file for yocto compliance
+
 * Mon Nov 24 2014 Imran Zaman <imran.zaman@intel.com>
 - Add multi-configuration for Tizen IVI and Tizen Common
 

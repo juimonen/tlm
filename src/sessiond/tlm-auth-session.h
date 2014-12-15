@@ -62,7 +62,8 @@ GType tlm_auth_session_get_type(void);
 TlmAuthSession *
 tlm_auth_session_new (const gchar *service,
                       const gchar *username,
-                      const gchar *password);
+                      const gchar *password,
+                      const gchar *tty_name);
 
 gboolean
 tlm_auth_session_putenv (TlmAuthSession *auth_session,

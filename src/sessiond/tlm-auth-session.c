@@ -53,6 +53,7 @@ enum {
     PROP_SERVICE,
     PROP_USERNAME,
     PROP_PASSWORD,
+    PROP_TTYNAME,
     N_PROPERTIES
 };
 static GParamSpec *pspecs[N_PROPERTIES];
@@ -62,6 +63,7 @@ struct _TlmAuthSessionPrivate
     gchar *service;
     gchar *username;
     gchar *password;
+    gchar *tty_name;
     gchar *session_id; /* logind session path */
     pam_handle_t *pam_handle;
 };
@@ -114,6 +116,7 @@ tlm_auth_session_finalize (GObject *self)
     g_clear_string (&priv->service);
     g_clear_string (&priv->username);
     g_clear_string (&priv->password);
+    g_clear_string (&priv->tty_name);
     g_clear_string (&priv->session_id);
 
     G_OBJECT_CLASS (tlm_auth_session_parent_class)->finalize (self);
@@ -137,6 +140,9 @@ _auth_session_set_property (GObject *obj,
             break;
         case PROP_PASSWORD:
             priv->password = g_value_dup_string (value);
+            break;
+        case PROP_TTYNAME:
+            priv->tty_name = g_value_dup_string (value);
             break;
 
         default:
@@ -162,6 +168,9 @@ _auth_session_get_property (GObject *obj,
             break;
         case PROP_PASSWORD:
             g_value_set_string (value, priv->password);
+            break;
+        case PROP_TTYNAME:
+            g_value_set_string (value, priv->tty_name);
             break;
 
         default:
@@ -199,6 +208,13 @@ tlm_auth_session_class_init (TlmAuthSessionClass *klass)
         g_param_spec_string ("password",
                              "password",
                              "Unix password for the user to login",
+                             NULL,
+                             G_PARAM_READWRITE|
+                             G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
+    pspecs[PROP_TTYNAME] =
+        g_param_spec_string ("ttyname",
+                             "ttyname",
+                             "TTY device name",
                              NULL,
                              G_PARAM_READWRITE|
                              G_PARAM_CONSTRUCT_ONLY|G_PARAM_STATIC_STRINGS);
@@ -339,13 +355,14 @@ tlm_auth_session_authenticate (TlmAuthSession *auth_session, GError **error)
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
     pam_tty = getenv ("DISPLAY");
-    if (!pam_tty) {
+    if (!pam_tty)
         pam_tty = ttyname (0);
-    }
+    if (!pam_tty)
+        pam_tty = priv->tty_name;
     if (pam_tty) {
         DBG ("setting PAM_TTY to '%s'", pam_tty);
         if (pam_set_item (priv->pam_handle, PAM_TTY, pam_tty) != PAM_SUCCESS) {
-                WARN ("pam_set_item(PAM_TTY, '%s')", pam_tty);
+            WARN ("pam_set_item(PAM_TTY, '%s')", pam_tty);
         }
     }
 
@@ -426,7 +443,8 @@ tlm_auth_session_open (TlmAuthSession *auth_session, GError **error)
 TlmAuthSession *
 tlm_auth_session_new (const gchar *service,
                       const gchar *username,
-                      const gchar *password)
+                      const gchar *password,
+                      const gchar *tty_name)
 {
     int res;
     TlmAuthSession *auth_session = TLM_AUTH_SESSION (
@@ -434,6 +452,7 @@ tlm_auth_session_new (const gchar *service,
                       "service", service,
                       "username", username,
                       "password", password,
+                      "ttyname", tty_name,
                       NULL));
     TlmAuthSessionPrivate *priv = TLM_AUTH_SESSION_PRIV (auth_session);
 
