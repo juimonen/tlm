@@ -1,6 +1,6 @@
 # enable debug features such as control environment variables
 # WARNING! do not use for production builds as it will break security
-%define debug_build 0
+%define debug_build 1
 %define efl 0
 
 %if %{debug_build} == 1
