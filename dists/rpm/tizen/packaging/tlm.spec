@@ -1,6 +1,6 @@
 # enable debug features such as control environment variables
 # WARNING! do not use for production builds as it will break security
-%define debug_build 1
+%define debug_build 0
 %define efl 0
 
 %if %{debug_build} == 1
@@ -286,7 +286,8 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-singleseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-singleseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
-%config(noreplace) %{_sysconfdir}/session.d/user-session.modello
+%config(noreplace) %{_sysconfdir}/session.d/user-session-ico
+%config(noreplace) %{_sysconfdir}/session.d/user-session-modello
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 
@@ -297,7 +298,8 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-multiseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-multiseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
-%config(noreplace) %{_sysconfdir}/session.d/user-session.modello
+%config(noreplace) %{_sysconfdir}/session.d/user-session-ico
+%config(noreplace) %{_sysconfdir}/session.d/user-session-modello
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 
@@ -308,7 +310,8 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-vtc1010.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-vtc1010
 %config(noreplace) %{_sysconfdir}/session.d/user-session
-%config(noreplace) %{_sysconfdir}/session.d/user-session.modello
+%config(noreplace) %{_sysconfdir}/session.d/user-session-ico
+%config(noreplace) %{_sysconfdir}/session.d/user-session-modello
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi-vtc1010.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 %config(noreplace) %{_sysconfdir}/udev/rules.d/*
