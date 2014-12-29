@@ -14,7 +14,7 @@
 
 Name:    tlm
 Summary: Login manager for Tizen
-Version: 1.0.2
+Version: 1.0.3
 Release: 0
 Group:   System/Service
 License: LGPL-2.1+
@@ -70,7 +70,7 @@ Documentation files for %{name}.
 Summary:    Configuration files for common-profile
 Group:      System/Service
 Requires:   %{name} = %{version}-%{release}
-Provides:   tlm-config
+Provides:   %{name}-config
 
 %description config-common
 Tizen Login Manager configuration files for common-profile.
@@ -81,20 +81,48 @@ Tizen Login Manager configuration files for common-profile.
 Summary:    Configuration files for ivi-profile with single seat
 Group:	    System/Service
 Requires:   %{name} = %{version}-%{release}
-Provides:   tlm-config
-Conflicts:  tlm-config-ivi-multiseat, tlm-config-ivi-vtc1010
+Provides:   %{name}-config
 
 %description config-ivi-singleseat
 Generic Tizen Login Manager configuration files for ivi-profile with
 single seat.
 
 
+%package config-ivi-singleseat-modello
+Summary:    Configuration files for ivi-profile with single seat for modello
+Group:      System/Service
+Requires:   %{name} = %{version}-%{release}
+Requires:   Modello-Homescreen
+Provides:   %{name}-config
+Conflicts:  %{name}-config-ivi-singleseat, %{name}-config-ivi-singleseat-ico
+Conflicts:  %{name}-config-ivi-multiseat, %{name}-config-ivi-vtc1010
+
+%description config-ivi-singleseat-modello
+Generic Tizen Login Manager configuration files for ivi-profile with
+single seat for modello.
+
+
+%package config-ivi-singleseat-ico
+Summary:    Configuration files for ivi-profile with single seat for ico
+Group:      System/Service
+Requires:   %{name} = %{version}-%{release}
+Requires:   ico-uxf-homescreen
+Provides:   %{name}-config
+Conflicts:  %{name}-config-ivi-singleseat, %{name}-config-ivi-singleseat-modello
+Conflicts:  %{name}-config-ivi-multiseat, %{name}-config-ivi-vtc1010
+
+%description config-ivi-singleseat-ico
+Generic Tizen Login Manager configuration files for ivi-profile with
+single seat for ico.
+
+
 %package config-ivi-multiseat
 Summary:    Configuration files for ivi-profile with multi seat
 Group:	    System/Service
 Requires:   %{name} = %{version}-%{release}
-Provides:   tlm-config
-Conflicts:  tlm-config-ivi-singleseat, tlm-config-ivi-vtc1010
+Provides:   %{name}-config
+Conflicts:  %{name}-config-ivi-singleseat, %{name}-config-ivi-singleseat-modello
+Conflicts:  %{name}-config-ivi-singleseat-ico, %{name}-config-ivi-vtc1010
 
 %description config-ivi-multiseat
 Generic Tizen Login Manager configuration files for ivi-profile with
@@ -105,8 +133,9 @@ multi seat.
 Summary:    Configuration files for ivi-profile on VTC-1010
 Group:      System/Service
 Requires:   %{name} = %{version}-%{release}
-Provides:   tlm-config
-Conflicts:  tlm-config-ivi-singleseat, tlm-config-ivi-multiseat
+Provides:   %{name}-config
+Conflicts:  %{name}-config-ivi-singleseat, %{name}-config-ivi-singleseat-modello
+Conflicts:  %{name}-config-ivi-singleseat-ico, %{name}-config-ivi-multiseat
 
 %description config-ivi-vtc1010
 Tizen Login Manager configuration files for ivi-profile on VTC-1010 hardware.
@@ -147,6 +176,8 @@ install -m 755 data/tizen-ivi/etc/session.d/* %{buildroot}%{_sysconfdir}/session
 install -m 644 data/tizen-ivi/weston-*.ini %{buildroot}%{_sysconfdir}/xdg/weston/
 install -m 755 -d %{buildroot}%{_sysconfdir}/udev/rules.d
 install -m 644 data/tizen-ivi/10-multiseat-vtc1010.rules %{buildroot}%{_sysconfdir}/udev/rules.d/
+install -m 755 -d %{buildroot}%{_sysconfdir}/profile.d
+install -m 644 data/tizen-ivi/etc/profile.d/* %{buildroot}%{_sysconfdir}/profile.d/
 %else
 install -m 644 data/tizen-common/etc/tlm.conf %{buildroot}%{_sysconfdir}
 install -m 755 data/tizen-common/etc/session.d/* %{buildroot}%{_sysconfdir}/session.d/
@@ -193,6 +224,44 @@ if [ $1 == 0 ]; then
 fi
 
 %postun config-ivi-singleseat
+if [ -h /etc/tlm.conf ] && [ $1 == 0 ]; then
+	rm -f /etc/tlm.conf
+fi
+
+
+%post config-ivi-singleseat-modello
+if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
+	ln -s -f /etc/tlm-singleseat-modello.conf /etc/tlm.conf
+fi
+systemctl enable tlm
+systemctl daemon-reload
+
+%preun config-ivi-singleseat-modello
+if [ $1 == 0 ]; then
+	systemctl disable tlm
+	systemctl daemon-reload
+fi
+
+%postun config-ivi-singleseat-modello
+if [ -h /etc/tlm.conf ] && [ $1 == 0 ]; then
+	rm -f /etc/tlm.conf
+fi
+
+
+%post config-ivi-singleseat-ico
+if [ ! -e /etc/tlm.conf ] || [ -h /etc/tlm.conf ]; then
+	ln -s -f /etc/tlm-singleseat-ico.conf /etc/tlm.conf
+fi
+systemctl enable tlm
+systemctl daemon-reload
+
+%preun config-ivi-singleseat-ico
+if [ $1 == 0 ]; then
+	systemctl disable tlm
+	systemctl daemon-reload
+fi
+
+%postun config-ivi-singleseat-ico
 if [ -h /etc/tlm.conf ] && [ $1 == 0 ]; then
 	rm -f /etc/tlm.conf
 fi
@@ -286,10 +355,31 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-singleseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-singleseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
-%config(noreplace) %{_sysconfdir}/session.d/user-session-ico
-%config(noreplace) %{_sysconfdir}/session.d/user-session-modello
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
+%config(noreplace) %{_sysconfdir}/profile.d/weston-env-ivi.sh
+
+
+%files config-ivi-singleseat-modello
+%defattr(-,root,root,-)
+%manifest %{name}.manifest
+%config(noreplace) %{_sysconfdir}/tlm-singleseat-modello.conf
+%config(noreplace) %{_sysconfdir}/session.d/genivi-session-singleseat
+%config(noreplace) %{_sysconfdir}/session.d/user-session-modello
+%config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
+%config(noreplace) %{_sysconfdir}/xdg/weston/weston-user-modello.ini
+%config(noreplace) %{_sysconfdir}/profile.d/weston-env-ivi.sh
+
+
+%files config-ivi-singleseat-ico
+%defattr(-,root,root,-)
+%manifest %{name}.manifest
+%config(noreplace) %{_sysconfdir}/tlm-singleseat-ico.conf
+%config(noreplace) %{_sysconfdir}/session.d/genivi-session-singleseat
+%config(noreplace) %{_sysconfdir}/session.d/user-session-ico
+%config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
+%config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
+%config(noreplace) %{_sysconfdir}/profile.d/weston-env-ivi.sh
 
 
 %files config-ivi-multiseat
@@ -298,10 +388,9 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-multiseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-multiseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
-%config(noreplace) %{_sysconfdir}/session.d/user-session-ico
-%config(noreplace) %{_sysconfdir}/session.d/user-session-modello
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
+%config(noreplace) %{_sysconfdir}/profile.d/weston-env-ivi.sh
 
 
 %files config-ivi-vtc1010
@@ -310,11 +399,10 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-vtc1010.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-vtc1010
 %config(noreplace) %{_sysconfdir}/session.d/user-session
-%config(noreplace) %{_sysconfdir}/session.d/user-session-ico
-%config(noreplace) %{_sysconfdir}/session.d/user-session-modello
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi-vtc1010.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 %config(noreplace) %{_sysconfdir}/udev/rules.d/*
+%config(noreplace) %{_sysconfdir}/profile.d/weston-env-ivi.sh
 
 %endif
 
