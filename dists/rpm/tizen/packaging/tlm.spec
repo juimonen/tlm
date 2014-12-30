@@ -92,7 +92,7 @@ single seat.
 Summary:    Configuration files for ivi-profile with single seat for modello
 Group:      System/Service
 Requires:   %{name} = %{version}-%{release}
-Requires:   Modello-Homescreen
+Requires:   Modello-Installer-xwalk
 Provides:   %{name}-config
 Conflicts:  %{name}-config-ivi-singleseat, %{name}-config-ivi-singleseat-ico
 Conflicts:  %{name}-config-ivi-multiseat, %{name}-config-ivi-vtc1010
