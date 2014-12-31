@@ -81,7 +81,11 @@ Tizen Login Manager configuration files for common-profile.
 Summary:    Configuration files for ivi-profile with single seat
 Group:	    System/Service
 Requires:   %{name} = %{version}-%{release}
+Requires:   weekeyboard
 Provides:   %{name}-config
+Conflicts:  %{name}-config-ivi-modello, %{name}-config-ivi-singleseat-ico
+Conflicts:  %{name}-config-ivi-multiseat, %{name}-config-ivi-vtc1010
+Conflicts:  ico-uxf-weston-plugin
 
 %description config-ivi-singleseat
 Generic Tizen Login Manager configuration files for ivi-profile with
@@ -93,9 +97,11 @@ Summary:    Configuration files for ivi-profile with single seat for modello
 Group:      System/Service
 Requires:   %{name} = %{version}-%{release}
 Requires:   Modello-Installer-xwalk
+Requires:   weekeyboard
 Provides:   %{name}-config
 Conflicts:  %{name}-config-ivi-singleseat, %{name}-config-ivi-singleseat-ico
 Conflicts:  %{name}-config-ivi-multiseat, %{name}-config-ivi-vtc1010
+Conflicts:  ico-uxf-weston-plugin
 
 %description config-ivi-singleseat-modello
 Generic Tizen Login Manager configuration files for ivi-profile with
@@ -120,9 +126,11 @@ single seat for ico.
 Summary:    Configuration files for ivi-profile with multi seat
 Group:	    System/Service
 Requires:   %{name} = %{version}-%{release}
+Requires:   weekeyboard
 Provides:   %{name}-config
 Conflicts:  %{name}-config-ivi-singleseat, %{name}-config-ivi-singleseat-modello
 Conflicts:  %{name}-config-ivi-singleseat-ico, %{name}-config-ivi-vtc1010
+Conflicts:  ico-uxf-weston-plugin
 
 %description config-ivi-multiseat
 Generic Tizen Login Manager configuration files for ivi-profile with
@@ -132,10 +140,12 @@ multi seat.
 %package config-ivi-vtc1010
 Summary:    Configuration files for ivi-profile on VTC-1010
 Group:      System/Service
+Requires:   weekeyboard
 Requires:   %{name} = %{version}-%{release}
 Provides:   %{name}-config
 Conflicts:  %{name}-config-ivi-singleseat, %{name}-config-ivi-singleseat-modello
 Conflicts:  %{name}-config-ivi-singleseat-ico, %{name}-config-ivi-multiseat
+Conflicts:  ico-uxf-weston-plugin
 
 %description config-ivi-vtc1010
 Tizen Login Manager configuration files for ivi-profile on VTC-1010 hardware.
