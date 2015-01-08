@@ -33,6 +33,7 @@
 #include <grp.h>
 #include <stdio.h>
 #include <signal.h>
+#include <errno.h>
 #include <termios.h>
 #include <libintl.h>
 #include <sys/types.h>
@@ -561,6 +562,7 @@ _exec_user_session (
     /* ==================================
      * this is child process here onwards
      * ================================== */
+
     gint open_max;
     gint fd;
 
@@ -568,7 +570,7 @@ _exec_user_session (
     open_max = sysconf (_SC_OPEN_MAX);
     for (fd = 3; fd < open_max; fd++) {
         if (fcntl (fd, F_SETFD, FD_CLOEXEC) < -1) {
-            WARN("Failed to close desriptor '%d', error: %s",
+            WARN ("Failed to close desriptor '%d', error: %s",
                 fd, strerror(errno));
         }
     }
@@ -686,6 +688,9 @@ _exec_user_session (
         args[0] = g_strdup ("systemd");
         args[1] = g_strdup ("--user");
     }
+
+    if (signal (SIGINT, SIG_DFL) == SIG_ERR)
+        WARN ("failed reset SIGINT: %s", strerror(errno));
 
     DBG ("executing: ");
     args_iter = args;
