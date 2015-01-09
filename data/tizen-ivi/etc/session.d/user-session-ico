@@ -3,4 +3,4 @@
 export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/dbus/user_bus_socket
 export WAYLAND_CLIENT_DIR=/tmp
 export WESTON_CONFIG=/etc/xdg/weston/weston.ini
-weston --log=$XDG_RUNTIME_DIR/weston.log --backend=wayland-backend.so
+weston -i0 --log=$XDG_RUNTIME_DIR/weston.log --backend=wayland-backend.so

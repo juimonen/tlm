@@ -6,4 +6,4 @@ export WAYLAND_SERVER_DIR=/tmp
 export WAYLAND_SERVER_GROUP=weston-launch
 export WAYLAND_SERVER_MODE=0660
 export WESTON_CONFIG=/etc/xdg/weston/weston-genivi.ini
-$WESTON_LAUNCH -- -i0 --log=/tmp/genivi-weston.log --shell=desktop-shell.so
+$WESTON_LAUNCH -- -i0 --current-mode --log=/tmp/genivi-weston.log --shell=desktop-shell.so
