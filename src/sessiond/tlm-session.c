@@ -33,7 +33,6 @@
 #include <grp.h>
 #include <stdio.h>
 #include <signal.h>
-#include <errno.h>
 #include <termios.h>
 #include <libintl.h>
 #include <sys/types.h>
@@ -43,6 +42,7 @@
 #include <ctype.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <linux/kd.h>
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -59,6 +59,10 @@ G_DEFINE_TYPE (TlmSession, tlm_session, G_TYPE_OBJECT);
 
 #define TLM_SESSION_PRIV(obj) \
     G_TYPE_INSTANCE_GET_PRIVATE ((obj), TLM_TYPE_SESSION, TlmSessionPrivate)
+
+#ifndef KDSKBMUTE
+#define KDSKBMUTE   0x4B51
+#endif
 
 enum {
     PROP_0,
@@ -392,6 +396,13 @@ _set_terminal (TlmSessionPrivate *priv)
     if (ioctl (tty_fd, TIOCSPGRP, &tty_pgid)) {
         WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
     }
+
+    /* TODO: unset the mode on session cleanup */
+    if (ioctl(tty_fd, KDSKBMUTE, 1) &&
+        ioctl(tty_fd, KDSKBMODE, K_OFF)) {
+        WARN ("ioctl(KDSKBMODE) failed: %s", strerror(errno));
+    }
+
     /*if (tcsetpgrp (tty_fd, getpgrp ()))
         WARN ("tcsetpgrp() failed: %s", strerror(errno));*/
 
@@ -562,7 +573,6 @@ _exec_user_session (
     /* ==================================
      * this is child process here onwards
      * ================================== */
-
     gint open_max;
     gint fd;
 
@@ -688,9 +698,6 @@ _exec_user_session (
         args[0] = g_strdup ("systemd");
         args[1] = g_strdup ("--user");
     }
-
-    if (signal (SIGINT, SIG_DFL) == SIG_ERR)
-        WARN ("failed reset SIGINT: %s", strerror(errno));
 
     DBG ("executing: ");
     args_iter = args;
