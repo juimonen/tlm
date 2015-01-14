@@ -488,7 +488,6 @@ _exec_user_session (
 {
     gint i;
     guint rtdir_perm = 0700;
-    const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
     const gchar *rtdir_perm_str;
     const char *home;
     const char *shell = NULL;
@@ -497,7 +496,6 @@ _exec_user_session (
     gchar **args = NULL;
     gchar **args_iter = NULL;
     TlmSessionPrivate *priv = session->priv;
-    gchar **temp_strv = NULL;
 
     priv = session->priv;
     if (!priv->username)
@@ -648,37 +646,10 @@ _exec_user_session (
                                        TLM_CONFIG_GENERAL,
                                        TLM_CONFIG_GENERAL_SESSION_CMD);
     if (shell) {
-        DBG ("Session command : %s", shell);
-        temp_strv = g_regex_split_simple (pattern,
-                                          shell,
-                                          0,
-                                          G_REGEX_MATCH_NOTEMPTY);
+        args = tlm_utils_split_command_line (shell);
     }
 
-    if (temp_strv) {
-        gchar **temp_iter;
-
-        args = g_new0 (gchar *, g_strv_length (temp_strv));
-        for (temp_iter = temp_strv, args_iter = args;
-                *temp_iter != NULL;
-                temp_iter++) {
-            size_t item_len = 0;
-            gchar *item = g_strstrip (*temp_iter);
-
-            item_len = strlen (item);
-            if (item_len == 0) {
-                continue;
-            }
-            if ((item[0] == '\"' && item[item_len - 1] == '\"') ||
-                    (item[0] == '\'' && item[item_len - 1] == '\'')) {
-                item[item_len - 1] = '\0';
-                memmove (item, item + 1, item_len - 1);
-            }
-            *args_iter = g_strcompress (item);
-            args_iter++;
-        }
-        g_strfreev (temp_strv);
-    } else if ((env_shell = getenv("SHELL"))){
+    if (!args && (env_shell = getenv("SHELL"))){
         /* use shell if no override configured */
         args = g_new0 (gchar *, 2);
         args[0] = g_strdup (env_shell);
