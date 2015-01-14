@@ -168,11 +168,9 @@ _convert_environ_to_variant (gchar **env) {
     GVariant *venv = NULL;
     gchar **penv = env;
 
-    g_return_val_if_fail (env != NULL, NULL);
-
     builder = g_variant_builder_new (((const GVariantType *) "a{ss}"));
 
-    while (*penv) {
+    while (penv && *penv) {
         gchar *key = *penv++;
         gchar *value = *penv++;
         if (!key || !value) {

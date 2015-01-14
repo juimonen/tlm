@@ -24,9 +24,6 @@
  * 02110-1301 USA
  */
 
-#include <string.h>
-#include <signal.h>
-#include <errno.h>
 #include <glib.h>
 #include <gio/gio.h>
 #include <glib-unix.h>
@@ -54,7 +51,7 @@ _on_manager_stopped_cb (TlmManager *manager, gpointer user_data)
 static gboolean
 _on_sigterm_cb (gpointer data)
 {
-    DBG ("SIGTERM");
+    DBG ("SIGTERM/SIGINT");
 
     TlmManager *manager = TLM_MANAGER(data);
 
@@ -81,10 +78,8 @@ _on_sighup_cb (gpointer data)
 static void
 _setup_unix_signal_handlers (TlmManager *manager)
 {
-    if (signal (SIGINT, SIG_IGN) == SIG_ERR)
-        WARN ("failed ignore SIGINT: %s", strerror(errno));
-
     g_unix_signal_add (SIGTERM, _on_sigterm_cb, (gpointer) manager);
+    g_unix_signal_add (SIGINT, _on_sigterm_cb, (gpointer) manager);
     g_unix_signal_add (SIGHUP, _on_sighup_cb, (gpointer) manager);
 }
 
