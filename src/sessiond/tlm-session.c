@@ -33,6 +33,7 @@
 #include <grp.h>
 #include <stdio.h>
 #include <signal.h>
+#include <errno.h>
 #include <termios.h>
 #include <libintl.h>
 #include <sys/types.h>
@@ -397,7 +398,7 @@ _set_terminal (TlmSessionPrivate *priv)
         WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
     }
 
-    /* TODO: unset the mode on session cleanup */
+    /* TODO: restore the mode on session cleanup */
     if (ioctl(tty_fd, KDSKBMUTE, 1) &&
         ioctl(tty_fd, KDSKBMODE, K_OFF)) {
         WARN ("ioctl(KDSKBMODE) failed: %s", strerror(errno));
@@ -571,6 +572,7 @@ _exec_user_session (
     /* ==================================
      * this is child process here onwards
      * ================================== */
+
     gint open_max;
     gint fd;
 
@@ -669,6 +671,9 @@ _exec_user_session (
         args[0] = g_strdup ("systemd");
         args[1] = g_strdup ("--user");
     }
+
+    if (signal (SIGINT, SIG_DFL) == SIG_ERR)
+        WARN ("failed reset SIGINT: %s", strerror(errno));
 
     DBG ("executing: ");
     args_iter = args;
