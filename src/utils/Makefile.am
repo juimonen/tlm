@@ -20,6 +20,7 @@ tlm_client_LDADD = \
 tlm_launcher_SOURCES = tlm-launcher.c
 tlm_launcher_CFLAGS = \
   -I$(top_builddir)/src \
+  -I$(top_srcdir)/src \
   -DBINDIR='"$(bindir)"' \
   $(GLIB_CFLAGS) \
   $(DEPS_CFLAGS)
