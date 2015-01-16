@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#include <error.h>
+#include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -42,7 +42,6 @@ static void launch_from_file(const char *file) {
   GList *commands = NULL, *tmp_list = NULL;
   GList *argv_list = NULL;
   gchar **argv = NULL;
-  gchar *command = NULL;
 
   if (!(fp = fopen(file, "r"))) {
     ERR("Failed to open file '%s':%s", file, strerror(errno));
@@ -55,7 +54,7 @@ static void launch_from_file(const char *file) {
     if (!strlen(cmd) || cmd[0] == '#') /* comment */
       continue;
 
-    INFO("COMMAND: %s(%ld)\n", cmd, strlen(cmd));
+    INFO("COMMAND: %s(%u)\n", cmd, strlen(cmd));
     commands = g_list_append(commands, g_strdup(cmd));
   }
 
@@ -130,8 +129,6 @@ int main(int argc, char *argv[]) {
   };
   int i, c;
   char *file = NULL;
-
-  pid_t child_pid = 0;
 
   tlm_log_init("tlm-launch");
 
