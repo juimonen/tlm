@@ -33,7 +33,6 @@
 #include <grp.h>
 #include <stdio.h>
 #include <signal.h>
-#include <errno.h>
 #include <termios.h>
 #include <libintl.h>
 #include <sys/types.h>
@@ -661,15 +660,17 @@ _exec_user_session (
         args = tlm_utils_split_command_line (shell);
     }
 
-    if (!args && (env_shell = getenv("SHELL"))){
-        /* use shell if no override configured */
-        args = g_new0 (gchar *, 2);
-        args[0] = g_strdup (env_shell);
-    } else {
-        /* in case shell is not defined, fall back to systemd --user */
-        args = g_new0 (gchar *, 3);
-        args[0] = g_strdup ("systemd");
-        args[1] = g_strdup ("--user");
+    if (!args) {
+        if((env_shell = getenv("SHELL"))) {
+            /* use shell if no override configured */
+            args = g_new0 (gchar *, 2);
+            args[0] = g_strdup (env_shell);
+        } else {
+            /* in case shell is not defined, fall back to systemd --user */
+            args = g_new0 (gchar *, 3);
+            args[0] = g_strdup ("systemd");
+            args[1] = g_strdup ("--user");
+        }
     }
 
     if (signal (SIGINT, SIG_DFL) == SIG_ERR)
