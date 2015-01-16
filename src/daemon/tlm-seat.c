@@ -54,7 +54,8 @@ enum {
 static GParamSpec *pspecs[N_PROPERTIES];
 
 enum {
-    SIG_PREPARE_USER,
+    SIG_PREPARE_USER_LOGIN,
+    SIG_PREPARE_USER_LOGOUT,
     SIG_SESSION_CREATED,
     SIG_SESSION_TERMINATED,
     SIG_SESSION_ERROR,
@@ -66,6 +67,7 @@ struct _TlmSeatPrivate
 {
     TlmConfig *config;
     gchar *id;
+    gchar *default_user;
     gchar *path;
     gchar *next_service;
     gchar *next_user;
@@ -73,6 +75,7 @@ struct _TlmSeatPrivate
     GHashTable *next_environment;
     gint64 prev_time;
     gint32 prev_count;
+    gboolean default_active;
     TlmSessionRemote *session;
     TlmDbusObserver *dbus_observer; /* dbus server accessed only by user who has
     active session */
@@ -281,6 +284,7 @@ tlm_seat_finalize (GObject *self)
     TlmSeatPrivate *priv = TLM_SEAT_PRIV(seat);
 
     g_clear_string (&priv->id);
+    g_clear_string (&priv->default_user);
     g_clear_string (&priv->path);
 
     _reset_next (priv);
@@ -371,7 +375,17 @@ tlm_seat_class_init (TlmSeatClass *klass)
                              G_PARAM_STATIC_STRINGS);
     g_object_class_install_properties (g_klass, N_PROPERTIES, pspecs);
 
-    signals[SIG_PREPARE_USER] = g_signal_new ("prepare-user",
+    signals[SIG_PREPARE_USER_LOGIN] = g_signal_new ("prepare-user-login",
+                                              TLM_TYPE_SEAT,
+                                              G_SIGNAL_RUN_LAST,
+                                              0,
+                                              NULL,
+                                              NULL,
+                                              NULL,
+                                              G_TYPE_NONE,
+                                              1,
+                                              G_TYPE_STRING);
+    signals[SIG_PREPARE_USER_LOGOUT] = g_signal_new ("prepare-user-logout",
                                               TLM_TYPE_SEAT,
                                               G_SIGNAL_RUN_LAST,
                                               0,
@@ -418,8 +432,9 @@ tlm_seat_init (TlmSeat *seat)
 {
     TlmSeatPrivate *priv = TLM_SEAT_PRIV (seat);
     
-    priv->id = priv->path = NULL;
+    priv->id = priv->path = priv->default_user = NULL;
     priv->dbus_observer = priv->prev_dbus_observer = NULL;
+    priv->default_active = FALSE;
     seat->priv = priv;
 }
 
@@ -556,8 +571,6 @@ tlm_seat_create_session (TlmSeat *seat,
         priv->prev_count = 1;
     }
 
-    gchar *default_user = NULL;
-
     if (!service) {
         DBG ("PAM service not defined, looking up configuration");
         service = tlm_config_get_string (priv->config,
@@ -573,28 +586,33 @@ tlm_seat_create_session (TlmSeat *seat,
     DBG ("using PAM service %s for seat %s", service, priv->id);
 
     if (!username) {
-        const gchar *name_tmpl =
-            tlm_config_get_string_default (priv->config,
-                                           priv->id,
-                                           TLM_CONFIG_GENERAL_DEFAULT_USER,
-                                           "guest");
-        if (!name_tmpl)
-            name_tmpl = tlm_config_get_string_default (priv->config,
-                                                       TLM_CONFIG_GENERAL,
-                                                       TLM_CONFIG_GENERAL_DEFAULT_USER,
-                                                       "guest");
-        if (name_tmpl) default_user = _build_user_name (name_tmpl, priv->id);
-        if (default_user)
+        if (!priv->default_user) {
+            const gchar *name_tmpl =
+                    tlm_config_get_string_default (priv->config,
+                            priv->id,
+                            TLM_CONFIG_GENERAL_DEFAULT_USER,
+                            "guest");
+            if (!name_tmpl)
+                name_tmpl = tlm_config_get_string_default (priv->config,
+                        TLM_CONFIG_GENERAL,
+                        TLM_CONFIG_GENERAL_DEFAULT_USER,
+                        "guest");
+            if (name_tmpl)
+                priv->default_user = _build_user_name (name_tmpl, priv->id);
+        }
+        if (priv->default_user) {
+            priv->default_active = TRUE;
             g_signal_emit (seat,
-                           signals[SIG_PREPARE_USER],
+                           signals[SIG_PREPARE_USER_LOGIN],
                            0,
-                           default_user);
+                           priv->default_user);
+        }
     }
 
     priv->session = tlm_session_remote_new (priv->config,
             priv->id,
             service,
-            default_user ? default_user : username);
+            priv->default_active ? priv->default_user : username);
     if (!priv->session) {
         g_signal_emit (seat, signals[SIG_SESSION_ERROR], 0,
                 TLM_ERROR_SESSION_CREATION_FAILURE);
@@ -605,7 +623,8 @@ tlm_seat_create_session (TlmSeat *seat,
      *is created */
     seat->priv->prev_dbus_observer = seat->priv->dbus_observer;
     seat->priv->dbus_observer = NULL;
-    if (!_create_dbus_observer (seat, default_user ? default_user : username)) {
+    if (!_create_dbus_observer (seat,
+            priv->default_active ? priv->default_user : username)) {
         g_object_unref (priv->session);
         g_signal_emit (seat, signals[SIG_SESSION_ERROR],  0,
                 TLM_ERROR_DBUS_SERVER_START_FAILURE);
@@ -622,6 +641,14 @@ tlm_seat_terminate_session (TlmSeat *seat)
 {
     g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
     g_return_val_if_fail (seat->priv, FALSE);
+
+    if (seat->priv->default_active) {
+        seat->priv->default_active = FALSE;
+        g_signal_emit (seat,
+                signals[SIG_PREPARE_USER_LOGOUT],
+                0,
+                seat->priv->default_user);
+    }
 
     if (!seat->priv->session ||
         !tlm_session_remote_terminate (seat->priv->session)) {
