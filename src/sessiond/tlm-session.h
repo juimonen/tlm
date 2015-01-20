@@ -72,9 +72,6 @@ tlm_session_start (TlmSession *session,
 void
 tlm_session_terminate (TlmSession *session);
 
-void
-tlm_session_reset_tty (TlmSession *session);
-
 G_END_DECLS
 
 #endif /* _TLM_SESSION_H */
