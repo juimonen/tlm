@@ -107,6 +107,7 @@ struct _TlmSessionPrivate
     gboolean can_emit_signal;
     gboolean is_child_up;
     gboolean session_pause;
+    int kb_mode;
 };
 
 static void
@@ -277,6 +278,7 @@ tlm_session_init (TlmSession *session)
     priv->is_child_up = FALSE;
     priv->can_emit_signal = TRUE;
     priv->config = tlm_config_new ();
+    priv->kb_mode = -1;
 
     session->priv = priv;
 }
@@ -350,7 +352,7 @@ _prepare_terminal (TlmSessionPrivate *priv)
         priv->tty_uid = 0;
         priv->tty_gid = 0;
     }
-    if (tcgetattr (priv->tty_fd, &priv->tty_state))
+    if (tcgetattr (priv->tty_fd, &priv->tty_state) < 0)
         WARN ("Failed to retrieve initial terminal state");
 
 term_exit:
@@ -364,19 +366,23 @@ _setup_terminal (TlmSessionPrivate *priv)
     int i;
     pid_t tty_pgid;
 
-    if (ioctl (priv->tty_fd, TIOCSCTTY, 1))
+    if (ioctl (priv->tty_fd, TIOCSCTTY, 1) < 0)
         WARN ("ioctl(TIOCSCTTY) failed: %s", strerror(errno));
     tty_pgid = getpgid (getpid ());
-    if (ioctl (priv->tty_fd, TIOCSPGRP, &tty_pgid)) {
+    if (ioctl (priv->tty_fd, TIOCSPGRP, &tty_pgid) < 0) {
         WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
     }
 
-    if (ioctl(priv->tty_fd, KDSKBMUTE, 1) &&
-        ioctl(priv->tty_fd, KDSKBMODE, K_OFF)) {
-        WARN ("ioctl(KDSKBMODE) failed: %s", strerror(errno));
+    if (ioctl(priv->tty_fd, KDGKBMODE, &priv->kb_mode) < 0) {
+        WARN ("ioctl(KDGKBMODE get) failed: %s", strerror(errno));
+    } else {
+        WARN ("ioctl(KDGKBMODE get) val: %d", priv->kb_mode);
+    }
+    if (ioctl (priv->tty_fd, KDSKBMODE, K_OFF) < 0) {
+        WARN ("ioctl(KDSKBMODE set) failed: %s", strerror(errno));
     }
 
-    /*if (tcsetpgrp (tty_fd, getpgrp ()))
+    /*if (tcsetpgrp (tty_fd, getpgrp ()) < 0)
         WARN ("tcsetpgrp() failed: %s", strerror(errno));*/
 
     // close all old handles
@@ -395,14 +401,20 @@ _reset_terminal (TlmSessionPrivate *priv)
     if (priv->tty_fd < 0)
         return;
 
+    if (priv->kb_mode >= 0 &&
+        ioctl (priv->tty_fd, KDSKBMODE, priv->kb_mode) < 0) {
+        WARN ("ioctl(KDSKBMODE reset) failed: %s", strerror(errno));
+    }
+    priv->kb_mode = -1;
+
     if (fchown (priv->tty_fd, priv->tty_uid, priv->tty_gid))
         WARN ("Changing TTY access rights failed");
-    if (tcflush (priv->tty_fd, TCIOFLUSH))
+    if (tcflush (priv->tty_fd, TCIOFLUSH) < 0)
         WARN ("Flushing stdio failed");
     pid_t pgid = getpgid (getpid ());
-    if (tcsetpgrp (priv->tty_fd, pgid))
+    if (tcsetpgrp (priv->tty_fd, pgid) < 0)
         WARN ("Change TTY controlling process failed");
-    if (tcsetattr (priv->tty_fd, TCSANOW, &priv->tty_state))
+    if (tcsetattr (priv->tty_fd, TCSANOW, &priv->tty_state) < 0)
         WARN ("Restoring TTY settings failed");
     close(priv->tty_fd);
 
