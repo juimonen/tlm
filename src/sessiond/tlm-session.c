@@ -303,6 +303,11 @@ _prepare_terminal (TlmSessionPrivate *priv)
     gchar *tty_dev = NULL;
     struct stat tty_stat;
 
+    if (priv->tty_fd >= 0) {
+        WARN ("re-entry");
+        return FALSE;
+    }
+
     DBG ("VTNR is %u", priv->vtnr);
     if (priv->vtnr > 0) {
         tty_dev = g_strdup_printf ("/dev/tty%u", priv->vtnr);
@@ -352,8 +357,12 @@ _prepare_terminal (TlmSessionPrivate *priv)
         priv->tty_uid = 0;
         priv->tty_gid = 0;
     }
-    if (tcgetattr (priv->tty_fd, &priv->tty_state) < 0)
-        WARN ("Failed to retrieve initial terminal state");
+    if (ioctl (priv->tty_fd, TCGETS, &priv->tty_state) < 0)
+        WARN ("ioctl(TCGETS) failed: %s", strerror(errno));
+
+    if (fchown (priv->tty_fd, tlm_user_get_uid (priv->username), -1)) {
+        WARN ("Changing TTY access rights failed");
+    }
 
 term_exit:
     g_free (tty_dev);
@@ -374,16 +383,13 @@ _setup_terminal (TlmSessionPrivate *priv)
     }
 
     if (ioctl(priv->tty_fd, KDGKBMODE, &priv->kb_mode) < 0) {
-        WARN ("ioctl(KDGKBMODE get) failed: %s", strerror(errno));
+        DBG ("ioctl(KDGKBMODE get) failed: %s", strerror(errno));
     } else {
-        WARN ("ioctl(KDGKBMODE get) val: %d", priv->kb_mode);
+        DBG ("ioctl(KDGKBMODE get) val: %d", priv->kb_mode);
     }
     if (ioctl (priv->tty_fd, KDSKBMODE, K_OFF) < 0) {
-        WARN ("ioctl(KDSKBMODE set) failed: %s", strerror(errno));
+        DBG ("ioctl(KDSKBMODE set) failed: %s", strerror(errno));
     }
-
-    /*if (tcsetpgrp (tty_fd, getpgrp ()) < 0)
-        WARN ("tcsetpgrp() failed: %s", strerror(errno));*/
 
     // close all old handles
     for (i = 0; i < priv->tty_fd; i++)
@@ -403,19 +409,18 @@ _reset_terminal (TlmSessionPrivate *priv)
 
     if (priv->kb_mode >= 0 &&
         ioctl (priv->tty_fd, KDSKBMODE, priv->kb_mode) < 0) {
-        WARN ("ioctl(KDSKBMODE reset) failed: %s", strerror(errno));
+        DBG ("ioctl(KDSKBMODE reset) failed: %s", strerror(errno));
     }
     priv->kb_mode = -1;
 
+    if (ioctl (priv->tty_fd, TCFLSH, TCIOFLUSH) < 0)
+        DBG ("ioctl(TCFLSH) failed: %s", strerror(errno));
+    if (ioctl (priv->tty_fd, TCSETS, &priv->tty_state) < 0)
+        DBG ("ioctl(TCSETSF) failed: %s", strerror(errno));
+
     if (fchown (priv->tty_fd, priv->tty_uid, priv->tty_gid))
         WARN ("Changing TTY access rights failed");
-    if (tcflush (priv->tty_fd, TCIOFLUSH) < 0)
-        WARN ("Flushing stdio failed");
-    pid_t pgid = getpgid (getpid ());
-    if (tcsetpgrp (priv->tty_fd, pgid) < 0)
-        WARN ("Change TTY controlling process failed");
-    if (tcsetattr (priv->tty_fd, TCSANOW, &priv->tty_state) < 0)
-        WARN ("Restoring TTY settings failed");
+
     close(priv->tty_fd);
 
     priv->tty_fd = -1;
@@ -642,10 +647,6 @@ _exec_user_session (
     uid_t target_uid = tlm_user_get_uid (priv->username);
     gid_t target_gid = tlm_user_get_gid (priv->username);
 
-    if (fchown (0, target_uid, -1)) {
-        WARN ("Changing TTY access rights failed");
-    }
-
     /*if (getppid() == 1) {
         if (setsid () == (pid_t) -1)
             WARN ("setsid() failed: %s", strerror (errno));
@@ -838,8 +839,6 @@ tlm_session_start (TlmSession *session,
     priv->sessionid = g_strdup (tlm_auth_session_get_sessionid (
             priv->auth_session));
     tlm_utils_log_utmp_entry (priv->username);
-
-    _prepare_terminal(priv);
 
     priv->session_pause =  tlm_config_get_boolean (priv->config,
                                              TLM_CONFIG_GENERAL,
