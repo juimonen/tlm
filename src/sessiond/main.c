@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm
  *
- * Copyright (C) 2014 Intel Corporation.
+ * Copyright (C) 2014-2015 Intel Corporation.
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
  *
@@ -28,6 +28,7 @@
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 #include <glib-unix.h>
 #include <glib.h>
 #include <gio/gio.h>
@@ -37,7 +38,7 @@
 #include "tlm-session-daemon.h"
 
 static TlmSessionDaemon *_daemon = NULL;
-static guint _sig_source_id[3];
+static guint _sig_source_id[2];
 
 static void
 _on_daemon_closed (gpointer data, GObject *server)
@@ -65,6 +66,9 @@ _install_sighandlers (GMainLoop *main_loop)
     GSource *source = NULL;
     GMainContext *ctx = g_main_loop_get_context (main_loop);
 
+    if (signal (SIGINT, SIG_IGN) == SIG_ERR)
+        WARN ("failed to ignore SIGINT: %s", strerror(errno));
+
     source = g_unix_signal_source_new (SIGTERM);
     g_source_set_callback (source,
                            _handle_quit_signal,
@@ -72,19 +76,12 @@ _install_sighandlers (GMainLoop *main_loop)
                            NULL);
     _sig_source_id[0] = g_source_attach (source, ctx);
 
-    source = g_unix_signal_source_new (SIGINT);
-    g_source_set_callback (source,
-                           _handle_quit_signal,
-                           main_loop,
-                           NULL);
-    _sig_source_id[1] = g_source_attach (source, ctx);
-
     source = g_unix_signal_source_new (SIGHUP);
     g_source_set_callback (source,
                            _handle_quit_signal,
                            main_loop,
                            NULL);
-    _sig_source_id[2] = g_source_attach (source, ctx);
+    _sig_source_id[1] = g_source_attach (source, ctx);
 
     if (prctl(PR_SET_PDEATHSIG, SIGHUP))
         WARN ("failed to set parent death signal");

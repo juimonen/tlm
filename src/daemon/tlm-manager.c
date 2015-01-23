@@ -447,7 +447,7 @@ tlm_manager_init (TlmManager *manager)
 }
 
 static void
-_prepare_user_cb (TlmSeat *seat, const gchar *user_name, gpointer user_data)
+_prepare_user_login_cb (TlmSeat *seat, const gchar *user_name, gpointer user_data)
 {
     TlmManager *manager = TLM_MANAGER(user_data);
 
@@ -457,13 +457,31 @@ _prepare_user_cb (TlmSeat *seat, const gchar *user_name, gpointer user_data)
                                 TLM_CONFIG_GENERAL,
                                 TLM_CONFIG_GENERAL_PREPARE_DEFAULT,
                                 FALSE)) {
-        DBG ("prepare for '%s'", user_name);
+        DBG ("prepare for login for '%s'", user_name);
         if (!tlm_manager_setup_guest_user (manager, user_name)) {
             WARN ("failed to prepare for '%s'", user_name);
         }
     }
 }
 
+static void
+_prepare_user_logout_cb (TlmSeat *seat, const gchar *user_name, gpointer user_data)
+{
+    TlmManager *manager = TLM_MANAGER(user_data);
+
+    g_return_if_fail (user_data && TLM_IS_MANAGER(manager));
+
+    if (tlm_config_get_boolean (manager->priv->config,
+                                TLM_CONFIG_GENERAL,
+                                TLM_CONFIG_GENERAL_PREPARE_DEFAULT,
+                                FALSE)) {
+        DBG ("prepare for logout for '%s'", user_name);
+        if (!tlm_account_plugin_cleanup_guest_user (
+                manager->priv->account_plugin, user_name, FALSE)) {
+            WARN ("failed to prepare for '%s'", user_name);
+        }
+    }
+}
 
 static void
 _create_seat (TlmManager *manager,
@@ -477,8 +495,12 @@ _create_seat (TlmManager *manager,
                                   seat_id,
                                   seat_path);
     g_signal_connect (seat,
-                      "prepare-user",
-                      G_CALLBACK (_prepare_user_cb),
+                      "prepare-user-login",
+                      G_CALLBACK (_prepare_user_login_cb),
+                      manager);
+    g_signal_connect (seat,
+                      "prepare-user-logout",
+                      G_CALLBACK (_prepare_user_logout_cb),
                       manager);
     g_hash_table_insert (priv->seats, g_strdup (seat_id), seat);
     g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);

@@ -309,3 +309,91 @@ tlm_utils_log_utmp_entry (const gchar *username)
     g_free (tty_no_dev_name);
     g_free (tty_id);
 }
+
+static gchar **
+_split_command_line_with_regex(const char *command, GRegex *regex) {
+  gchar **temp_strv = NULL;
+  gchar **temp_iter = NULL, **args_iter = NULL;
+  gchar **argv = NULL;
+
+  temp_strv = regex ? g_regex_split (regex, command, G_REGEX_MATCH_NOTEMPTY)
+                    : g_strsplit (command, " ", -1);
+  if (!temp_strv) {
+    WARN("Failed to split command: %s", command);
+    return NULL;
+  }
+
+  argv = g_new0 (gchar *, g_strv_length (temp_strv));
+  for (temp_iter = temp_strv, args_iter = argv;
+      *temp_iter != NULL;
+      temp_iter++) {
+    size_t item_len = 0;
+    gchar *item = g_strstrip (*temp_iter);
+
+    item_len = strlen (item);
+    if (item_len == 0) {
+      continue;
+    }
+    if ((item[0] == '\"' && item[item_len - 1] == '\"') ||
+        (item[0] == '\'' && item[item_len - 1] == '\'')) {
+      item[item_len - 1] = '\0';
+      memmove (item, item + 1, item_len - 1);
+    }
+    *args_iter = g_strcompress (item);
+    args_iter++;
+  }
+  g_strfreev (temp_strv);
+
+  return argv;
+}
+
+gchar **
+tlm_utils_split_command_line(const gchar *command) {
+  const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
+  GError *error = NULL;
+  GRegex *regex = NULL;
+  gchar **argv = NULL;
+ 
+  if (!command) {
+    WARN("Cannot pase NULL arguments string");
+    return NULL;
+  }
+ 
+  if (!(regex = g_regex_new(pattern, 0, G_REGEX_MATCH_NOTEMPTY, &error))) {
+    WARN("Failed to create regex: %s", error->message);
+    g_error_free(error);
+  }
+
+  argv = _split_command_line_with_regex (command, regex);
+
+  g_regex_unref (regex);
+
+  return argv;
+}
+
+GList *
+tlm_utils_split_command_lines (const GList const *commands_list) {
+  const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
+  GError *error = NULL;
+  GRegex *regex = NULL;
+  GList *argv_list = NULL;
+  const GList *tmp_list = NULL;
+
+  if (!commands_list) {
+    return NULL;
+  }
+
+  if (!(regex = g_regex_new(pattern, 0, G_REGEX_MATCH_NOTEMPTY, &error))) {
+    WARN("Failed to create regex: %s", error->message);
+    g_error_free(error);
+  }
+
+  for (tmp_list = commands_list; tmp_list; tmp_list = tmp_list->next) {
+    argv_list = g_list_append (argv_list, _split_command_line_with_regex (
+                    (const gchar *)tmp_list->data, regex));
+  }
+
+  g_regex_unref (regex);
+
+  return argv_list;
+}

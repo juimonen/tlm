@@ -42,6 +42,7 @@
 #include <ctype.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <linux/kd.h>
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -58,6 +59,10 @@ G_DEFINE_TYPE (TlmSession, tlm_session, G_TYPE_OBJECT);
 
 #define TLM_SESSION_PRIV(obj) \
     G_TYPE_INSTANCE_GET_PRIVATE ((obj), TLM_TYPE_SESSION, TlmSessionPrivate)
+
+#ifndef KDSKBMUTE
+#define KDSKBMUTE   0x4B51
+#endif
 
 enum {
     PROP_0,
@@ -83,10 +88,11 @@ struct _TlmSessionPrivate
 {
     TlmConfig *config;
     pid_t child_pid;
+    int tty_fd;
     uid_t tty_uid;
     gid_t tty_gid;
+    struct termios tty_state;
     unsigned vtnr;
-    struct termios stdin_state, stdout_state, stderr_state;
     gchar *seat_id;
     gchar *service;
     gchar *username;
@@ -101,38 +107,8 @@ struct _TlmSessionPrivate
     gboolean can_emit_signal;
     gboolean is_child_up;
     gboolean session_pause;
+    int kb_mode;
 };
-
-static void
-_clear_session (TlmSession *session)
-{
-    tlm_session_reset_tty (session);
-    if (session->priv->setup_runtime_dir)
-        tlm_utils_delete_dir (session->priv->xdg_runtime_dir);
-
-    if (session->priv->timer_id) {
-        g_source_remove (session->priv->timer_id);
-        session->priv->timer_id = 0;
-    }
-
-    if (session->priv->child_watch_id) {
-        g_source_remove (session->priv->child_watch_id);
-        session->priv->child_watch_id = 0;
-    }
-
-    if (session->priv->auth_session)
-        g_clear_object (&session->priv->auth_session);
-
-    if (session->priv->env_hash) {
-        g_hash_table_unref (session->priv->env_hash);
-        session->priv->env_hash = NULL;
-    }
-    g_clear_string (&session->priv->seat_id);
-    g_clear_string (&session->priv->service);
-    g_clear_string (&session->priv->username);
-    g_clear_string (&session->priv->sessionid);
-    g_clear_string (&session->priv->xdg_runtime_dir);
-}
 
 static void
 tlm_session_dispose (GObject *self)
@@ -293,6 +269,7 @@ tlm_session_init (TlmSession *session)
 {
     TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
 
+    priv->tty_fd = -1;
     priv->service = NULL;
     priv->env_hash = NULL;
     priv->auth_session = NULL;
@@ -301,23 +278,9 @@ tlm_session_init (TlmSession *session)
     priv->is_child_up = FALSE;
     priv->can_emit_signal = TRUE;
     priv->config = tlm_config_new ();
+    priv->kb_mode = -1;
 
     session->priv = priv;
-
-    struct stat tty_stat;
-
-    if (fstat (0, &tty_stat) == 0) {
-        priv->tty_uid = tty_stat.st_uid;
-        priv->tty_gid = tty_stat.st_gid;
-    } else {
-        priv->tty_uid = 0;
-        priv->tty_gid = 0;
-    }
-
-    if (tcgetattr (0, &priv->stdin_state) ||
-        tcgetattr (1, &priv->stdout_state) ||
-        tcgetattr (2, &priv->stderr_state))
-        WARN ("Failed to retrieve initial terminal state");
 }
 
 static void
@@ -334,14 +297,16 @@ _setenv_to_session (const gchar *key, const gchar *val,
 }
 
 static gboolean
-_set_terminal (TlmSessionPrivate *priv)
+_prepare_terminal (TlmSessionPrivate *priv)
 {
     gboolean res = TRUE;
-    int i;
-    int tty_fd;
-    pid_t tty_pgid;
     gchar *tty_dev = NULL;
     struct stat tty_stat;
+
+    if (priv->tty_fd >= 0) {
+        WARN ("re-entry");
+        return FALSE;
+    }
 
     DBG ("VTNR is %u", priv->vtnr);
     if (priv->vtnr > 0) {
@@ -373,38 +338,92 @@ _set_terminal (TlmSessionPrivate *priv)
         goto term_exit;
     }
 
-    tty_fd = open (tty_dev, O_RDWR | O_NONBLOCK);
-    if (tty_fd < 0) {
+    priv->tty_fd = open (tty_dev, O_RDWR | O_NONBLOCK);
+    if (priv->tty_fd < 0) {
         WARN ("open() failed: %s", strerror(errno));
         res = FALSE;
         goto term_exit;
     }
-    if (!isatty (tty_fd)) {
-        close (tty_fd);
+    if (!isatty (priv->tty_fd)) {
+        close (priv->tty_fd);
         WARN ("isatty() failed");
         res = FALSE;
         goto term_exit;
     }
-    if (ioctl (tty_fd, TIOCSCTTY, 1))
-        WARN ("ioctl(TIOCSCTTY) failed: %s", strerror(errno));
-    tty_pgid = getpgid (getpid ());
-    if (ioctl (tty_fd, TIOCSPGRP, &tty_pgid)) {
-        WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
+    if (fstat (priv->tty_fd, &tty_stat) == 0) {
+        priv->tty_uid = tty_stat.st_uid;
+        priv->tty_gid = tty_stat.st_gid;
+    } else {
+        priv->tty_uid = 0;
+        priv->tty_gid = 0;
     }
-    /*if (tcsetpgrp (tty_fd, getpgrp ()))
-        WARN ("tcsetpgrp() failed: %s", strerror(errno));*/
+    if (ioctl (priv->tty_fd, TCGETS, &priv->tty_state) < 0)
+        WARN ("ioctl(TCGETS) failed: %s", strerror(errno));
 
-    // close all old handles
-    for (i = 0; i < tty_fd; i++)
-        close (i);
-    dup2 (tty_fd, 0);
-    dup2 (tty_fd, 1);
-    dup2 (tty_fd, 2);
-    close (tty_fd);
+    if (fchown (priv->tty_fd, tlm_user_get_uid (priv->username), -1)) {
+        WARN ("Changing TTY access rights failed");
+    }
 
 term_exit:
     g_free (tty_dev);
     return res;
+}
+
+gboolean static
+_setup_terminal (TlmSessionPrivate *priv)
+{
+    int i;
+    pid_t tty_pgid;
+
+    if (ioctl (priv->tty_fd, TIOCSCTTY, 1) < 0)
+        WARN ("ioctl(TIOCSCTTY) failed: %s", strerror(errno));
+    tty_pgid = getpgid (getpid ());
+    if (ioctl (priv->tty_fd, TIOCSPGRP, &tty_pgid) < 0) {
+        WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
+    }
+
+    if (ioctl(priv->tty_fd, KDGKBMODE, &priv->kb_mode) < 0) {
+        DBG ("ioctl(KDGKBMODE get) failed: %s", strerror(errno));
+    } else {
+        DBG ("ioctl(KDGKBMODE get) val: %d", priv->kb_mode);
+    }
+    if (ioctl (priv->tty_fd, KDSKBMODE, K_OFF) < 0) {
+        DBG ("ioctl(KDSKBMODE set) failed: %s", strerror(errno));
+    }
+
+    // close all old handles
+    for (i = 0; i < priv->tty_fd; i++)
+        close (i);
+    dup2 (priv->tty_fd, 0);
+    dup2 (priv->tty_fd, 1);
+    dup2 (priv->tty_fd, 2);
+
+    return TRUE;
+}
+
+static void
+_reset_terminal (TlmSessionPrivate *priv)
+{
+    if (priv->tty_fd < 0)
+        return;
+
+    if (priv->kb_mode >= 0 &&
+        ioctl (priv->tty_fd, KDSKBMODE, priv->kb_mode) < 0) {
+        DBG ("ioctl(KDSKBMODE reset) failed: %s", strerror(errno));
+    }
+    priv->kb_mode = -1;
+
+    if (ioctl (priv->tty_fd, TCFLSH, TCIOFLUSH) < 0)
+        DBG ("ioctl(TCFLSH) failed: %s", strerror(errno));
+    if (ioctl (priv->tty_fd, TCSETS, &priv->tty_state) < 0)
+        DBG ("ioctl(TCSETSF) failed: %s", strerror(errno));
+
+    if (fchown (priv->tty_fd, priv->tty_uid, priv->tty_gid))
+        WARN ("Changing TTY access rights failed");
+
+    close(priv->tty_fd);
+
+    priv->tty_fd = -1;
 }
 
 static gboolean
@@ -462,6 +481,40 @@ _set_environment (TlmSessionPrivate *priv)
 }
 
 static void
+_clear_session (TlmSession *session)
+{
+    TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
+
+    _reset_terminal (priv);
+
+    if (priv->setup_runtime_dir)
+        tlm_utils_delete_dir (priv->xdg_runtime_dir);
+
+    if (priv->timer_id) {
+        g_source_remove (priv->timer_id);
+        priv->timer_id = 0;
+    }
+
+    if (priv->child_watch_id) {
+        g_source_remove (priv->child_watch_id);
+        priv->child_watch_id = 0;
+    }
+
+    if (priv->auth_session)
+        g_clear_object (&priv->auth_session);
+
+    if (priv->env_hash) {
+        g_hash_table_unref (priv->env_hash);
+        priv->env_hash = NULL;
+    }
+    g_clear_string (&priv->seat_id);
+    g_clear_string (&priv->service);
+    g_clear_string (&priv->username);
+    g_clear_string (&priv->sessionid);
+    g_clear_string (&priv->xdg_runtime_dir);
+}
+
+static void
 _on_child_down_cb (
         GPid  pid,
         gint  status,
@@ -487,7 +540,6 @@ _exec_user_session (
 {
     gint i;
     guint rtdir_perm = 0700;
-    const gchar *pattern = "('.*?'|\".*?\"|\\S+)";
     const gchar *rtdir_perm_str;
     const char *home;
     const char *shell = NULL;
@@ -496,7 +548,6 @@ _exec_user_session (
     gchar **args = NULL;
     gchar **args_iter = NULL;
     TlmSessionPrivate *priv = session->priv;
-    gchar **temp_strv = NULL;
 
     priv = session->priv;
     if (!priv->username)
@@ -549,50 +600,6 @@ _exec_user_session (
         DBG ("not setting up XDG_RUNTIME_DIR");
     }
 
-    priv->child_pid = fork ();
-    if (priv->child_pid) {
-        DBG ("establish handler for the child pid %u", priv->child_pid);
-        session->priv->child_watch_id = g_child_watch_add (priv->child_pid,
-                    (GChildWatchFunc)_on_child_down_cb, session);
-        session->priv->is_child_up = TRUE;
-        return;
-    }
-
-    /* ==================================
-     * this is child process here onwards
-     * ================================== */
-    gint open_max;
-    gint fd;
-
-    //close all open descriptors other than stdin, stdout, stderr
-    open_max = sysconf (_SC_OPEN_MAX);
-    for (fd = 3; fd < open_max; fd++) {
-        if (fcntl (fd, F_SETFD, FD_CLOEXEC) < -1) {
-            WARN("Failed to close desriptor '%d', error: %s",
-                fd, strerror(errno));
-        }
-    }
-
-    uid_t target_uid = tlm_user_get_uid (priv->username);
-    gid_t target_gid = tlm_user_get_gid (priv->username);
-
-    if (fchown (0, target_uid, -1)) {
-        WARN ("Changing TTY access rights failed");
-    }
-
-    /*if (getppid() == 1) {
-        if (setsid () == (pid_t) -1)
-            WARN ("setsid() failed: %s", strerror (errno));
-    } else {
-        if (setpgrp ())
-            WARN ("setpgrp() failed: %s", strerror (errno));
-    }*/
-
-    DBG ("old pgid=%u", getpgrp ());
-    if (setsid () == (pid_t) -1)
-        WARN ("setsid() failed: %s", strerror (errno));
-    DBG ("new pgid=%u", getpgrp());
-
     gboolean setup_terminal;
     if (tlm_config_has_key (priv->config,
                             priv->seat_id,
@@ -608,8 +615,54 @@ _exec_user_session (
                                                  FALSE);
     }
     if (setup_terminal) {
+        if (!_prepare_terminal (priv))
+            WARN ("Failed to prepare terminal");
+    }
+
+    priv->child_pid = fork ();
+    if (priv->child_pid) {
+        DBG ("establish handler for the child pid %u", priv->child_pid);
+        session->priv->child_watch_id = g_child_watch_add (priv->child_pid,
+                    (GChildWatchFunc)_on_child_down_cb, session);
+        session->priv->is_child_up = TRUE;
+        return;
+    }
+
+    /* ==================================
+     * this is child process here onwards
+     * ================================== */
+
+    gint open_max;
+    gint fd;
+
+    //close all open descriptors other than stdin, stdout, stderr
+    open_max = sysconf (_SC_OPEN_MAX);
+    for (fd = 3; fd < open_max; fd++) {
+        if (fcntl (fd, F_SETFD, FD_CLOEXEC) < -1) {
+            WARN ("Failed to close desriptor '%d', error: %s",
+                fd, strerror(errno));
+        }
+    }
+
+    uid_t target_uid = tlm_user_get_uid (priv->username);
+    gid_t target_gid = tlm_user_get_gid (priv->username);
+
+    /*if (getppid() == 1) {
+        if (setsid () == (pid_t) -1)
+            WARN ("setsid() failed: %s", strerror (errno));
+    } else {
+        if (setpgrp ())
+            WARN ("setpgrp() failed: %s", strerror (errno));
+    }*/
+
+    DBG ("old pgid=%u", getpgrp ());
+    if (setsid () == (pid_t) -1)
+        WARN ("setsid() failed: %s", strerror (errno));
+    DBG ("new pgid=%u", getpgrp());
+
+    if (setup_terminal) {
         /* usually terminal settings are handled by PAM */
-        _set_terminal (priv);
+        _setup_terminal (priv);
     }
 
     if (initgroups (priv->username, target_gid))
@@ -646,46 +699,24 @@ _exec_user_session (
                                        TLM_CONFIG_GENERAL,
                                        TLM_CONFIG_GENERAL_SESSION_CMD);
     if (shell) {
-        DBG ("Session command : %s", shell);
-        temp_strv = g_regex_split_simple (pattern,
-                                          shell,
-                                          0,
-                                          G_REGEX_MATCH_NOTEMPTY);
+        args = tlm_utils_split_command_line (shell);
     }
 
-    if (temp_strv) {
-        gchar **temp_iter;
-
-        args = g_new0 (gchar *, g_strv_length (temp_strv));
-        for (temp_iter = temp_strv, args_iter = args;
-                *temp_iter != NULL;
-                temp_iter++) {
-            size_t item_len = 0;
-            gchar *item = g_strstrip (*temp_iter);
-
-            item_len = strlen (item);
-            if (item_len == 0) {
-                continue;
-            }
-            if ((item[0] == '\"' && item[item_len - 1] == '\"') ||
-                    (item[0] == '\'' && item[item_len - 1] == '\'')) {
-                item[item_len - 1] = '\0';
-                memmove (item, item + 1, item_len - 1);
-            }
-            *args_iter = g_strcompress (item);
-            args_iter++;
+    if (!args) {
+        if((env_shell = getenv("SHELL"))) {
+            /* use shell if no override configured */
+            args = g_new0 (gchar *, 2);
+            args[0] = g_strdup (env_shell);
+        } else {
+            /* in case shell is not defined, fall back to systemd --user */
+            args = g_new0 (gchar *, 3);
+            args[0] = g_strdup ("systemd");
+            args[1] = g_strdup ("--user");
         }
-        g_strfreev (temp_strv);
-    } else if ((env_shell = getenv("SHELL"))){
-        /* use shell if no override configured */
-        args = g_new0 (gchar *, 2);
-        args[0] = g_strdup (env_shell);
-    } else {
-        /* in case shell is not defined, fall back to systemd --user */
-        args = g_new0 (gchar *, 3);
-        args[0] = g_strdup ("systemd");
-        args[1] = g_strdup ("--user");
     }
+
+    if (signal (SIGINT, SIG_DFL) == SIG_ERR)
+        WARN ("failed reset SIGINT: %s", strerror(errno));
 
     DBG ("executing: ");
     args_iter = args;
@@ -796,15 +827,6 @@ tlm_session_start (TlmSession *session,
     }
     g_signal_emit (session, signals[SIG_AUTHENTICATED], 0);
 
-    priv->session_pause =  tlm_config_get_boolean (priv->config,
-                                             TLM_CONFIG_GENERAL,
-                                             TLM_CONFIG_GENERAL_PAUSE_SESSION,
-                                             FALSE);
-    if (priv->session_pause) {
-        _set_environment (priv);
-        umask(0077);
-    }
-
     if (!tlm_auth_session_open (priv->auth_session, &error)) {
         if (!error) {
             error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_SESSION_CREATION_FAILURE,
@@ -817,10 +839,21 @@ tlm_session_start (TlmSession *session,
     priv->sessionid = g_strdup (tlm_auth_session_get_sessionid (
             priv->auth_session));
     tlm_utils_log_utmp_entry (priv->username);
-    if (!priv->session_pause)
+
+    priv->session_pause =  tlm_config_get_boolean (priv->config,
+                                             TLM_CONFIG_GENERAL,
+                                             TLM_CONFIG_GENERAL_PAUSE_SESSION,
+                                             FALSE);
+    if (!priv->session_pause) {
         _exec_user_session (session);
-    g_signal_emit (session, signals[SIG_SESSION_CREATED], 0,
-                   priv->sessionid ? priv->sessionid : "");
+        g_signal_emit (session, signals[SIG_SESSION_CREATED], 0,
+                       priv->sessionid ? priv->sessionid : "");
+    } else {
+        g_signal_emit (session, signals[SIG_SESSION_CREATED], 0,
+                       priv->sessionid ? priv->sessionid : "");
+        pause ();
+        exit (0);
+    }
     return TRUE;
 }
 
@@ -898,25 +931,5 @@ tlm_session_terminate (TlmSession *session)
                     TLM_CONFIG_GENERAL_TERMINATE_TIMEOUT, 3),
             _terminate_timeout,
             session);
-}
-
-void
-tlm_session_reset_tty (TlmSession *session)
-{
-    TlmSessionPrivate *priv = TLM_SESSION_PRIV(session);
-
-    if (fchown (0, priv->tty_uid, priv->tty_gid))
-        WARN ("Changing TTY access rights failed");
-    if (tcflush (0, TCIOFLUSH) ||
-        tcflush (1, TCIOFLUSH) ||
-        tcflush (2, TCIOFLUSH))
-        WARN ("Flushing stdio failed");
-    pid_t pgid = getpgid (getpid ());
-    if (tcsetpgrp (0, pgid) || tcsetpgrp (1, pgid) || tcsetpgrp (2, pgid))
-        WARN ("Change TTY controlling process failed");
-    if (tcsetattr (0, TCSANOW, &priv->stdin_state) ||
-        tcsetattr (1, TCSANOW, &priv->stdout_state) ||
-        tcsetattr (2, TCSANOW, &priv->stderr_state))
-        WARN ("Restoring TTY settings failed");
 }
 

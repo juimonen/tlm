@@ -56,6 +56,12 @@ tlm_utils_delete_dir (const gchar *dir);
 void
 tlm_utils_log_utmp_entry (const gchar *username);
 
+gchar **
+tlm_utils_split_command_line(const gchar *command);
+
+GList *
+tlm_utils_split_command_lines(const GList const *commands_list);
+
 G_END_DECLS
 
 #endif /* _TLM_UTILS_H */
