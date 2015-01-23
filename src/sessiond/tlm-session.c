@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm (Tizen Login Manager)
  *
- * Copyright (C) 2013-2014 Intel Corporation.
+ * Copyright (C) 2013-2015 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
  *          Jussi Laako <jussi.laako@linux.intel.com>
@@ -60,10 +60,6 @@ G_DEFINE_TYPE (TlmSession, tlm_session, G_TYPE_OBJECT);
 #define TLM_SESSION_PRIV(obj) \
     G_TYPE_INSTANCE_GET_PRIVATE ((obj), TLM_TYPE_SESSION, TlmSessionPrivate)
 
-#ifndef KDSKBMUTE
-#define KDSKBMUTE   0x4B51
-#endif
-
 enum {
     PROP_0,
     PROP_CONFIG,
@@ -88,7 +84,7 @@ struct _TlmSessionPrivate
 {
     TlmConfig *config;
     pid_t child_pid;
-    int tty_fd;
+    gchar *tty_dev;
     uid_t tty_uid;
     gid_t tty_gid;
     struct termios tty_state;
@@ -269,7 +265,7 @@ tlm_session_init (TlmSession *session)
 {
     TlmSessionPrivate *priv = TLM_SESSION_PRIV (session);
 
-    priv->tty_fd = -1;
+    priv->tty_dev = NULL;
     priv->service = NULL;
     priv->env_hash = NULL;
     priv->auth_session = NULL;
@@ -296,134 +292,128 @@ _setenv_to_session (const gchar *key, const gchar *val,
         setenv ((const char *) key, (const char *) val, 1);
 }
 
-static gboolean
+static int
 _prepare_terminal (TlmSessionPrivate *priv)
 {
-    gboolean res = TRUE;
-    gchar *tty_dev = NULL;
+    int tty_fd = -1;
     struct stat tty_stat;
-
-    if (priv->tty_fd >= 0) {
-        WARN ("re-entry");
-        return FALSE;
-    }
 
     DBG ("VTNR is %u", priv->vtnr);
     if (priv->vtnr > 0) {
-        tty_dev = g_strdup_printf ("/dev/tty%u", priv->vtnr);
+        priv->tty_dev = g_strdup_printf ("/dev/tty%u", priv->vtnr);
     } else {
-        tty_dev = g_strdup (ttyname (0));
+        priv->tty_dev = g_strdup (ttyname (0));
     }
-    DBG ("trying to setup TTY '%s'", tty_dev);
-    if (!tty_dev) {
+    DBG ("trying to setup TTY '%s'", priv->tty_dev);
+    if (!priv->tty_dev) {
         WARN ("No TTY");
-        res = FALSE;
         goto term_exit;
     }
-    if (access (tty_dev, R_OK|W_OK)) {
+    if (access (priv->tty_dev, R_OK|W_OK)) {
         WARN ("TTY not accessible: %s", strerror(errno));
-        res = FALSE;
         goto term_exit;
     }
-    if (lstat (tty_dev, &tty_stat)) {
+    if (lstat (priv->tty_dev, &tty_stat)) {
         WARN ("lstat() failed: %s", strerror(errno));
-        res = FALSE;
         goto term_exit;
     }
     if (tty_stat.st_nlink > 1 ||
         !S_ISCHR (tty_stat.st_mode) ||
-        strncmp (tty_dev, "/dev/", 5)) {
+        strncmp (priv->tty_dev, "/dev/", 5)) {
         WARN ("Invalid TTY");
-        res = FALSE;
         goto term_exit;
     }
 
-    priv->tty_fd = open (tty_dev, O_RDWR | O_NONBLOCK);
-    if (priv->tty_fd < 0) {
+    tty_fd = open (priv->tty_dev, O_RDWR | O_NONBLOCK);
+    if (tty_fd < 0) {
         WARN ("open() failed: %s", strerror(errno));
-        res = FALSE;
         goto term_exit;
     }
-    if (!isatty (priv->tty_fd)) {
-        close (priv->tty_fd);
+    if (!isatty (tty_fd)) {
+        close (tty_fd);
         WARN ("isatty() failed");
-        res = FALSE;
         goto term_exit;
     }
-    if (fstat (priv->tty_fd, &tty_stat) == 0) {
+    if (fstat (tty_fd, &tty_stat) == 0) {
         priv->tty_uid = tty_stat.st_uid;
         priv->tty_gid = tty_stat.st_gid;
     } else {
         priv->tty_uid = 0;
         priv->tty_gid = 0;
     }
-    if (ioctl (priv->tty_fd, TCGETS, &priv->tty_state) < 0)
+    if (ioctl (tty_fd, TCGETS, &priv->tty_state) < 0)
         WARN ("ioctl(TCGETS) failed: %s", strerror(errno));
 
-    if (fchown (priv->tty_fd, tlm_user_get_uid (priv->username), -1)) {
+    if (fchown (tty_fd, tlm_user_get_uid (priv->username), -1)) {
         WARN ("Changing TTY access rights failed");
     }
 
-term_exit:
-    g_free (tty_dev);
-    return res;
-}
-
-gboolean static
-_setup_terminal (TlmSessionPrivate *priv)
-{
-    int i;
-    pid_t tty_pgid;
-
-    if (ioctl (priv->tty_fd, TIOCSCTTY, 1) < 0)
-        WARN ("ioctl(TIOCSCTTY) failed: %s", strerror(errno));
-    tty_pgid = getpgid (getpid ());
-    if (ioctl (priv->tty_fd, TIOCSPGRP, &tty_pgid) < 0) {
-        WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
-    }
-
-    if (ioctl(priv->tty_fd, KDGKBMODE, &priv->kb_mode) < 0) {
+    if (ioctl(tty_fd, KDGKBMODE, &priv->kb_mode) < 0) {
         DBG ("ioctl(KDGKBMODE get) failed: %s", strerror(errno));
     } else {
         DBG ("ioctl(KDGKBMODE get) val: %d", priv->kb_mode);
     }
-    if (ioctl (priv->tty_fd, KDSKBMODE, K_OFF) < 0) {
+
+    return tty_fd;
+
+term_exit:
+    g_clear_string (&priv->tty_dev);
+    return -1;
+}
+
+static void
+_setup_terminal (TlmSessionPrivate *priv, int tty_fd)
+{
+    pid_t tty_pgid;
+
+    if (ioctl (tty_fd, TIOCSCTTY, 1) < 0)
+        WARN ("ioctl(TIOCSCTTY) failed: %s", strerror(errno));
+    tty_pgid = getpgid (getpid ());
+    if (ioctl (tty_fd, TIOCSPGRP, &tty_pgid) < 0) {
+        WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
+    }
+
+    if (ioctl (tty_fd, KDSKBMODE, K_OFF) < 0) {
         DBG ("ioctl(KDSKBMODE set) failed: %s", strerror(errno));
     }
 
-    // close all old handles
-    for (i = 0; i < priv->tty_fd; i++)
-        close (i);
-    dup2 (priv->tty_fd, 0);
-    dup2 (priv->tty_fd, 1);
-    dup2 (priv->tty_fd, 2);
-
-    return TRUE;
+    dup2 (tty_fd, 0);
+    dup2 (tty_fd, 1);
+    dup2 (tty_fd, 2);
 }
 
 static void
 _reset_terminal (TlmSessionPrivate *priv)
 {
-    if (priv->tty_fd < 0)
+    int tty_fd = -1;
+
+    if (!priv->tty_dev)
         return;
 
+    tty_fd = open (priv->tty_dev, O_RDWR | O_NONBLOCK);
+    if (tty_fd < 0) {
+        WARN ("open() failed: %s", strerror(errno));
+        goto reset_exit;
+    }
+
     if (priv->kb_mode >= 0 &&
-        ioctl (priv->tty_fd, KDSKBMODE, priv->kb_mode) < 0) {
+        ioctl (tty_fd, KDSKBMODE, priv->kb_mode) < 0) {
         DBG ("ioctl(KDSKBMODE reset) failed: %s", strerror(errno));
     }
     priv->kb_mode = -1;
 
-    if (ioctl (priv->tty_fd, TCFLSH, TCIOFLUSH) < 0)
+    if (ioctl (tty_fd, TCFLSH, TCIOFLUSH) < 0)
         DBG ("ioctl(TCFLSH) failed: %s", strerror(errno));
-    if (ioctl (priv->tty_fd, TCSETS, &priv->tty_state) < 0)
+    if (ioctl (tty_fd, TCSETS, &priv->tty_state) < 0)
         DBG ("ioctl(TCSETSF) failed: %s", strerror(errno));
 
-    if (fchown (priv->tty_fd, priv->tty_uid, priv->tty_gid))
+    if (fchown (tty_fd, priv->tty_uid, priv->tty_gid))
         WARN ("Changing TTY access rights failed");
 
-    close(priv->tty_fd);
-
-    priv->tty_fd = -1;
+reset_exit:
+    if (tty_fd >= 0)
+        close (tty_fd);
+    g_clear_string (&priv->tty_dev);
 }
 
 static gboolean
@@ -538,6 +528,7 @@ static void
 _exec_user_session (
 		TlmSession *session)
 {
+    int tty_fd = -1;
     gint i;
     guint rtdir_perm = 0700;
     const gchar *rtdir_perm_str;
@@ -615,12 +606,17 @@ _exec_user_session (
                                                  FALSE);
     }
     if (setup_terminal) {
-        if (!_prepare_terminal (priv))
+        tty_fd = _prepare_terminal (priv);
+        if (tty_fd < 0) {
             WARN ("Failed to prepare terminal");
+            return;
+        }
     }
 
     priv->child_pid = fork ();
     if (priv->child_pid) {
+        if (tty_fd >= 0)
+            close (tty_fd);
         DBG ("establish handler for the child pid %u", priv->child_pid);
         session->priv->child_watch_id = g_child_watch_add (priv->child_pid,
                     (GChildWatchFunc)_on_child_down_cb, session);
@@ -662,7 +658,7 @@ _exec_user_session (
 
     if (setup_terminal) {
         /* usually terminal settings are handled by PAM */
-        _setup_terminal (priv);
+        _setup_terminal (priv, tty_fd);
     }
 
     if (initgroups (priv->username, target_gid))
