@@ -178,6 +178,6 @@ tlm_auth_plugin_default_init (TlmAuthPluginDefault *self)
         WARN ("assert(sigaction()) : %s", strerror(errno));
     }
 
-    tlm_log_init("TLM_AUTH_PLIGIN");
+    tlm_log_init("TLM_AUTH_PLUGIN");
 }
 
