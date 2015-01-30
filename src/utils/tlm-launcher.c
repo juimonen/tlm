@@ -180,10 +180,7 @@ static void _tlm_launcher_process (TlmLauncher *l)
         l->socket_watcher = tlm_utils_watch_for_files (
             (const gchar **)sockets, _on_socket_ready, l);
         g_strfreev (sockets);
-        if (l->socket_watcher == 0) {
-          WARN ("Failed to watch for '%s'", cmd);
-        } else
-          return;
+        if (l->socket_watcher) return;
         }
         break;
       default:

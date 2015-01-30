@@ -464,6 +464,7 @@ _watch_info_free (WatchInfo *info)
 static gboolean
 _inotify_watcher_cb (gint ifd, GIOCondition condition, gpointer userdata)
 {
+  DBG("");
   WatchInfo *info = (WatchInfo *)userdata;
   struct inotify_event *ie = NULL;
   gsize size = sizeof (struct inotify_event) + PATH_MAX + 1;
@@ -502,10 +503,37 @@ _inotify_watcher_cb (gint ifd, GIOCondition condition, gpointer userdata)
 gchar *
 _expand_file_path (const gchar *file_path)
 {
- // TODO: Use GRegEx to find and replace the $var to value
-  return NULL;
-}
+  gchar **items =NULL;
+  gchar **tmp_item =NULL;
+  gchar *expanded_path = NULL;
 
+  if (!file_path) return NULL;
+
+  /* nothing to expand
+   * FIXME: we are not considering filename which having \$ in it
+   */
+  if (g_strrstr (file_path, "$") == NULL) return g_strdup(file_path);
+
+  items = g_strsplit (file_path, G_DIR_SEPARATOR_S, -1);
+  /* soemthing wrong in file path */
+  if (!items) { return g_strdup (file_path); }
+
+  for (tmp_item = items; *tmp_item; tmp_item++) {
+    char *item = *tmp_item;
+    if (item[0] == '$') {
+      const gchar *env = g_getenv (item+1);
+      g_free (item);
+      *tmp_item = g_strdup (env ? env : "");
+    }
+  }
+  
+  expanded_path = g_strjoinv (G_DIR_SEPARATOR_S, items);
+
+  g_strfreev(items);
+
+  return expanded_path;
+}
+  
 guint
 tlm_utils_watch_for_files (
     const gchar **watch_list,
@@ -529,7 +557,7 @@ tlm_utils_watch_for_files (
   final_watch_table = g_hash_table_new_full (g_direct_hash, g_direct_equal,
                           NULL, (GDestroyNotify)_watch_node_free);
   for (; *watch_list; watch_list++) {
-    const char *socket_path  = *watch_list;
+    char *socket_path  = _expand_file_path (*watch_list);
     GList *file_list = NULL;
     char *dir = NULL;
     char *file_name = NULL;
@@ -538,10 +566,14 @@ tlm_utils_watch_for_files (
     /* TODO: expand 'socket_path', i.e., replace $variables if any */
 
     file_name = g_path_get_basename (socket_path);
-    if (!file_name) continue;
+    if (!file_name) {
+      g_free (socket_path);
+      continue;
+    }
 
     dir = g_path_get_dirname (socket_path);
     if (!dir) {
+      g_free (socket_path);
       g_free (file_name);
       continue;
     }
@@ -550,17 +582,22 @@ tlm_utils_watch_for_files (
     if (file_list) {
       file_list = g_list_append (file_list, file_name);
       g_free (dir);
+      g_free (socket_path);
       continue;
     }
 
+    DBG("Adding watch for file '%s' in dir '%s'", file_name, dir);
     if (!(wd = inotify_add_watch (ifd, dir, IN_CREATE))) {
       WARN ("failed to add inotify watch on %s: %s",
           socket_path, strerror (errno));
       g_free (dir);
       g_free (file_name);
+      g_free (socket_path);
       /* FIXME; inform caller about failure via WatchCb */
       continue;
     }
+
+
     if (!g_access (socket_path, 0)) {
       gboolean is_final = !nwatch && !*(watch_list + 1);
       /* socket is ready, need not have a inotify watch for this */
@@ -568,8 +605,11 @@ tlm_utils_watch_for_files (
       g_free (dir);
       g_free (file_name);
       if (cb) cb (socket_path, is_final, NULL, userdata);
+      g_free (socket_path);
       continue;
     }
+
+    g_free (socket_path);
 
     file_list = g_list_append (file_list, file_name);
     g_hash_table_insert (watch_table, dir, file_list);
