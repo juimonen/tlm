@@ -1,8 +1,4 @@
 #!/bin/sh
 #
 export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/dbus/user_bus_socket
-export WAYLAND_CLIENT_DIR=/tmp
-export WESTON_CONFIG=/etc/xdg/weston/weston-user-modello.ini
-#weston --log=$XDG_RUNTIME_DIR/weston.log --backend=wayland-backend.so --width=720 --height=1080 &
-weston -i0 --log=$XDG_RUNTIME_DIR/weston.log --backend=wayland-backend.so &
-xwalk-launcher Modello005.Homescreen
+tlm-launcher -f /etc/session.d/user-session-modello-launch-script

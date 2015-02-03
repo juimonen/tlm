@@ -365,6 +365,8 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-singleseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-singleseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
+%config(noreplace) %{_sysconfdir}/session.d/user-session-launch-script
+%config(noreplace) %{_sysconfdir}/session.d/user-session-weston
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 %config(noreplace) %{_sysconfdir}/profile.d/weston-env-ivi.sh
@@ -376,6 +378,8 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-singleseat-modello.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-modello
 %config(noreplace) %{_sysconfdir}/session.d/user-session-modello
+%config(noreplace) %{_sysconfdir}/session.d/user-session-modello-launch-script
+%config(noreplace) %{_sysconfdir}/session.d/user-session-modello-weston
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi-modello.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user-modello.ini
 %config(noreplace) %{_sysconfdir}/profile.d/weston-env-ivi.sh
@@ -387,6 +391,8 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-singleseat-ico.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-singleseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session-ico
+%config(noreplace) %{_sysconfdir}/session.d/user-session-ico-launch-script
+%config(noreplace) %{_sysconfdir}/session.d/user-session-ico-weston
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 %config(noreplace) %{_sysconfdir}/profile.d/weston-env-ivi.sh
@@ -398,6 +404,8 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-multiseat.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-multiseat
 %config(noreplace) %{_sysconfdir}/session.d/user-session
+%config(noreplace) %{_sysconfdir}/session.d/user-session-launch-script
+%config(noreplace) %{_sysconfdir}/session.d/user-session-weston
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 %config(noreplace) %{_sysconfdir}/profile.d/weston-env-ivi.sh
@@ -409,6 +417,8 @@ fi
 %config(noreplace) %{_sysconfdir}/tlm-vtc1010.conf
 %config(noreplace) %{_sysconfdir}/session.d/genivi-session-vtc1010
 %config(noreplace) %{_sysconfdir}/session.d/user-session
+%config(noreplace) %{_sysconfdir}/session.d/user-session-launch-script
+%config(noreplace) %{_sysconfdir}/session.d/user-session-weston
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-genivi-vtc1010.ini
 %config(noreplace) %{_sysconfdir}/xdg/weston/weston-user.ini
 %config(noreplace) %{_sysconfdir}/udev/rules.d/*
