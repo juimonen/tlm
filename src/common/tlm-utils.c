@@ -403,34 +403,9 @@ tlm_utils_split_command_lines (const GList const *commands_list) {
 }
 
 typedef struct {
-  gchar *dir;
-  GList *file_list;
-} WatchNode;
-
-static WatchNode *
-_watch_node_new (gchar *dir, GList *file_list)
-{
-  WatchNode *n = g_slice_new0 (WatchNode);
-  if (!n) return NULL;
-  n->dir = dir;
-  n->file_list = file_list;
-
-  return n;
-}
-
-static void
-_watch_node_free (WatchNode *n)
-{
-  if (!n) return;
-  if (n->dir) g_free (n->dir);
-  if (n->file_list) g_list_free_full (n->file_list, g_free);
-
-  g_slice_free (WatchNode, n);
-}
-
-typedef struct {
   int ifd;
-  GHashTable *watch_table; /* { int: WatchNode* } */
+  GHashTable *dir_table; /* { gchar*: GList* } */
+  GHashTable *wd_table; /* { int: const gchar* } */
   WatchCb cb;
   gpointer userdata;
 } WatchInfo;
@@ -438,61 +413,189 @@ typedef struct {
 static WatchInfo*
 _watch_info_new (
     int ifd,
-    GHashTable *watch_table,
     WatchCb cb,
     gpointer userdata)
 {
   WatchInfo *info = g_slice_new0 (WatchInfo);
   info->ifd = ifd;
-  info->watch_table = watch_table;
   info->cb = cb;
   info->userdata = userdata;
+  info->dir_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+  info->wd_table = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, NULL);
 
   return info;
+}
+
+static void
+_destroy_dir_table_entry (gpointer key, gpointer value, gpointer userdata) {
+  (void)key;
+  (void)userdata;
+  g_list_free_full ((GList *)value, g_free);
+}
+
+static void
+_destroy_wd_table_entry (gpointer key, gpointer value, gpointer userdata) {
+  (void)value;
+  int ifd = GPOINTER_TO_INT(userdata);
+  int wd = GPOINTER_TO_INT(key);
+
+  inotify_rm_watch (ifd, wd);
 }
 
 static void
 _watch_info_free (WatchInfo *info)
 {
   if (!info) return;
+
+  if (info->dir_table) {
+    g_hash_table_foreach (info->dir_table, _destroy_dir_table_entry, NULL);
+    g_hash_table_unref (info->dir_table);
+  }
+  if (info->wd_table) {
+    g_hash_table_foreach (info->wd_table, _destroy_wd_table_entry,
+        GINT_TO_POINTER(info->ifd));
+    g_hash_table_unref (info->wd_table);
+  }
   if (info->ifd) close(info->ifd);
-  if (info->watch_table) g_hash_table_unref (info->watch_table);
 
   g_slice_free (WatchInfo, info);
+}
+
+typedef enum {
+  WATCH_FAILED,
+  WATCH_ADDED,
+  WATCH_READY
+} AddWatchResults;
+  
+AddWatchResults
+_add_watch (int ifd, char *file_path, WatchInfo *info) {
+  GList *file_list = NULL;
+  int wd = 0;
+  gchar *file_name = NULL;
+  gchar *dir = NULL;
+  AddWatchResults res = WATCH_FAILED;
+
+  if (!file_path) return WATCH_FAILED;
+
+  file_name = g_path_get_basename (file_path);
+  if (!file_name) return WATCH_FAILED;
+
+  dir = g_path_get_dirname (file_path);
+  if (!dir) {
+    g_free (file_name);
+    return WATCH_FAILED;
+  }
+  if ((file_list = (GList *)g_hash_table_lookup (
+        info->dir_table, (gconstpointer)dir))) {
+    file_list = g_list_append (file_list, file_name);
+    g_free (dir);
+    return WATCH_ADDED;
+  }
+  file_list = g_list_append (NULL, file_name);
+  g_hash_table_insert (info->dir_table, g_strdup(dir), file_list);
+
+  /* add watch on directory if its not existing */
+  if (g_access (dir, 0)) {
+    return _add_watch (ifd, dir, info);
+  }
+
+  DBG("Adding watch for file '%s' in dir '%s'", file_name, dir);
+  if ((wd = inotify_add_watch (ifd, dir, IN_CREATE)) == -1) {
+    WARN ("failed to add inotify watch on %s: %s", dir, strerror (errno));
+    res = WATCH_FAILED;
+    goto remove_and_return;
+  }
+
+  if (!g_access (file_path, 0)) {
+    /* socket is ready, need not have a inotify watch for this */
+    inotify_rm_watch (ifd, wd);
+    res = WATCH_READY;
+    goto remove_and_return;
+  }
+
+  g_hash_table_insert (info->wd_table, GINT_TO_POINTER(wd), dir);
+
+  return WATCH_ADDED;
+
+remove_and_return:
+  g_hash_table_remove (info->dir_table, (gconstpointer)dir);
+  g_list_free_full (file_list, (GDestroyNotify)g_free);
+  
+  return res;
 }
 
 static gboolean
 _inotify_watcher_cb (gint ifd, GIOCondition condition, gpointer userdata)
 {
-  DBG("");
   WatchInfo *info = (WatchInfo *)userdata;
   struct inotify_event *ie = NULL;
   gsize size = sizeof (struct inotify_event) + PATH_MAX + 1;
-  guint nwatch = g_hash_table_size (info->watch_table);
+  guint nwatch = g_hash_table_size (info->wd_table);
 
   ie = (struct inotify_event *) g_slice_alloc0(size);
   while (nwatch &&
          read (ifd, ie, size) > (ssize_t)sizeof (struct inotify_event)) {
+    GList *file_list = NULL;
     GList *element = NULL;
-    WatchNode *node = (WatchNode *)g_hash_table_lookup (
-        info->watch_table, GINT_TO_POINTER(ie->wd));
-    if (!node) continue;
+    GList *pending_list = NULL;
+    gboolean is_first = FALSE;
+    gchar *file_path = NULL;
+    const gchar *dir = NULL;
 
-    element = g_list_find_custom (node->file_list,
+    dir = (gchar *)g_hash_table_lookup (
+        info->wd_table, GINT_TO_POINTER(ie->wd));
+    if (!dir) continue;
+
+    file_list = g_hash_table_lookup (info->dir_table, (gconstpointer)dir);
+    element = g_list_find_custom (file_list,
         (gpointer)ie->name, (GCompareFunc)g_strcmp0);
-    if (!element) continue;
+    if (!element) {
+      DBG("Ignoring '%s' file creation", ie->name);
+      continue;
+    }
+    is_first = (file_list == element);
 
-    gchar *full_name = g_build_filename (node->dir, ie->name, NULL);
     g_free (element->data);
-
-    node->file_list = g_list_delete_link(node->file_list, element);
-    if (!node->file_list) {
-      g_hash_table_remove (info->watch_table, GINT_TO_POINTER(ie->wd));
+    file_list = g_list_delete_link(file_list, element);
+    if (!file_list) {
+      g_hash_table_remove (info->dir_table, dir);
+      g_hash_table_remove (info->wd_table, GINT_TO_POINTER(ie->wd));
       inotify_rm_watch (ifd, ie->wd);
       nwatch--;
+    } else if (is_first) {
+      g_hash_table_insert (info->dir_table, g_strdup (dir), file_list);
     }
-    if (info->cb) info->cb(full_name, nwatch == 0, NULL, info->userdata);
-    g_free (full_name);
+
+    file_path = g_build_filename (dir, ie->name, NULL);
+    if ((pending_list = (GList *)g_hash_table_lookup (info->dir_table,
+          (gconstpointer)file_path)) != NULL) {
+      GList *tmp = NULL;
+
+      // as we are about add real inotify watch, first remove from dir_table
+      g_hash_table_steal (info->dir_table, (gconstpointer)file_path);
+
+      // Add watches to all the files depend on this directory
+      for (tmp = pending_list; tmp; tmp = tmp->next) {
+        gchar *file_name = (gchar *)tmp->data;
+        gchar *new_file_path = g_build_filename (file_path, file_name, NULL);
+        AddWatchResults res = _add_watch (ifd, new_file_path, info);
+        if (res == WATCH_READY) {
+          if (info->cb) {
+            info->cb (new_file_path, nwatch == 0, NULL, info->userdata);
+          }
+        } else if (res == WATCH_ADDED) nwatch++;
+        else {
+          WARN ("Couldn't add watch on '%s'", new_file_path);
+        }
+        g_free (file_name);
+        g_free (new_file_path);
+      }
+      g_list_free (pending_list);
+    } else {
+      DBG("%s", file_path);
+      if (info->cb) info->cb (file_path, nwatch == 0, NULL, info->userdata);
+    }
+    g_free (file_path);
   }
 
   g_slice_free1 (size, ie);
@@ -533,7 +636,7 @@ _expand_file_path (const gchar *file_path)
 
   return expanded_path;
 }
-  
+
 guint
 tlm_utils_watch_for_files (
     const gchar **watch_list,
@@ -542,8 +645,7 @@ tlm_utils_watch_for_files (
 {
   gint nwatch = 0;
   int ifd = 0;
-  GHashTable *watch_table = NULL; /* { gchar * : GList *} */
-  GHashTable *final_watch_table = NULL; /* {  guint: WatchNode* } */
+  WatchInfo *w_info = NULL;
 
   if (!watch_list) return 0;
 
@@ -552,84 +654,27 @@ tlm_utils_watch_for_files (
     return 0;
   }
 
-  watch_table = g_hash_table_new_full (g_str_hash, g_str_equal,
-                                       g_free, NULL);
-  final_watch_table = g_hash_table_new_full (g_direct_hash, g_direct_equal,
-                          NULL, (GDestroyNotify)_watch_node_free);
+  w_info = _watch_info_new (ifd, cb, userdata);
+
   for (; *watch_list; watch_list++) {
     char *socket_path  = _expand_file_path (*watch_list);
-    GList *file_list = NULL;
-    char *dir = NULL;
-    char *file_name = NULL;
-    int wd = 0;
-
-    /* TODO: expand 'socket_path', i.e., replace $variables if any */
-
-    file_name = g_path_get_basename (socket_path);
-    if (!file_name) {
-      g_free (socket_path);
-      continue;
-    }
-
-    dir = g_path_get_dirname (socket_path);
-    if (!dir) {
-      g_free (socket_path);
-      g_free (file_name);
-      continue;
-    }
-
-    file_list = (GList *)g_hash_table_lookup (watch_table, (gconstpointer)dir);
-    if (file_list) {
-      file_list = g_list_append (file_list, file_name);
-      g_free (dir);
-      g_free (socket_path);
-      continue;
-    }
-
-    DBG("Adding watch for file '%s' in dir '%s'", file_name, dir);
-    if (!(wd = inotify_add_watch (ifd, dir, IN_CREATE))) {
-      WARN ("failed to add inotify watch on %s: %s",
-          socket_path, strerror (errno));
-      g_free (dir);
-      g_free (file_name);
-      g_free (socket_path);
-      /* FIXME; inform caller about failure via WatchCb */
-      continue;
-    }
-
-
-    if (!g_access (socket_path, 0)) {
+    AddWatchResults res = _add_watch (ifd, socket_path, w_info);
+    if (res == WATCH_FAILED) {
+      WARN ("Failed to watch for '%s'", socket_path);
+    } else if (res == WATCH_READY) {
       gboolean is_final = !nwatch && !*(watch_list + 1);
-      /* socket is ready, need not have a inotify watch for this */
-      inotify_rm_watch (ifd, wd);
-      g_free (dir);
-      g_free (file_name);
       if (cb) cb (socket_path, is_final, NULL, userdata);
-      g_free (socket_path);
-      continue;
+    } else {
+      nwatch++;
     }
-
-    g_free (socket_path);
-
-    file_list = g_list_append (file_list, file_name);
-    g_hash_table_insert (watch_table, dir, file_list);
-
-    g_hash_table_insert (final_watch_table, GINT_TO_POINTER(wd),
-        _watch_node_new (dir, file_list));
-
-    nwatch++;
   }
 
-  g_hash_table_unref (watch_table);
   if (nwatch == 0) {
-    close (ifd);
-    g_hash_table_unref (final_watch_table);
+    _watch_info_free (w_info);
     return 0;
   }
 
   return g_unix_fd_add_full (G_PRIORITY_DEFAULT, ifd, G_IO_IN,
-      _inotify_watcher_cb,
-      _watch_info_new (ifd, final_watch_table, cb, userdata),
-      (GDestroyNotify)_watch_info_free);
+      _inotify_watcher_cb, w_info, (GDestroyNotify)_watch_info_free);
 }
 
