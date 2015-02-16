@@ -89,7 +89,7 @@
  * A helper macro that creates a #GError with the proper tlm domain
  */
 
-#define _ERROR_PREFIX "org.tizen.Tlm.Error"
+#define _ERROR_PREFIX "org.O1.Tlm.Error"
 
 GDBusErrorEntry _tlm_errors[] =
 {

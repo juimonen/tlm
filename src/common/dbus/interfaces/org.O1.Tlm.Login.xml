@@ -2,7 +2,7 @@
 <node>
 
     <!--
-    org.tizen.Tlm.Login:
+    org.O1.Tlm.Login:
     @short_description: a D-Bus interface to TLM
 
     Login objects can be used to login, logout and switch users. Login object
@@ -15,7 +15,7 @@
     TLM_DBUS_SOCKET_PATH/&lt;seat_id-uid&gt; by the user (uid) who is logged in
     at the seat (seat_id).
     -->
-    <interface name="org.tizen.Tlm.Login">
+    <interface name="org.O1.Tlm.Login">
 
         <!--
         loginUser:
@@ -28,7 +28,7 @@
         while switchUser() will not.
         -->
         <method name="loginUser">
-            
+
             <arg name="seat_id" type="s" direction="in">
             </arg>
 

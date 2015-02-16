@@ -1,6 +1,6 @@
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 <node>
-  <interface name="org.tizen.Tlm.Session">
+  <interface name="org.O1.Tlm.Session">
     <property type='s' name='seatid' access='readwrite'/>
     <property type='s' name='username' access='readwrite'/>
     <property type='s' name='service' access='readwrite'/>
