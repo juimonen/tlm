@@ -1,5 +1,5 @@
 [Unit]
-Description=Tizen Login Manager
+Description=Tiny Login Manager
 After=systemd-user-sessions.service systemd-logind.service
 Requires=dbus.socket
 

@@ -1,7 +1,7 @@
 /* vi: set et sw=4 ts=4 cino=t0,(0: */
 /* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
- * This file is part of tlm (Tizen Login Manager)
+ * This file is part of tlm (Tiny Login Manager)
  *
  * Copyright (C) 2013-2015 Intel Corporation.
  *
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
     g_type_init ();
 #endif
 
-    opt_context = g_option_context_new ("Tizen Login Manager");
+    opt_context = g_option_context_new ("Tiny Login Manager");
     g_option_context_add_main_entries (opt_context, opt_entries, NULL);
     g_option_context_parse (opt_context, &argc, &argv, &error);
     g_option_context_free (opt_context);

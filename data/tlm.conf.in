@@ -64,7 +64,6 @@ SESSION_TYPE=wayland
 # Seat specific settings where the group name is seat id
 [seat0]
 DEFAULT_USER=app
-#DEFAULT_USER=tizen
 #SETUP_TERMINAL=1
 #VTNR=7
 #SESSION_CMD=weston-launch

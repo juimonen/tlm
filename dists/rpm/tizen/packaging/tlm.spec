@@ -73,7 +73,7 @@ Requires:   %{name} = %{version}-%{release}
 Provides:   %{name}-config
 
 %description config-common
-Tizen Login Manager configuration files for common-profile.
+Tiny Login Manager configuration files for common-profile.
 
 %else
 
@@ -88,7 +88,7 @@ Conflicts:  %{name}-config-ivi-multiseat, %{name}-config-ivi-vtc1010
 Conflicts:  ico-uxf-weston-plugin
 
 %description config-ivi-singleseat
-Generic Tizen Login Manager configuration files for ivi-profile with
+Generic Tiny Login Manager configuration files for ivi-profile with
 single seat.
 
 
@@ -104,7 +104,7 @@ Conflicts:  %{name}-config-ivi-multiseat, %{name}-config-ivi-vtc1010
 Conflicts:  ico-uxf-weston-plugin
 
 %description config-ivi-singleseat-modello
-Generic Tizen Login Manager configuration files for ivi-profile with
+Generic Tiny Login Manager configuration files for ivi-profile with
 single seat for modello.
 
 
@@ -118,7 +118,7 @@ Conflicts:  %{name}-config-ivi-singleseat, %{name}-config-ivi-singleseat-modello
 Conflicts:  %{name}-config-ivi-multiseat, %{name}-config-ivi-vtc1010
 
 %description config-ivi-singleseat-ico
-Generic Tizen Login Manager configuration files for ivi-profile with
+Generic Tiny Login Manager configuration files for ivi-profile with
 single seat for ico.
 
 
@@ -133,7 +133,7 @@ Conflicts:  %{name}-config-ivi-singleseat-ico, %{name}-config-ivi-vtc1010
 Conflicts:  ico-uxf-weston-plugin
 
 %description config-ivi-multiseat
-Generic Tizen Login Manager configuration files for ivi-profile with
+Generic Tiny Login Manager configuration files for ivi-profile with
 multi seat.
 
 
@@ -148,7 +148,7 @@ Conflicts:  %{name}-config-ivi-singleseat-ico, %{name}-config-ivi-multiseat
 Conflicts:  ico-uxf-weston-plugin
 
 %description config-ivi-vtc1010
-Tizen Login Manager configuration files for ivi-profile on VTC-1010 hardware.
+Tiny Login Manager configuration files for ivi-profile on VTC-1010 hardware.
 
 %endif
 
