@@ -1,7 +1,7 @@
 /* vi: set et sw=4 ts=4 cino=t0,(0: */
 /* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
- * This file is part of tlm (Tizen Login Manager)
+ * This file is part of tlm (Tiny Login Manager)
  *
  * Copyright (C) 2013-2014 Intel Corporation.
  *
@@ -91,8 +91,6 @@ typedef struct _TlmSeatWatchClosure
     TlmManager *manager;
     gchar *seat_id;
     gchar *seat_path;
-    guint nwatch;
-    GList *watch_list;
 } TlmSeatWatchClosure;
 
 static void
@@ -520,46 +518,34 @@ _create_seat (TlmManager *manager,
     }
 }
 
-
-gboolean
-_seat_watch_cb (gint ifd, GIOCondition condition, gpointer user_data)
+static void
+_seat_watch_cb (
+    const gchar *watch_item,
+    gboolean is_final,
+    GError *error,
+    gpointer user_data)
 {
-    g_return_val_if_fail (user_data, G_SOURCE_REMOVE);
-    TlmSeatWatchClosure *closure = (TlmSeatWatchClosure *) user_data;
-    struct inotify_event *ievent;
-    gsize size_event;
+    g_return_if_fail (watch_item && user_data);
 
-    size_event = sizeof (struct inotify_event) + PATH_MAX + 1;
-    ievent = (struct inotify_event *) g_malloc (size_event);
-    DBG ("seat %s inotify wakeup", closure->seat_id);
-    while (read (ifd, ievent, size_event) > (ssize_t) sizeof (struct inotify_event) &&
-           closure->nwatch) {
-        DBG ("seat %s notify for %s", closure->seat_id, ievent->name);
-        GList *res = g_list_find_custom (closure->watch_list, ievent->name,
-                                         (GCompareFunc) g_strcmp0);
-        if (res) {
-            DBG ("seat %s watch for %s succeeded, %u left",
-                 closure->seat_id, (gchar *) res->data, closure->nwatch - 1);
-            g_free (res->data);
-            closure->watch_list = g_list_delete_link (closure->watch_list, res);
-            inotify_rm_watch (ifd, ievent->wd);
-            closure->nwatch--;
-        }
+    TlmSeatWatchClosure *closure = (TlmSeatWatchClosure *) user_data;
+
+    if (error) {
+      WARN ("Error in notify %s on seat %s: %s", watch_item, closure->seat_id,
+          error->message);
+      g_error_free (error);
+      return;
     }
-    g_free (ievent);
-    if (!closure->nwatch) {
+
+    DBG ("seat %s notify for %s", closure->seat_id, watch_item);
+
+    if (is_final) {
         _create_seat (closure->manager, closure->seat_id, closure->seat_path);
-        close (ifd);
         g_object_unref (closure->manager);
         g_free (closure->seat_id);
         g_free (closure->seat_path);
-        g_list_free_full (closure->watch_list, g_free);
         g_free (closure);
-        return G_SOURCE_REMOVE;
     }
-    return G_SOURCE_CONTINUE;
 }
-
 
 static void
 _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
@@ -579,45 +565,29 @@ _add_seat (TlmManager *manager, const gchar *seat_id, const gchar *seat_path)
                                         TLM_CONFIG_SEAT_NWATCH,
                                         0);
     if (nwatch) {
-        GList *watch_list = NULL;
-        guint x, watch_len = 0;
-        int ifd = inotify_init1 (IN_NONBLOCK|IN_CLOEXEC);
-        if (ifd < 0)
-            ERR ("inotify_init(): %s", strerror (errno));
+        int x;
+        int watch_id = 0;
+        gchar **watch_items = g_new0 (gchar *, nwatch + 1);
         for (x = 0; x < nwatch; x++) {
-            gchar *watchx = g_strdup_printf ("%s%u",
-                                             TLM_CONFIG_SEAT_WATCHX,
-                                             x);
-            const gchar *watch_item = tlm_config_get_string (priv->config,
-                                                             seat_id,
-                                                             watchx);
-            g_free (watchx);
-            if (!watch_item)
-                continue;
-            gchar *watch_path = g_path_get_dirname (watch_item);
-            if (inotify_add_watch (ifd, watch_path, IN_CREATE) < 0)
-                WARN ("inotify_add_watch(): %s", strerror (errno));
-            g_free (watch_path);
-            if (g_access (watch_item, 0)) {
-                watch_list = g_list_append (watch_list,
-                                            g_path_get_basename (watch_item));
-                watch_len++;
-                DBG ("seat %s waiting for %s", seat_id, watch_item);
-            }
+          gchar *watchx = g_strdup_printf ("%s%u", TLM_CONFIG_SEAT_WATCHX, x);
+          watch_items[x] = (char *)tlm_config_get_string (
+              priv->config, seat_id, watchx);
+          g_free (watchx);
         }
+        watch_items[nwatch] = NULL;
+        TlmSeatWatchClosure *watch_closure = 
+            g_new0 (TlmSeatWatchClosure, 1);
+        watch_closure->manager = g_object_ref (manager);
+        watch_closure->seat_id = g_strdup (seat_id);
+        watch_closure->seat_path = g_strdup (seat_path);
 
-        if (watch_len) {
-            TlmSeatWatchClosure *watch_closure =
-                g_new0 (TlmSeatWatchClosure, 1);
-            watch_closure->manager = g_object_ref (manager);
-            watch_closure->seat_id = g_strdup (seat_id);
-            watch_closure->seat_path = g_strdup (seat_path);
-            watch_closure->nwatch = watch_len;
-            watch_closure->watch_list = watch_list;
-            g_unix_fd_add (ifd, G_IO_IN, _seat_watch_cb, watch_closure);
-            return;
+        watch_id = tlm_utils_watch_for_files (
+            (const gchar **)watch_items, _seat_watch_cb, watch_closure);
+        g_free (watch_items);
+        if (watch_id <= 0) {
+            WARN ("Failed to add watch on seat %s", seat_id);
         } else {
-            close (ifd);
+            return;
         }
     }
 

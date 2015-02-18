@@ -1,0 +1,5 @@
+#!/bin/sh
+#
+export WAYLAND_CLIENT_DIR=/tmp
+export WESTON_CONFIG=/etc/xdg/weston/weston.ini
+weston -i0 --log=$XDG_RUNTIME_DIR/weston.log --backend=wayland-backend.so

@@ -22,7 +22,7 @@
         user is logged in at a specific seat.
     </para>
     <para>
-        TLM also exports a <link linkend="gdbus-org.tizen.Tlm.Login">D-Bus API</link>, that can be used to log in, log out and
+        TLM also exports a <link linkend="gdbus-org.O1.Tlm.Login">D-Bus API</link>, that can be used to log in, log out and
         switch users on a seat.
     </para>
     <para>

@@ -1,7 +1,7 @@
 /* vi: set et sw=4 ts=4 cino=t0,(0: */
 /* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
- * This file is part of tlm (Tizen Login Manager)
+ * This file is part of tlm (Tiny Login Manager)
  *
  * Copyright (C) 2013 Intel Corporation.
  *
@@ -178,6 +178,6 @@ tlm_auth_plugin_default_init (TlmAuthPluginDefault *self)
         WARN ("assert(sigaction()) : %s", strerror(errno));
     }
 
-    tlm_log_init("TLM_AUTH_PLIGIN");
+    tlm_log_init("TLM_AUTH_PLUGIN");
 }
 

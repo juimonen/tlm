@@ -31,10 +31,10 @@
 /*
  * Common DBUS definitions
  */
-#define TLM_SERVICE_PREFIX       "org.tizen.Tlm"
+#define TLM_SERVICE_PREFIX       "org.O1.Tlm"
 #define TLM_SERVICE              TLM_SERVICE_PREFIX
-#define TLM_LOGIN_OBJECTPATH     "/org/tizen/Tlm/Login"
-#define TLM_SESSION_OBJECTPATH   "/org/tizen/Tlm/Session"
+#define TLM_LOGIN_OBJECTPATH     "/org/O1/Tlm/Login"
+#define TLM_SESSION_OBJECTPATH   "/org/O1/Tlm/Session"
 
 #define TLM_DBUS_FREEDESKTOP_SERVICE    "org.freedesktop.DBus"
 #define TLM_DBUS_FREEDESKTOP_PATH       "/org/freedesktop/DBus"

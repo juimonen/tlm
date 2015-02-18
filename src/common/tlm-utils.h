@@ -1,7 +1,7 @@
 /* vi: set et sw=4 ts=4 cino=t0,(0: */
 /* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
- * This file is part of tlm (Tizen Login Manager)
+ * This file is part of tlm (Tiny Login Manager)
  *
  * Copyright (C) 2013 Intel Corporation.
  *
@@ -57,10 +57,15 @@ void
 tlm_utils_log_utmp_entry (const gchar *username);
 
 gchar **
-tlm_utils_split_command_line(const gchar *command);
+tlm_utils_split_command_line (const gchar *command);
 
 GList *
-tlm_utils_split_command_lines(const GList const *commands_list);
+tlm_utils_split_command_lines (const GList const *commands_list);
+
+typedef void (*WatchCb) (const gchar *found_item, gboolean is_final, GError *error, gpointer userdata);
+
+guint
+tlm_utils_watch_for_files (const gchar **watch_list, WatchCb cb, gpointer userdata);
 
 G_END_DECLS
 

@@ -1,0 +1,3 @@
+M:/etc/session.d/user-session-weston
+#W:$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY.lock
+#L:app_launcher -s Modello005.Homescreen

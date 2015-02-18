@@ -1,7 +1,7 @@
 /* vi: set et sw=4 ts=4 cino=t0,(0: */
 /* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
- * This file is part of tlm (Tizen Login Manager)
+ * This file is part of tlm (Tiny Login Manager)
  *
  * Copyright (C) 2014 Intel Corporation.
  *
@@ -89,7 +89,7 @@
  * A helper macro that creates a #GError with the proper tlm domain
  */
 
-#define _ERROR_PREFIX "org.tizen.Tlm.Error"
+#define _ERROR_PREFIX "org.O1.Tlm.Error"
 
 GDBusErrorEntry _tlm_errors[] =
 {
