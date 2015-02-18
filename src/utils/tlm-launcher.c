@@ -170,7 +170,7 @@ static void _tlm_launcher_process (TlmLauncher *l)
           ChildInfo *info = g_slice_new0 (ChildInfo);
           info->pid = child_pid;
           info->watcher = g_child_watch_add (child_pid,
-              (GChildWatchFunc)_on_child_down_cb, NULL);
+              (GChildWatchFunc)_on_child_down_cb, l);
           g_hash_table_insert (l->childs,
               GINT_TO_POINTER(child_pid), info);
         }
