@@ -625,7 +625,7 @@ tlm_seat_create_session (TlmSeat *seat,
     seat->priv->dbus_observer = NULL;
     if (!_create_dbus_observer (seat,
             priv->default_active ? priv->default_user : username)) {
-        g_object_unref (priv->session);
+        g_clear_object (&priv->session);
         g_signal_emit (seat, signals[SIG_SESSION_ERROR],  0,
                 TLM_ERROR_DBUS_SERVER_START_FAILURE);
         return FALSE;
