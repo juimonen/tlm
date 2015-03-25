@@ -38,5 +38,6 @@ libtlm_common_la_CFLAGS = \
 
 libtlm_common_la_LIBADD = \
 	$(TLM_LIBS) \
+	-lpam \
 	$(NULL)
 

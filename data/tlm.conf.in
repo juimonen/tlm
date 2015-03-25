@@ -28,6 +28,9 @@ PAM_SERVICE=tlm-login
 # PAM service file for default user
 DEFAULT_PAM_SERVICE=tlm-default-login
 #
+# PAM authentication service for tizen TV
+PAM_AUTHENTICATION_SERVICE=system-auth
+#
 # Default (guest) username or template to use
 #  %S - seat number
 #  %I - seat id string

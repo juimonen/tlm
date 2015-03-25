@@ -457,6 +457,13 @@ tlm_seat_switch_user (TlmSeat *seat,
 
     TlmSeatPrivate *priv = TLM_SEAT_PRIV (seat);
 
+    // If username & its password is not authenticated, immediately return FALSE
+    // so that current session is not terminated.
+    if (!tlm_authenticate_user (priv->config, username, password)) {
+        WARN("fail to tlm_authenticate_user");
+        return FALSE;
+    }
+
     if (!priv->session) {
         return tlm_seat_create_session (seat, service, username, password,
                 environment);
