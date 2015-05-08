@@ -22,3 +22,8 @@ override_dh_auto_configure:
 
 override_dh_auto_test:
 	true
+
+override_dh_install:
+	install -m 755 -d debian/tmp/lib/systemd/system
+	install -m 644 data/tlm.service debian/tmp/lib/systemd/system/
+	dh_install

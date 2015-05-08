@@ -30,6 +30,8 @@
 #include <sys/types.h>
 #include <glib.h>
 
+#include "tlm-config.h"
+
 G_BEGIN_DECLS
 
 void
@@ -66,6 +68,9 @@ typedef void (*WatchCb) (const gchar *found_item, gboolean is_final, GError *err
 
 guint
 tlm_utils_watch_for_files (const gchar **watch_list, WatchCb cb, gpointer userdata);
+
+gboolean
+tlm_authenticate_user (TlmConfig *config, const gchar *username, const gchar *password);
 
 G_END_DECLS
 

@@ -2,6 +2,7 @@
 /usr/bin/tlm-sessiond
 /usr/lib/*.so.*
 /usr/lib/tlm/plugins/*.so*
+/lib/systemd/system/tlm.service
 /etc/tlm.conf
 /usr/bin/tlm-client
 /usr/bin/tlm-launcher
