@@ -7,6 +7,7 @@ EXTRA_DIST = \
       tlm-default-login \
       tlm-system-login \
       tizen-common \
-      tizen-ivi
+      tizen-ivi \
+      yocto
 
 sysconf_DATA = tlm.conf

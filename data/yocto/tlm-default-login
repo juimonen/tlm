@@ -1,0 +1,8 @@
+#%PAM-1.0
+auth            [user_unknown=ignore success=ok ignore=ignore default=bad] pam_securetty.so
+auth            required        pam_permit.so
+account         required        pam_nologin.so
+account         include         common-account
+password        include         common-password
+
+session         include         common-session

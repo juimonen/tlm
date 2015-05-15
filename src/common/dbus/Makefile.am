@@ -60,9 +60,9 @@ mostlyclean-local:
 	rm -rf $(abs_top_builddir)/docs/tlm-dbus-session-doc-gen-org.O1.Tlm.Session.xml
 
 copy_xml_doc: tlm-dbus-login-gen.c tlm-dbus-session-gen.c
-	cp -f $(abs_top_srcdir)/src/common/dbus/tlm-dbus-login-doc-gen-org.O1.Tlm.Login.xml $(abs_top_builddir)/docs/tlm-dbus-login-doc-gen-org.O1.Tlm.Login.xml
+	cp -f $(abs_top_builddir)/src/common/dbus/tlm-dbus-login-doc-gen-org.O1.Tlm.Login.xml $(abs_top_builddir)/docs/tlm-dbus-login-doc-gen-org.O1.Tlm.Login.xml
 	chmod +w $(abs_top_builddir)/docs/tlm-dbus-login-doc-gen-org.O1.Tlm.Login.xml
-	cp -f $(abs_top_srcdir)/src/common/dbus/tlm-dbus-session-doc-gen-org.O1.Tlm.Session.xml $(abs_top_builddir)/docs/tlm-dbus-session-doc-gen-org.O1.Tlm.Session.xml
+	cp -f $(abs_top_builddir)/src/common/dbus/tlm-dbus-session-doc-gen-org.O1.Tlm.Session.xml $(abs_top_builddir)/docs/tlm-dbus-session-doc-gen-org.O1.Tlm.Session.xml
 	chmod +w $(abs_top_builddir)/docs/tlm-dbus-session-doc-gen-org.O1.Tlm.Session.xml
 
 clean-local:

@@ -715,7 +715,7 @@ _exec_user_session (
         WARN ("failed reset SIGINT: %s", strerror(errno));
 
     DBG ("executing: ");
-    args_iter = args;
+    args_iter = args; i = 0;
     while (args_iter && *args_iter) {
         DBG ("\targv[%d]: %s", i, *args_iter);
         args_iter++; i++;
