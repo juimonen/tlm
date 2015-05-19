@@ -1,2 +1,3 @@
-#!/bin/sh -l
+#!/bin/sh
 #
+tlm-launcher -f /etc/session.d/user-session-launch-script

@@ -159,7 +159,7 @@ static void _tlm_launcher_process (TlmLauncher *l)
       case 'L':
         argv = tlm_utils_split_command_line (cmd);
         if ((child_pid = fork()) < 0) {
-          ERR("fork() failed: %s", strerror (errno));
+          WARN("fork() failed: %s", strerror (errno));
         } else if (child_pid == 0) {
             /* child process */
             INFO("Launching command : %s, pid: %d, ppid: %d\n",
@@ -231,7 +231,7 @@ int main (int argc, char *argv[])
   _tlm_launcher_init (&launcher);
 
   if (!(launcher.fp = fopen(file, "r"))) {
-    ERR("Failed to open file '%s':%s", file, strerror(errno));
+    WARN("Failed to open file '%s':%s", file, strerror(errno));
     _tlm_launcher_deinit (&launcher);
     return 0;
   }
