@@ -67,8 +67,8 @@ EXTRA_HFILES=
 
 # Header files or dirs to ignore when scanning. Use base file/dir names
 # e.g. IGNORE_HFILES=gtkdebug.h gtkintl.h private_code
-IGNORE_HFILES=tlm-dbus-login-gen.h tlm-dbus-session-gen.h tlm-dbus.h \
-tlm-dbus-utils.h tlm-pipe-stream.h tlm-utils.h
+IGNORE_HFILES=tlm-dbus-login-gen.h tlm-dbus-launcher-gen.h tlm-dbus-session-gen.h tlm-dbus.h \
+tlm-dbus-utils.h tlm-pipe-stream.h tlm-utils.h tlm-dbus-server-p2p.h tlm-dbus-server-interface.h
 
 # Images to copy into HTML directory.
 # e.g. HTML_IMAGES=$(top_srcdir)/gtk/stock-icons/stock_about_24.png
@@ -78,7 +78,8 @@ HTML_IMAGES=
 # e.g. content_files=running.sgml building.sgml changes-2.0.sgml
 content_files=introduction.xml \
 tlm-dbus-login-doc-gen-org.O1.Tlm.Login.xml \
-tlm-dbus-session-doc-gen-org.O1.Tlm.Session.xml
+tlm-dbus-session-doc-gen-org.O1.Tlm.Session.xml \
+tlm-dbus-launcher-doc-gen-org.O1.Tlm.Launcher.xml
 
 # SGML files where gtk-doc abbrevations (#GtkWidget) are expanded
 # These files must be listed here *and* in content_files

@@ -59,6 +59,7 @@ enum {
     SIG_SESSION_CREATED,
     SIG_SESSION_TERMINATED,
     SIG_SESSION_ERROR,
+    SIG_SESSION_INFO,
     SIG_MAX
 };
 static guint signals[SIG_MAX];
@@ -117,7 +118,7 @@ _handle_session_created (
 
     DBG ("sessionid: %s", sessionid);
 
-    g_signal_emit (self, signals[SIG_SESSION_CREATED], 0, self->priv->id);
+    g_signal_emit (self, signals[SIG_SESSION_CREATED], 0, sessionid);
 
     g_clear_object (&self->priv->prev_dbus_observer);
 }
@@ -134,6 +135,7 @@ _close_active_session (TlmSeat *self)
 static void
 _handle_session_terminated (
         TlmSeat *self,
+        const gchar *sessionid,
         gpointer user_data)
 {
     g_return_if_fail (self && TLM_IS_SEAT (self));
@@ -148,7 +150,7 @@ _handle_session_terminated (
     g_signal_emit (seat,
             signals[SIG_SESSION_TERMINATED],
             0,
-            priv->id,
+            sessionid,
             &stop);
     if (stop) {
         DBG ("no relogin or switch user");
@@ -202,6 +204,19 @@ _handle_error (
 }
 
 static void
+_handle_session_info (
+        TlmSeat *self,
+        GVariant *info,
+        gpointer user_data)
+{
+    g_return_if_fail (self && TLM_IS_SEAT (self));
+
+    DBG ("emit session info");
+    g_signal_emit (self, signals[SIG_SESSION_INFO],  0,
+            tlm_seat_get_session_id (self), info);
+}
+
+static void
 _disconnect_session_signals (
         TlmSeat *seat)
 {
@@ -215,6 +230,8 @@ _disconnect_session_signals (
             _handle_session_terminated, seat);
     g_signal_handlers_disconnect_by_func (G_OBJECT (priv->session),
             _handle_error, seat);
+    g_signal_handlers_disconnect_by_func (G_OBJECT (priv->session),
+            _handle_session_info, seat);
 }
 
 static void
@@ -230,6 +247,8 @@ _connect_session_signals (
             G_CALLBACK(_handle_session_terminated), seat);
     g_signal_connect_swapped (priv->session, "session-error",
             G_CALLBACK(_handle_error), seat);
+    g_signal_connect_swapped (priv->session, "session-info",
+            G_CALLBACK(_handle_session_info), seat);
 }
 
 static gboolean
@@ -425,6 +444,17 @@ tlm_seat_class_init (TlmSeatClass *klass)
                                                     G_TYPE_NONE,
                                                     1,
                                                     G_TYPE_UINT);
+    signals[SIG_SESSION_INFO] = g_signal_new ("session-info",
+                                                    TLM_TYPE_SEAT,
+                                                    G_SIGNAL_RUN_LAST,
+                                                    0,
+                                                    NULL,
+                                                    NULL,
+                                                    NULL,
+                                                    G_TYPE_NONE,
+                                                    2,
+                                                    G_TYPE_STRING,
+                                                    G_TYPE_VARIANT);
 }
 
 static void
@@ -444,6 +474,15 @@ tlm_seat_get_id (TlmSeat *seat)
     g_return_val_if_fail (seat && TLM_IS_SEAT (seat), NULL);
 
     return (const gchar*) seat->priv->id;
+}
+
+const gchar *
+tlm_seat_get_session_id (TlmSeat *seat)
+{
+    g_return_val_if_fail (seat && TLM_IS_SEAT (seat), NULL);
+
+    if (!seat->priv->session) return NULL;
+    return tlm_session_remote_get_sessionid (seat->priv->session);
 }
 
 gboolean
@@ -660,6 +699,25 @@ tlm_seat_terminate_session (TlmSeat *seat)
     if (!seat->priv->session ||
         !tlm_session_remote_terminate (seat->priv->session)) {
         WARN ("No active session to terminate");
+        g_signal_emit (seat, signals[SIG_SESSION_ERROR], 0,
+                TLM_ERROR_SESSION_NOT_VALID);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+gboolean
+tlm_seat_get_session_info (TlmSeat *seat, const gchar *sessionid)
+{
+    g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
+    g_return_val_if_fail (seat->priv, FALSE);
+
+    if (!seat->priv->session ||
+        g_strcmp0 (sessionid, tlm_session_remote_get_sessionid (
+                seat->priv->session)) != 0 ||
+        !tlm_session_remote_get_info (seat->priv->session)) {
+        WARN ("No active session to get info");
         g_signal_emit (seat, signals[SIG_SESSION_ERROR], 0,
                 TLM_ERROR_SESSION_NOT_VALID);
         return FALSE;

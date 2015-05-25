@@ -37,7 +37,7 @@ src/daemon/tlm
 src/sessiond/tlm-sessiond
 src/utils/tlm-client
 src/utils/tlm-weston-launch
-src/utils/tlm-launcher
+src/launcher/tlm-launcher
 tests/config/configtest
 tests/daemon/daemontest
 test-driver

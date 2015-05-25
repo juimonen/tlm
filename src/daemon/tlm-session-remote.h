@@ -82,6 +82,14 @@ gboolean
 tlm_session_remote_terminate (
         TlmSessionRemote *session);
 
+gboolean
+tlm_session_remote_get_info (
+        TlmSessionRemote *self);
+
+const gchar *
+tlm_session_remote_get_sessionid (
+        TlmSessionRemote *session);
+
 G_END_DECLS
 
 #endif /* __TLM_SESSION_REMOTE_H_ */

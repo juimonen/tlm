@@ -23,6 +23,7 @@
  */
 
 #include "config.h"
+
 #include <error.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -35,12 +36,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "config.h"
-
 #include "common/dbus/tlm-dbus.h"
 #include "common/tlm-log.h"
 #include "common/tlm-config.h"
 #include "common/dbus/tlm-dbus-login-gen.h"
+#include "common/dbus/tlm-dbus-launcher-gen.h"
 #include "common/tlm-utils.h"
 #include "common/dbus/tlm-dbus-utils.h"
 
@@ -54,6 +54,13 @@ typedef struct {
     gchar *seatid;
     gchar **environment;
 } TlmUser;
+
+
+typedef struct {
+    gchar *sessionid;
+    gchar *command;
+    gchar *args;
+} TlmLauncher;
 
 static TlmUser *
 _create_tlm_user ()
@@ -71,6 +78,24 @@ _free_tlm_user (
         g_free (user->seatid);
         g_strfreev (user->environment);
         g_free (user);
+    }
+}
+
+static TlmLauncher *
+_create_tlm_launcher ()
+{
+    return g_malloc0 (sizeof (TlmLauncher));
+}
+
+static void
+_free_tlm_launcher (
+        TlmLauncher *launcher)
+{
+    if (launcher) {
+        g_free (launcher->sessionid);
+        g_free (launcher->command);
+        g_free (launcher->args);
+        g_free (launcher);
     }
 }
 
@@ -152,6 +177,30 @@ _get_bus_connection (
             G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
 }
 
+gchar *
+_get_dbus_socket_path (
+        GVariant *sessioninfo,
+        const gchar *sessionid)
+{
+    GVariantIter iter;
+    gchar *key = NULL;
+    GVariant *value = NULL;
+    gchar *path = NULL;
+
+    g_return_val_if_fail (sessioninfo != NULL, NULL);
+
+    g_variant_iter_init (&iter, sessioninfo);
+    while (g_variant_iter_next (&iter, "{sv}", &key, &value)) {
+        if (g_strcmp0 (key, "uid") == 0) {
+            uid_t uid = g_variant_get_uint32 (value);
+            path = g_strdup_printf ("unix:path=%s/%d/%s",
+                    TLM_RUNTIME_DIR_PREFIX, uid, sessionid);
+            break;
+        }
+    }
+    return path;
+}
+
 TlmDbusLogin *
 _get_login_object (
         GDBusConnection *connection,
@@ -159,6 +208,65 @@ _get_login_object (
 {
     return tlm_dbus_login_proxy_new_sync (connection, G_DBUS_PROXY_FLAGS_NONE,
             NULL, TLM_LOGIN_OBJECTPATH, NULL, error);
+}
+
+GDBusConnection *
+_get_launcher_bus_connection (
+        const gchar *sessionid,
+        GError *error)
+{
+    GDBusConnection *connection = NULL;
+    TlmDbusLogin *login_object = NULL;
+    GVariant *sessioninfo = NULL;
+    gchar *address = NULL;
+
+    connection = _get_root_socket_bus_connection (&error);
+    if (connection == NULL) {
+        WARN("failed to get bus connection : error %s",
+                error ? error->message : "(null)");
+        goto _finished;
+    }
+    login_object = _get_login_object (connection, &error);
+    if (login_object == NULL) {
+        WARN("failed to get login object : error %s",
+            error ? error->message : "(null)");
+        goto _finished;
+    }
+
+    tlm_dbus_login_call_get_session_info_sync (login_object, sessionid,
+            &sessioninfo, NULL, &error);
+    if (error) {
+        WARN ("launcher dbusg session failed with error: %d:%s", error->code,
+                error->message);
+        g_error_free (error); error = NULL;
+        if (connection) g_object_unref (connection);
+        connection = NULL;
+        goto _finished;
+    }
+    /* get dbus connection for specific launcher only */
+    address = _get_dbus_socket_path (sessioninfo, sessionid);
+    DBG ("get launcher dbus conn with add %s session id %s", address,
+            sessionid);
+    connection = g_dbus_connection_new_for_address_sync (
+            address,
+            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, &error);
+    g_variant_unref (sessioninfo);
+    g_free (address);
+
+_finished:
+    if (error) g_error_free (error);
+    if (login_object) g_object_unref (login_object);
+    return connection;
+}
+
+TlmDbusLauncher *
+_get_launcher_object (
+        GDBusConnection *connection,
+        GError **error)
+{
+    return tlm_dbus_launcher_proxy_new_sync (connection,
+            G_DBUS_PROXY_FLAGS_NONE, NULL, TLM_LAUNCHER_OBJECTPATH, NULL,
+            error);
 }
 
 static GVariant *
@@ -192,6 +300,7 @@ _handle_user_login (
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
     GVariant *venv = NULL;
+    gchar *sessionid = NULL;
 
     if (!user || !user->username || !user->password || !user->seatid) {
         WARN("Invalid username/password");
@@ -220,14 +329,15 @@ _handle_user_login (
     }
 
     tlm_dbus_login_call_login_user_sync (login_object, user->seatid,
-            user->username, user->password, venv, NULL, &error);
+            user->username, user->password, venv, &sessionid, NULL, &error);
     if (error) {
         WARN ("login failed with error: %d:%s", error->code, error->message);
         g_error_free (error);
         error = NULL;
     } else {
-        DBG ("User logged in successfully");
+        DBG ("User logged in successfully with session id %s", sessionid);
     }
+    g_free (sessionid);
 
 _finished:
     if (login_object) g_object_unref (login_object);
@@ -241,6 +351,7 @@ _handle_user_logout (
     GError *error = NULL;
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
+    gchar *sessionid = NULL;
 
     if (!user || !user->seatid) {
         WARN("Invalid user/seatid");
@@ -262,15 +373,16 @@ _handle_user_logout (
         goto _finished;
     }
 
-    tlm_dbus_login_call_logout_user_sync (login_object, user->seatid,  NULL,
-            &error);
+    tlm_dbus_login_call_logout_user_sync (login_object, user->seatid,
+            NULL, NULL, &error);
     if (error) {
         WARN ("logout failed with error: %d:%s", error->code, error->message);
         g_error_free (error);
         error = NULL;
     } else {
-        DBG ("User logged out successfully");
+        DBG ("User logged out successfully with session id %s", sessionid);
     }
+    g_free (sessionid);
 
 _finished:
     if (login_object) g_object_unref (login_object);
@@ -285,6 +397,7 @@ _handle_user_switch (
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
     GVariant *venv = NULL;
+    gchar *sessionid = NULL;
 
     if (!user || !user->username || !user->password || !user->seatid) {
         WARN("Invalid username/password/seatid");
@@ -313,18 +426,67 @@ _handle_user_switch (
     }
 
     tlm_dbus_login_call_switch_user_sync (login_object, user->seatid,
-            user->username, user->password, venv, NULL, &error);
+            user->username, user->password, venv, &sessionid, NULL, &error);
     if (error) {
         WARN ("switch user failed with error: %d:%s", error->code,
                 error->message);
         g_error_free (error);
         error = NULL;
     } else {
-        DBG ("User switched in successfully");
+        DBG ("User switched in successfully with session id %s", sessionid);
     }
+    g_free (sessionid);
 
 _finished:
     if (login_object) g_object_unref (login_object);
+    if (connection) g_object_unref (connection);
+}
+
+static void
+_handle_launch_process (
+        TlmLauncher *launcher)
+{
+    GError *error = NULL;
+    GDBusConnection *connection = NULL;
+    TlmDbusLauncher *launcher_object = NULL;
+    guint appid = 0;
+
+    if (!launcher || !launcher->sessionid) {
+        WARN("Invalid sessionid");
+        return;
+    }
+    DBG ("launch app within sessionid %s", launcher->sessionid);
+
+    connection = _get_launcher_bus_connection (launcher->sessionid,
+            error);
+    if (connection == NULL) {
+        WARN("failed to get bus connection : error %s",
+            error ? error->message : "(null)");
+        goto _finished;
+    }
+
+    launcher_object = _get_launcher_object (connection, &error);
+    if (launcher_object == NULL) {
+        WARN("failed to get luncher object : error %s",
+            error ? error->message : "(null)");
+        goto _finished;
+    }
+
+    tlm_dbus_launcher_call_launch_process_sync (launcher_object,
+            launcher->command,
+            launcher->args ? launcher->args : "", &appid, NULL, &error);
+    if (error) {
+        WARN ("launch app failed with error: %d:%s", error->code,
+                error->message);
+        g_error_free (error);
+        error = NULL;
+    } else {
+        DBG ("App launched successfully with id %d", appid);
+    }
+
+_finished:
+    if (error) g_error_free (error);
+    if (launcher_object) g_object_unref (launcher_object);
     if (connection) g_object_unref (connection);
 }
 
@@ -337,7 +499,10 @@ int main (int argc, char *argv[])
     gboolean is_user_login_op = FALSE, is_user_logout_op = FALSE;
     gboolean is_user_switch_op = FALSE;
     gboolean run_tlm_daemon = FALSE;
+    gboolean is_launc_app_op = FALSE;
     GOptionGroup* user_option = NULL;
+    GOptionGroup* launcher_option = NULL;
+    TlmLauncher *launcher = _create_tlm_launcher ();
     TlmUser *user = _create_tlm_user ();
 
     GOptionEntry main_entries[] =
@@ -350,6 +515,9 @@ int main (int argc, char *argv[])
                 NULL },
         { "switch-user", 's', 0, G_OPTION_ARG_NONE, &is_user_switch_op,
                 "switch user -- username, password and seatid is mandatory",
+                NULL },
+        { "launch-app", 'a', 0, G_OPTION_ARG_NONE, &is_launc_app_op,
+                "launch app -- sessionid, and command are mandatory",
                 NULL },
         { "run-daemon", 'r', 0, G_OPTION_ARG_NONE, &run_tlm_daemon,
                 "run tlm daemon (by default tlm daemon is not run)",
@@ -370,6 +538,17 @@ int main (int argc, char *argv[])
         { NULL }
     };
 
+    GOptionEntry launch_entries[] =
+    {
+        { "sessionid", 0, 0, G_OPTION_ARG_STRING, &launcher->sessionid,
+                "sessionid", "sessionid" },
+        { "command", 0, 0, G_OPTION_ARG_STRING, &launcher->command,
+                "command", "command to execute" },
+        { "args", 0, 0, G_OPTION_ARG_STRING, &launcher->args,
+                "args", "args to command" },
+        { NULL }
+    };
+
 #if !GLIB_CHECK_VERSION (2, 36, 0)
     g_type_init ();
 #endif
@@ -384,17 +563,24 @@ int main (int argc, char *argv[])
     g_option_group_add_entries (user_option, user_entries);
     g_option_context_add_group (context, user_option);
 
+    launcher_option = g_option_group_new ("launch-options", "Launcher options",
+            "Launcher specific options", NULL, NULL);
+    g_option_group_add_entries (launcher_option, launch_entries);
+    g_option_context_add_group (context, launcher_option);
+
     rval = g_option_context_parse (context, &argc, &argv, &error);
     g_option_context_free (context);
     if (!rval) {
         DBG ("option parsing failed: %s\n", error->message);
         _free_tlm_user (user);
+        _free_tlm_launcher (launcher);
         return EXIT_FAILURE;
     }
 
     if (geteuid() != 0) {
         WARN("test-client can only be run with ROOT privileges");
         _free_tlm_user (user);
+        _free_tlm_launcher (launcher);
         return EXIT_FAILURE;
     }
 
@@ -407,10 +593,13 @@ int main (int argc, char *argv[])
         _handle_user_logout (user);
     } else if (is_user_switch_op) {
         _handle_user_switch (user);
+    } else if (is_launc_app_op) {
+        _handle_launch_process (launcher);
     } else {
         WARN ("No option specified");
     }
     _free_tlm_user (user);
+    _free_tlm_launcher (launcher);
 
     if (run_tlm_daemon)
         _teardown_daemon ();

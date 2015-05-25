@@ -70,6 +70,8 @@ struct _TlmSessionRemotePrivate
     gulong signal_session_terminated;
     gulong signal_authenticated;
     gulong signal_error;
+
+    gchar *sessionid;
 };
 
 G_DEFINE_TYPE (TlmSessionRemote, tlm_session_remote, G_TYPE_OBJECT);
@@ -82,6 +84,7 @@ enum {
     SIG_SESSION_TERMINATED,
     SIG_AUTHENTICATED,
     SIG_SESSION_ERROR,
+    SIG_SESSION_INFO,
     SIG_MAX
 };
 
@@ -107,7 +110,8 @@ _on_child_down_cb (
         session->priv->timer_id = 0;
     }
     if (session->priv->can_emit_signal)
-        g_signal_emit (session, signals[SIG_SESSION_TERMINATED], 0);
+        g_signal_emit (session, signals[SIG_SESSION_TERMINATED], 0,
+                session->priv->sessionid);
 }
 
 static void
@@ -334,7 +338,7 @@ tlm_session_remote_class_init (TlmSessionRemoteClass *klass)
     signals[SIG_SESSION_TERMINATED] = g_signal_new ("session-terminated",
                                 TLM_TYPE_SESSION_REMOTE, G_SIGNAL_RUN_LAST,
                                 0, NULL, NULL, NULL, G_TYPE_NONE,
-                                0, G_TYPE_NONE);
+                                1, G_TYPE_STRING);
 
     signals[SIG_AUTHENTICATED] = g_signal_new ("authenticated",
                                 TLM_TYPE_SESSION_REMOTE, G_SIGNAL_RUN_LAST,
@@ -345,6 +349,10 @@ tlm_session_remote_class_init (TlmSessionRemoteClass *klass)
                                 TLM_TYPE_SESSION_REMOTE, G_SIGNAL_RUN_LAST,
                                 0, NULL, NULL, NULL, G_TYPE_NONE,
                                 1, G_TYPE_ERROR);
+    signals[SIG_SESSION_INFO] = g_signal_new ("session-info",
+                                TLM_TYPE_SESSION_REMOTE, G_SIGNAL_RUN_LAST,
+                                0, NULL, NULL, NULL, G_TYPE_NONE,
+                                1, G_TYPE_VARIANT);
 }
 
 static void
@@ -359,6 +367,7 @@ tlm_session_remote_init (TlmSessionRemote *self)
     self->priv->is_sessiond_up = FALSE;
     self->priv->last_sig = 0;
     self->priv->timer_id = 0;
+    self->priv->sessionid = 0;
 }
 
 static void
@@ -407,7 +416,9 @@ _on_session_created_cb (
 {
     g_return_if_fail (self && TLM_IS_SESSION_REMOTE (self));
     DBG("sessionid: %s", sessionid ? sessionid : "NULL");
-    g_signal_emit (self, signals[SIG_SESSION_CREATED], 0, sessionid);
+    self->priv->sessionid = g_strdup (sessionid);
+    g_signal_emit (self, signals[SIG_SESSION_CREATED], 0,
+            self->priv->sessionid);
 }
 
 static void
@@ -417,7 +428,8 @@ _on_session_terminated_cb (
 {
     g_return_if_fail (self && TLM_IS_SESSION_REMOTE (self));
     if (self->priv->can_emit_signal)
-        g_signal_emit (self, signals[SIG_SESSION_TERMINATED], 0);
+        g_signal_emit (self, signals[SIG_SESSION_TERMINATED], 0,
+                self->priv->sessionid);
 }
 
 static void
@@ -564,5 +576,55 @@ tlm_session_remote_terminate (
                     TLM_CONFIG_GENERAL_TERMINATE_TIMEOUT, 3),
             _terminate_timeout, self);
     return TRUE;
+}
+
+static void
+_session_info_async_cb (
+        GObject *object,
+        GAsyncResult *res,
+        gpointer user_data)
+{
+    GError *error = NULL;
+    TlmDbusSession *proxy = TLM_DBUS_SESSION (object);
+    TlmSessionRemote *self = TLM_SESSION_REMOTE (user_data);
+    GVariant *sessioninfo = NULL;
+
+    tlm_dbus_session_call_get_info_finish (proxy, &sessioninfo, res,
+            &error);
+    if (error) {
+        WARN("session info request failed");
+        g_signal_emit (self, signals[SIG_SESSION_ERROR],  0, error);
+        g_error_free (error);
+    } else {
+        g_signal_emit (self, signals[SIG_SESSION_INFO], 0,
+                    sessioninfo);
+    }
+    if (sessioninfo) g_variant_unref (sessioninfo);
+}
+
+gboolean
+tlm_session_remote_get_info (
+        TlmSessionRemote *self)
+{
+    g_return_val_if_fail (self && TLM_IS_SESSION_REMOTE(self), FALSE);
+    TlmSessionRemotePrivate *priv = TLM_SESSION_REMOTE_PRIV(self);
+
+    if (!priv->is_sessiond_up) {
+        WARN ("sessiond is not running");
+        return FALSE;
+    }
+
+    tlm_dbus_session_call_get_info (self->priv->dbus_session_proxy,
+            NULL, _session_info_async_cb, self);
+
+    return TRUE;
+}
+
+const gchar *
+tlm_session_remote_get_sessionid (
+        TlmSessionRemote *self)
+{
+   g_return_val_if_fail (self && TLM_IS_SESSION_REMOTE(self), NULL);
+   return self->priv->sessionid;
 }
 

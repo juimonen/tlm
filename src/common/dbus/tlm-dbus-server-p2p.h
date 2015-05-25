@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm
  *
- * Copyright (C) 2014 Intel Corporation.
+ * Copyright (C) 2014-15 Intel Corporation.
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
  *
@@ -28,6 +28,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
+#include <gio/gio.h>
 #include <pwd.h>
 
 G_BEGIN_DECLS
@@ -63,6 +64,12 @@ struct _TlmDbusServerP2PClass
 
 GType
 tlm_dbus_server_p2p_get_type();
+
+void
+tlm_dbus_server_p2p_add_adaptor_object (
+        TlmDbusServerP2P *server,
+        GDBusConnection *connection,
+        GObject *adaptor_object);
 
 TlmDbusServerP2P *
 tlm_dbus_server_p2p_new (

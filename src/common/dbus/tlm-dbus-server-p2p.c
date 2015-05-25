@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm
  *
- * Copyright (C) 2014 Intel Corporation.
+ * Copyright (C) 2014-15 Intel Corporation.
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
  *
@@ -31,12 +31,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "common/dbus/tlm-dbus.h"
+#include "tlm-dbus.h"
 #include "common/tlm-log.h"
 
 #include "tlm-dbus-server-p2p.h"
 #include "tlm-dbus-server-interface.h"
-#include "tlm-dbus-login-adapter.h"
 
 enum
 {
@@ -51,6 +50,7 @@ enum
 enum {
     SIG_CLIENT_ADDED,
     SIG_CLIENT_REMOVED,
+    SIG_NEW_CONNECTION,
 
     SIG_MAX
 };
@@ -59,7 +59,7 @@ static guint signals[SIG_MAX];
 
 struct _TlmDbusServerP2PPrivate
 {
-    GHashTable *login_object_adapters;
+    GHashTable *adaptor_objects;
     GDBusServer *bus_server;
     gchar *address;
     uid_t uid;
@@ -143,40 +143,40 @@ _compare_by_pointer (
 }
 
 static void
-_on_login_object_dispose (
+_on_adaptor_object_dispose (
         gpointer data,
         GObject *dead)
 {
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (data);
     g_return_if_fail (server);
-    g_hash_table_foreach_steal (server->priv->login_object_adapters,
+    g_hash_table_foreach_steal (server->priv->adaptor_objects,
                 _compare_by_pointer, dead);
 }
 
 static void
-_clear_login_object_watchers (
+_clear_adaptor_object_watchers (
         gpointer connection,
-        gpointer login_object,
+        gpointer adaptor_object,
         gpointer user_data)
 {
     g_signal_handlers_disconnect_by_func (connection, _on_connection_closed,
             user_data);
-    g_object_weak_unref (G_OBJECT(login_object), _on_login_object_dispose,
+    g_object_weak_unref (G_OBJECT(adaptor_object), _on_adaptor_object_dispose,
             user_data);
 }
 
 static void
-_add_login_object_watchers (
+_add_adaptor_object_watchers (
         gpointer connection,
-        gpointer login_object,
+        gpointer adaptor_object,
         TlmDbusServerP2P *server)
 {
     g_signal_connect (connection, "closed", G_CALLBACK(_on_connection_closed),
             server);
-    g_object_weak_ref (G_OBJECT (login_object), _on_login_object_dispose,
+    g_object_weak_ref (G_OBJECT (adaptor_object), _on_adaptor_object_dispose,
             server);
-    g_hash_table_insert (server->priv->login_object_adapters, connection,
-            login_object);
+    g_hash_table_insert (server->priv->adaptor_objects, connection,
+            adaptor_object);
 }
 
 static void
@@ -240,7 +240,7 @@ tlm_dbus_server_p2p_class_init (
             NULL,
             G_TYPE_NONE,
             1,
-            TLM_TYPE_LOGIN_ADAPTER);
+            G_TYPE_OBJECT);
 
     signals[SIG_CLIENT_REMOVED] = g_signal_new ("client-removed",
             TLM_TYPE_DBUS_SERVER_P2P,
@@ -251,7 +251,18 @@ tlm_dbus_server_p2p_class_init (
             NULL,
             G_TYPE_NONE,
             1,
-            TLM_TYPE_LOGIN_ADAPTER);
+            G_TYPE_OBJECT);
+
+    signals[SIG_NEW_CONNECTION] = g_signal_new ("new-connection",
+            TLM_TYPE_DBUS_SERVER_P2P,
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            NULL,
+            G_TYPE_NONE,
+            1,
+            G_TYPE_DBUS_CONNECTION);
 }
 
 static void
@@ -262,7 +273,7 @@ tlm_dbus_server_p2p_init (
     self->priv->bus_server = NULL;
     self->priv->address = NULL;
     self->priv->uid = 0;
-    self->priv->login_object_adapters = g_hash_table_new_full (g_direct_hash,
+    self->priv->adaptor_objects = g_hash_table_new_full (g_direct_hash,
             g_direct_equal, NULL, g_object_unref);
 }
 
@@ -274,32 +285,17 @@ _on_connection_closed (
         gpointer user_data)
 {
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (user_data);
-    gpointer login_object = g_hash_table_lookup (
-            server->priv->login_object_adapters, connection);
-    if  (login_object) {
-        _clear_login_object_watchers (connection, login_object, user_data);
+    gpointer adaptor_object = g_hash_table_lookup (
+            server->priv->adaptor_objects, connection);
+    if  (adaptor_object) {
+        _clear_adaptor_object_watchers (connection, adaptor_object, user_data);
         DBG("p2p dbus connection(%p) closed (peer vanished : %d)"
                 " with error: %s", connection, remote_peer_vanished,
                 error ? error->message : "NONE");
 
-        g_signal_emit (server, signals[SIG_CLIENT_REMOVED], 0, login_object);
-        g_hash_table_remove (server->priv->login_object_adapters, connection);
+        g_signal_emit (server, signals[SIG_CLIENT_REMOVED], 0, adaptor_object);
+        g_hash_table_remove (server->priv->adaptor_objects, connection);
     }
-}
-
-static void
-_tlm_dbus_server_p2p_add_login_obj (
-        TlmDbusServerP2P *server,
-        GDBusConnection *connection)
-{
-    TlmDbusLoginAdapter *login_object = NULL;
-
-    DBG("export interfaces on connection %p", connection);
-
-    login_object = tlm_dbus_login_adapter_new_with_connection (connection);
-
-    _add_login_object_watchers (connection, login_object, server);
-    g_signal_emit (server, signals[SIG_CLIENT_ADDED], 0, login_object);
 }
 
 static gboolean
@@ -313,7 +309,7 @@ _on_client_request (
         WARN ("memory corruption");
         return TRUE;
     }
-    _tlm_dbus_server_p2p_add_login_obj (server, connection);
+    g_signal_emit (server, signals[SIG_NEW_CONNECTION], 0, connection);
     return TRUE;
 }
 
@@ -373,12 +369,12 @@ _tlm_dbus_server_p2p_stop (
 
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (self);
 
-    if (server->priv->login_object_adapters) {
+    if (server->priv->adaptor_objects) {
         DBG("cleanup watchers");
-        g_hash_table_foreach (server->priv->login_object_adapters,
-                _clear_login_object_watchers, server);
-        g_hash_table_unref (server->priv->login_object_adapters);
-        server->priv->login_object_adapters = NULL;
+        g_hash_table_foreach (server->priv->adaptor_objects,
+                _clear_adaptor_object_watchers, server);
+        g_hash_table_unref (server->priv->adaptor_objects);
+        server->priv->adaptor_objects = NULL;
     }
 
     if (server->priv->bus_server) {
@@ -429,6 +425,18 @@ _tlm_dbus_server_p2p_interface_init (
     iface->start = _tlm_dbus_server_p2p_start;
     iface->stop = _tlm_dbus_server_p2p_stop;
     iface->get_remote_pid = _tlm_dbus_server_p2p_get_remote_pid;
+}
+
+void
+tlm_dbus_server_p2p_add_adaptor_object (
+        TlmDbusServerP2P *server,
+        GDBusConnection *connection,
+        GObject *adaptor_object)
+{
+    DBG("export interfaces on connection %p", connection);
+
+    _add_adaptor_object_watchers (connection, adaptor_object, server);
+    g_signal_emit (server, signals[SIG_CLIENT_ADDED], 0, adaptor_object);
 }
 
 TlmDbusServerP2P *

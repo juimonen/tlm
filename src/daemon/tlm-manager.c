@@ -859,6 +859,24 @@ tlm_manager_get_seat (TlmManager *manager, const gchar *seat_id)
     return g_hash_table_lookup (manager->priv->seats, seat_id);
 }
 
+TlmSeat *
+tlm_manager_get_seat_by_sessionid (TlmManager *manager, const gchar *session_id)
+{
+    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), NULL);
+    GHashTableIter iter;
+    gpointer key, value;
+    TlmSeat *seat = NULL;
+
+    g_hash_table_iter_init (&iter, manager->priv->seats);
+    while (g_hash_table_iter_next (&iter, &key, &value)) {
+        seat = (TlmSeat *) value;
+        if (g_strcmp0(tlm_seat_get_session_id (seat), session_id) == 0)
+            return seat;
+    }
+
+    return NULL;
+}
+
 void
 tlm_manager_sighup_received (TlmManager *manager)
 {

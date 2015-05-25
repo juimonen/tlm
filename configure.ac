@@ -33,6 +33,10 @@ PKG_CHECK_MODULES([GMODULE], [gmodule-2.0])
 AC_SUBST(GMODULE_CFLAGS)
 AC_SUBST(GMODULE_LIBS)
 
+PKG_CHECK_MODULES([UUID], [uuid])
+AC_SUBST(UUID_CFLAGS)
+AC_SUBST(UUID_LIBS)
+
 # Check for libtlm-nfc
 PKG_CHECK_MODULES([LIBTLM_NFC], [libtlm-nfc], [have_libtlm_nfc=yes], [have_libtlm_nfc=no])
 AC_SUBST(LIBTLM_NFC_CFLAGS)
@@ -42,8 +46,8 @@ AM_CONDITIONAL(HAVE_LIBTLM_NFC, [test x$have_libtlm_nfc = xyes])
 AC_CHECK_HEADERS([security/pam_appl.h],,[AC_MSG_ERROR("pam-devel is required")])
 AC_CHECK_HEADERS([security/pam_misc.h],,[AC_MSG_ERROR("pam-misc is required")])
 
-TLM_CFLAGS="$GLIB_CFLAGS $GIO_CFLAGS $GMODULE_CFLAGS -D_POSIX_C_SOURCE=\"200809L\" -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -Wall -Werror"
-TLM_LIBS="$GLIB_LIBS $GIO_LIBS $GMODULE_LIBS"
+TLM_CFLAGS="$GLIB_CFLAGS $GIO_CFLAGS $GMODULE_CFLAGS $UUID_CFLAGS -D_POSIX_C_SOURCE=\"200809L\" -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -Wall -Werror"
+TLM_LIBS="$GLIB_LIBS $GIO_LIBS $GMODULE_LIBS $UUID_LIBS"
 AC_SUBST(TLM_CFLAGS)
 AC_SUBST(TLM_LIBS)
 
@@ -89,6 +93,15 @@ AC_DEFINE_UNQUOTED(TLM_DBUS_ROOT_SOCKET_ADDRESS,
          ["unix:path=$enable_sockets_path/dbus-sock"], [Address for dbus socket
          accessed by root only])
 
+# Define runtime dir prefix
+AC_ARG_ENABLE(runtimedir-prefix,
+          [  --enable-runtimedir-prefix=runpref  defines runtime dir prefix'
+           "runpref" instead of default "/var/run/user"],
+          [enable_runtimedir_prefix=$enableval],
+          [enable_runtimedir_prefix="/var/run/user"])
+AC_DEFINE_UNQUOTED(TLM_RUNTIME_DIR_PREFIX, ["$enable_runtimedir_prefix"],
+         [runtime directory prefix])
+
 # Enable gum
 PKG_CHECK_MODULES([LIBGUM], [libgum], [have_libgum=yes], [have_libgum=no])
 AC_ARG_ENABLE(gum, [  --enable-gum build for gumd plugin], ,
@@ -115,6 +128,8 @@ src/common/dbus/Makefile
 src/daemon/Makefile
 src/daemon/dbus/Makefile
 src/daemon/tlm.pc
+src/launcher/Makefile
+src/launcher/dbus/Makefile
 src/sessiond/Makefile
 src/utils/Makefile
 src/plugins/Makefile

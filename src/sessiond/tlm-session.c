@@ -526,6 +526,34 @@ _on_child_down_cb (
         g_signal_emit (session, signals[SIG_SESSION_TERMINATED], 0);
 }
 
+static gchar *
+_build_session_command (const gchar *template, const gchar *session_id)
+{
+    const char *pptr;
+    gchar *out;
+    GString *str;
+
+    pptr = template;
+    str = g_string_sized_new (strlen(template) + strlen(session_id));
+    while (*pptr != '\0') {
+        if (*pptr == '%') {
+            pptr++;
+            switch (*pptr) {
+                case 's':
+                    g_string_append (str, session_id);
+                    break;
+                default:
+                    ;
+            }
+        } else {
+            g_string_append_c (str, *pptr);
+        }
+        pptr++;
+    }
+    out = g_string_free (str, FALSE);
+    return out;
+}
+
 static void
 _exec_user_session (
 		TlmSession *session)
@@ -629,7 +657,6 @@ _exec_user_session (
     /* ==================================
      * this is child process here onwards
      * ================================== */
-
     gint open_max;
     gint fd;
 
@@ -697,7 +724,10 @@ _exec_user_session (
                                        TLM_CONFIG_GENERAL,
                                        TLM_CONFIG_GENERAL_SESSION_CMD);
     if (shell) {
-        args = tlm_utils_split_command_line (shell);
+        /* add sessionid if needed */
+        gchar *cmd = _build_session_command (shell, priv->sessionid);
+        args = tlm_utils_split_command_line (cmd);
+        g_free (cmd);
     }
 
     if (!args) {
@@ -931,3 +961,20 @@ tlm_session_terminate (TlmSession *session)
             session);
 }
 
+GVariant *
+tlm_session_get_info (TlmSession *session)
+{
+    GVariant *info = NULL;
+    GVariantBuilder builder;
+
+    g_variant_builder_init (&builder, G_VARIANT_TYPE_VARDICT);
+
+    g_variant_builder_add (&builder, "{sv}", "uid",
+            g_variant_new_uint32 (tlm_user_get_uid (session->priv->username)));
+    g_variant_builder_add (&builder, "{sv}", "sessionid",
+            g_variant_new_string (session->priv->sessionid));
+
+    info = g_variant_builder_end (&builder);
+    return info;
+
+}
