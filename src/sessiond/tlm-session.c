@@ -373,13 +373,15 @@ _setup_terminal (TlmSessionPrivate *priv, int tty_fd)
         WARN ("ioctl(TIOCSPGRP) failed: %s", strerror(errno));
     }
 
-    if (ioctl (tty_fd, KDSKBMODE, K_OFF) < 0) {
-        DBG ("ioctl(KDSKBMODE set) failed: %s", strerror(errno));
+    if (ioctl (tty_fd, KDSKBMODE, K_UNICODE) < 0) {
+        WARN ("ioctl(KDSKBMODE) failed: %s", strerror(errno));
     }
 
     dup2 (tty_fd, 0);
     dup2 (tty_fd, 1);
     dup2 (tty_fd, 2);
+
+    _setenv_to_session ("TERM", "linux", priv);
 }
 
 static void
