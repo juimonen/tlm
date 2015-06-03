@@ -12,7 +12,7 @@ ACCOUNTS_PLUGIN=@ACCOUNT_PLUGIN_NAME@
 #
 # Number of seats
 # Default: obtain from systemd
-#NSEATS=2
+NSEATS=1
 #
 # Auto-login default user
 # Default: off
@@ -35,7 +35,7 @@ DEFAULT_PAM_SERVICE=tlm-default-login
 #  %S - seat number
 #  %I - seat id string
 # Default: "guest"
-DEFAULT_USER=guest_%S
+#DEFAULT_USER=guest_%S
 #
 # Session command : The command run after successfull login
 # Default: $SHELL
@@ -61,14 +61,13 @@ DEFAULT_USER=guest_%S
 # Specify session type, needs to be specified for
 # XDG_SESSION_CLASS and XDG_SESSION_TYPE to be set
 # Default: unspecified
-SESSION_TYPE=wayland
+#SESSION_TYPE=wayland
 #
 #
 # Seat specific settings where the group name is seat id
-[seat0]
-DEFAULT_USER=app
-#SETUP_TERMINAL=1
-#VTNR=7
+#[seat0]
+SETUP_TERMINAL=1
+VTNR=7
 #SESSION_CMD=weston-launch
 #DEFAULT_PAM_SERVICE=tlm-system-login
 #SETUP_RUNTIME_DIR=1
