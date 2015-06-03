@@ -1,0 +1,15 @@
+auth [success=ok new_authtok_reqd=ok ignore=ignore user_unknown=bad default=die] pam_securetty.so
+auth       required   pam_permit.so
+session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
+session    required   pam_env.so readenv=1
+session    required   pam_env.so readenv=1 envfile=/etc/default/locale
+
+auth       optional   pam_group.so
+session    required   pam_limits.so
+session    required   pam_loginuid.so
+
+#@include common-account
+@include common-session
+
+session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
+

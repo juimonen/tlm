@@ -175,9 +175,9 @@ rm -f %{buildroot}%{_sysconfdir}/tlm.conf
 install -m 755 -d %{buildroot}%{_unitdir}
 install -m 644 data/tlm.service %{buildroot}%{_unitdir}
 install -m 755 -d %{buildroot}%{_sysconfdir}/pam.d
-install -m 644 data/tlm-login %{buildroot}%{_sysconfdir}/pam.d/
-install -m 644 data/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
-install -m 644 data/tlm-system-login %{buildroot}%{_sysconfdir}/pam.d/
+install -m 644 data/tizen/tlm-login %{buildroot}%{_sysconfdir}/pam.d/
+install -m 644 data/tizen/tlm-default-login %{buildroot}%{_sysconfdir}/pam.d/
+install -m 644 data/tizen/tlm-system-login %{buildroot}%{_sysconfdir}/pam.d/
 install -m 755 -d %{buildroot}%{_sysconfdir}/session.d
 %if "%{profile}" == "ivi"
 install -m 755 -d %{buildroot}%{_sysconfdir}/xdg/weston
