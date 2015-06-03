@@ -3,9 +3,8 @@ include $(top_srcdir)/common.mk
 EXTRA_DIST = \
       tlm.conf.in \
       tlm.service \
-      tlm-login \
-      tlm-default-login \
-      tlm-system-login \
+      debian \
+      tizen \
       tizen-common \
       tizen-ivi \
       yocto
