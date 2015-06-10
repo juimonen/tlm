@@ -67,6 +67,9 @@ tlm_seat_new (TlmConfig *config,
 const gchar *
 tlm_seat_get_id (TlmSeat *seat);
 
+const gchar *
+tlm_seat_get_session_id (TlmSeat *seat);
+
 gboolean
 tlm_seat_switch_user (TlmSeat *seat,
                       const gchar *service,
@@ -83,6 +86,9 @@ tlm_seat_create_session (TlmSeat *seat,
 
 gboolean
 tlm_seat_terminate_session (TlmSeat *seat);
+
+gboolean
+tlm_seat_get_session_info (TlmSeat *seat, const gchar *sessionid);
 
 G_END_DECLS
 

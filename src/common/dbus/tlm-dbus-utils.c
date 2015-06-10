@@ -33,6 +33,7 @@ tlm_dbus_utils_create_request (
         const gchar *seat_id,
         const gchar *username,
         const gchar *password,
+        const gchar *sessionid,
         GVariant *environment)
 {
     TlmDbusRequest *request = g_malloc0 (sizeof (TlmDbusRequest));
@@ -44,6 +45,7 @@ tlm_dbus_utils_create_request (
     if (seat_id) request->seat_id = g_strdup (seat_id);
     if (username) request->username = g_strdup (username);
     if (password) request->password = g_strdup (password);
+    if (sessionid) request->sessionid = g_strdup (sessionid);
     if (environment)
         request->environment = tlm_dbus_utils_hash_table_from_variant (
                 environment);
@@ -61,6 +63,7 @@ tlm_dbus_utils_dispose_request (
     g_free (request->seat_id);
     g_free (request->username);
     g_free (request->password);
+    g_free (request->sessionid);
 
     if (request->environment) {
         g_hash_table_unref (request->environment);
@@ -69,7 +72,35 @@ tlm_dbus_utils_dispose_request (
     g_free (request);
 }
 
-GVariantBuilder *
+TlmDbusResponse *
+tlm_dbus_utils_create_response (
+        const gchar *sessionid,
+        GVariant *sessioninfo)
+{
+    TlmDbusResponse *response = g_malloc0 (sizeof (TlmDbusResponse));
+    if (!response) return NULL;
+
+    if (sessionid) response->sessionid = g_strdup (sessionid);
+    response->sessioninfo = g_variant_ref (sessioninfo);
+    return response;
+}
+
+void
+tlm_dbus_utils_dispose_response (
+        TlmDbusResponse *response)
+{
+    if (!response) return;
+
+    g_free (response->sessionid);
+
+    if (response->sessioninfo) {
+        g_variant_unref (response->sessioninfo);
+    }
+
+    g_free (response);
+}
+
+static GVariantBuilder *
 _tlm_utils_hash_table_to_variant_builder (GHashTable *dict)
 {
     GVariantBuilder *builder;

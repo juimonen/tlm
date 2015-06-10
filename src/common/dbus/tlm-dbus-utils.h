@@ -35,8 +35,15 @@ typedef enum
 {
     TLM_DBUS_REQUEST_TYPE_LOGIN_USER,
     TLM_DBUS_REQUEST_TYPE_LOGOUT_USER,
-    TLM_DBUS_REQUEST_TYPE_SWITCH_USER
+    TLM_DBUS_REQUEST_TYPE_SWITCH_USER,
+    TLM_DBUS_REQUEST_TYPE_GET_SESSION_INFO
 } TlmDbusRequestType;
+
+typedef struct
+{
+    gchar *sessionid;
+    GVariant *sessioninfo;
+} TlmDbusResponse;
 
 typedef struct
 {
@@ -46,6 +53,7 @@ typedef struct
     gchar *seat_id;
     gchar *username;
     gchar *password;
+    gchar *sessionid;
     GHashTable *environment;
 } TlmDbusRequest;
 
@@ -57,11 +65,21 @@ tlm_dbus_utils_create_request (
         const gchar *seat_id,
         const gchar *username,
         const gchar *password,
+        const gchar *sessionid,
         GVariant *environment);
 
 void
 tlm_dbus_utils_dispose_request (
         TlmDbusRequest *request);
+
+TlmDbusResponse *
+tlm_dbus_utils_create_response (
+        const gchar *sessionid,
+        GVariant *sessioninfo);
+
+void
+tlm_dbus_utils_dispose_response (
+        TlmDbusResponse *response);
 
 GVariant *
 tlm_dbus_utils_hash_table_to_variant (GHashTable *dict);

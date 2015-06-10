@@ -40,6 +40,9 @@
 
             <arg name="environ" type="a{ss}" direction="in">
             </arg>
+
+            <arg name="sessionid" type="s" direction="out">
+            </arg>
         </method>
 
         <!--
@@ -52,6 +55,9 @@
         <method name="logoutUser">
 
             <arg name="seat_id" type="s" direction="in">
+            </arg>
+
+            <arg name="sessionid" type="s" direction="in">
             </arg>
         </method>
 
@@ -78,6 +84,26 @@
             </arg>
 
             <arg name="environ" type="a{ss}" direction="in">
+            </arg>
+
+            <arg name="sessionid" type="s" direction="out">
+            </arg>
+        </method>
+
+        <!--
+        getSessionInfo:
+        @sessionid: id of the session
+        @info: key-value pairs of session related info
+
+        Returns the necessary data related to session. current return values 
+        are: uid  (user id of the session)
+        -->
+        <method name="getSessionInfo">
+
+            <arg name="sessionid" type="s" direction="in">
+            </arg>
+
+            <arg name="info" type="a{sv}" direction="out">
             </arg>
         </method>
 

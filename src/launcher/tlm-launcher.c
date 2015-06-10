@@ -35,6 +35,7 @@
 
 #include "common/tlm-log.h"
 #include "common/tlm-utils.h"
+#include "tlm-dbus-launcher-observer.h"
 
 typedef struct {
   GPid pid;
@@ -203,28 +204,41 @@ int main (int argc, char *argv[])
 {
   struct option opts[] = {
     { "file", required_argument, NULL, 'f' },
+    { "sessionid", required_argument, NULL, 's' },
     { "help", no_argument, NULL, 'h' },
     { 0, 0, NULL, 0 }
   };
   int i, c;
-  char *file = NULL;
+  gchar *file = NULL;
   TlmLauncher launcher;
+  gchar *address = NULL;
+  TlmConfig *config = NULL;
+  TlmDbusLauncherObserver *dbus_observer = NULL;
+  const gchar *runtime_dir = NULL;
+  gchar *sessionid = NULL;
 
-  tlm_log_init("tlm-launch");
+  tlm_log_init("TLM_LAUNCHER");
 
-  while ((c = getopt_long (argc, argv, "f:h", opts, &i)) != -1) {
+  while ((c = getopt_long (argc, argv, "f:s:h", opts, &i)) != -1) {
     switch(c) {
       case 'h':
         help();
         return 0;
       case 'f':
-        file = optarg;
+        file = g_strdup (optarg);
+        DBG("file found %s", file);
+        break;
+      case 's':
+        sessionid = g_strdup (optarg);
+        DBG("sessionid found %s", sessionid);
+        break;
     }
   }
 
   if (!file) {
     /* FIXME: Load from configuration ??? */
     help();
+    g_free (sessionid);
     return 0;
   }
 
@@ -233,16 +247,41 @@ int main (int argc, char *argv[])
   if (!(launcher.fp = fopen(file, "r"))) {
     WARN("Failed to open file '%s':%s", file, strerror(errno));
     _tlm_launcher_deinit (&launcher);
+    g_free (file);
+    g_free (sessionid);
     return 0;
   }
+  g_free (file);
 
-  INFO("PID: %d\n", getpid());
+  runtime_dir = g_getenv ("XDG_RUNTIME_DIR");
+
+  if (sessionid && runtime_dir)
+	  address = g_strdup_printf ("unix:path=%s/%s", runtime_dir,
+              sessionid);
+  else if (sessionid)
+      address = g_strdup_printf ("unix:path=/run/user/%d/%s", getuid(),
+              sessionid);
+  else if (runtime_dir)
+      address = g_strdup_printf ("unix:path=%s/%d", runtime_dir, getpid());
+  else
+      address = g_strdup_printf ("unix:path=/run/user/%d/%d", getuid(),
+              getpid());
+
+  config = tlm_config_new ();
+  dbus_observer = tlm_dbus_launcher_observer_new (config, address, getuid());
+  DBG ("Tlm launcher pid:%d, dbus addr: %s, sessionid: %s, runtimedir: %s\n",
+          getpid(), address, sessionid, runtime_dir);
+  g_free (sessionid);
+  g_free (address); address = NULL;
 
   _tlm_launcher_process (&launcher);
 
   g_main_loop_run (launcher.loop);
 
+  g_object_unref (dbus_observer);
+  g_object_unref (config);
   _tlm_launcher_deinit (&launcher);
 
+  tlm_log_close (NULL);
   return 0;
 }

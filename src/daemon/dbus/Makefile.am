@@ -15,10 +15,6 @@ libtlm_dbus_la_LIBADD = \
     $(NULL)
 
 libtlm_dbus_la_SOURCES = \
-   tlm-dbus-server-interface.c \
-   tlm-dbus-server-interface.h \
-   tlm-dbus-server-p2p.c \
-   tlm-dbus-server-p2p.h \
    tlm-dbus-login-adapter.c \
    tlm-dbus-login-adapter.h \
    $(NULL)

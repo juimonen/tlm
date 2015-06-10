@@ -58,6 +58,7 @@ enum {
     SIG_LOGIN_USER,
     SIG_LOGOUT_USER,
     SIG_SWITCH_USER,
+    SIG_GET_SESSION_INFO,
 
     SIG_MAX
 };
@@ -89,6 +90,7 @@ _handle_logout_user (
         TlmDbusLoginAdapter *self,
         GDBusMethodInvocation *invocation,
         const gchar *seat_id,
+        const gchar *sessionid,
         gpointer user_data);
 
 static void
@@ -215,7 +217,8 @@ tlm_dbus_login_adapter_class_init (
             NULL,
             NULL,
             G_TYPE_NONE,
-            2,
+            3,
+            G_TYPE_STRING,
             G_TYPE_STRING,
             G_TYPE_DBUS_METHOD_INVOCATION);
 
@@ -232,6 +235,18 @@ tlm_dbus_login_adapter_class_init (
             G_TYPE_STRING,
             G_TYPE_STRING,
             G_TYPE_VARIANT,
+            G_TYPE_DBUS_METHOD_INVOCATION);
+
+    signals[SIG_GET_SESSION_INFO] = g_signal_new ("get-session-info",
+            TLM_TYPE_LOGIN_ADAPTER,
+            G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            NULL,
+            G_TYPE_NONE,
+            2,
+            G_TYPE_STRING,
             G_TYPE_DBUS_METHOD_INVOCATION);
 }
 
@@ -278,6 +293,7 @@ _handle_logout_user (
         TlmDbusLoginAdapter *self,
         GDBusMethodInvocation *invocation,
         const gchar *seat_id,
+        const gchar *sessionid,
         gpointer emitter)
 {
     GError *error = NULL;
@@ -285,16 +301,17 @@ _handle_logout_user (
     g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self),
             FALSE);
 
-    if (!seat_id) {
+    if (!seat_id && !sessionid) {
         error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_INVALID_INPUT,
                 "Invalid input");
         g_dbus_method_invocation_return_gerror (invocation, error);
         g_error_free (error);
         return TRUE;
     }
-    DBG ("seat_id %s", seat_id);
+    DBG ("logout seat_id %s sessionid %s", seat_id, sessionid);
 
-    g_signal_emit (self, signals[SIG_LOGOUT_USER], 0, seat_id, invocation);
+    g_signal_emit (self, signals[SIG_LOGOUT_USER], 0, seat_id, sessionid,
+            invocation);
 
     return TRUE;
 }
@@ -329,6 +346,33 @@ _handle_switch_user (
     return TRUE;
 }
 
+static gboolean
+_handle_get_session_info (
+        TlmDbusLoginAdapter *self,
+        GDBusMethodInvocation *invocation,
+        const gchar *session_id,
+        gpointer emitter)
+{
+    GError *error = NULL;
+
+    g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self),
+            FALSE);
+
+    if (!session_id) {
+        error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_INVALID_INPUT,
+                "Invalid input");
+        g_dbus_method_invocation_return_gerror (invocation, error);
+        g_error_free (error);
+        return TRUE;
+    }
+    DBG ("session_id %s", session_id);
+
+    g_signal_emit (self, signals[SIG_GET_SESSION_INFO], 0, session_id,
+            invocation);
+
+    return TRUE;
+}
+
 TlmDbusLoginAdapter *
 tlm_dbus_login_adapter_new_with_connection (
         GDBusConnection *bus_connection)
@@ -355,6 +399,8 @@ tlm_dbus_login_adapter_new_with_connection (
         "handle-logout-user", G_CALLBACK(_handle_logout_user), adapter);
     g_signal_connect_swapped (adapter->priv->dbus_obj,
         "handle-switch-user", G_CALLBACK(_handle_switch_user), adapter);
+    g_signal_connect_swapped (adapter->priv->dbus_obj,
+        "handle-get-session-info", G_CALLBACK(_handle_get_session_info), adapter);
 
     return adapter;
 }
@@ -362,6 +408,7 @@ tlm_dbus_login_adapter_new_with_connection (
 void
 tlm_dbus_login_adapter_request_completed (
         TlmDbusRequest *request,
+        TlmDbusResponse *response,
         GError *error)
 {
     g_return_if_fail (request && request->dbus_adapter &&
@@ -377,7 +424,7 @@ tlm_dbus_login_adapter_request_completed (
     switch (request->type) {
     case TLM_DBUS_REQUEST_TYPE_LOGIN_USER:
         tlm_dbus_login_complete_login_user (adapter->priv->dbus_obj,
-                request->invocation);
+                request->invocation, response->sessionid);
         break;
     case TLM_DBUS_REQUEST_TYPE_LOGOUT_USER:
         tlm_dbus_login_complete_logout_user (adapter->priv->dbus_obj,
@@ -385,7 +432,11 @@ tlm_dbus_login_adapter_request_completed (
         break;
     case TLM_DBUS_REQUEST_TYPE_SWITCH_USER:
         tlm_dbus_login_complete_switch_user (adapter->priv->dbus_obj,
-                request->invocation);
+                request->invocation, response->sessionid);
+        break;
+    case TLM_DBUS_REQUEST_TYPE_GET_SESSION_INFO:
+        tlm_dbus_login_complete_get_session_info (adapter->priv->dbus_obj,
+                request->invocation, response->sessioninfo);
         break;
     }
 }

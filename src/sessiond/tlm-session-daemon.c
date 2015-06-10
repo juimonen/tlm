@@ -169,6 +169,20 @@ _handle_session_terminate_from_dbus (
     return TRUE;
 }
 
+static gboolean
+_handle_session_info_from_dbus (
+        TlmSessionDaemon *self,
+        GDBusMethodInvocation *invocation,
+        gpointer user_data)
+{
+    g_return_val_if_fail (self && TLM_IS_SESSION_DAEMON (self), FALSE);
+
+    GVariant *info = tlm_session_get_info (self->priv->session);
+    tlm_dbus_session_complete_get_info (self->priv->dbus_session, invocation,
+            info);
+    return TRUE;
+}
+
 static void
 _handle_session_created_from_session (
         TlmSessionDaemon *self,
@@ -257,6 +271,9 @@ tlm_session_daemon_new (
     g_signal_connect_swapped (daemon->priv->dbus_session,
             "handle-session-terminate", G_CALLBACK(
                 _handle_session_terminate_from_dbus), daemon);
+    g_signal_connect_swapped (daemon->priv->dbus_session,
+            "handle-get-info", G_CALLBACK(
+                _handle_session_info_from_dbus), daemon);
 
     /* Connect session signals to handlers */
     g_signal_connect_swapped (daemon->priv->session, "session-created",

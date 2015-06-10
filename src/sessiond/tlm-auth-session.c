@@ -36,6 +36,7 @@
 #include <security/pam_appl.h>
 #include <security/pam_misc.h>
 #include <gio/gio.h>
+#include <uuid/uuid.h>
 
 #include "tlm-auth-session.h"
 #include "common/tlm-log.h"
@@ -234,38 +235,15 @@ tlm_auth_session_init (TlmAuthSession *auth_session)
 
 
 static gchar *
-_auth_session_get_logind_session_id (GError **error)
+_auth_session_get_session_id (GError **error)
 {
-    GDBusConnection *bus;
-    GVariant *result;
-    gchar *session_id;
-
-    bus = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, error);
-    if (!bus)
-        return NULL;
+    gchar *session_id = g_malloc0 (sizeof(gchar)*48);
+    uuid_t out;
 
     DBG ("trying to get session id");
-    result = g_dbus_connection_call_sync (bus,
-                                          "org.freedesktop.login1",
-                                          "/org/freedesktop/login1",
-                                          "org.freedesktop.login1.Manager",
-                                          "GetSessionByPID",
-                                          g_variant_new("(u)", getpid()),
-                                          G_VARIANT_TYPE("(o)"),
-                                          G_DBUS_CALL_FLAGS_NONE,
-                                          -1,
-                                          NULL,
-                                          error);
-    g_object_unref (bus);
-    if (!result) {
-        DBG ("failed to get session id");
-        return NULL;
-    }
-
-    g_variant_get (result, "(o)", &session_id);
-    g_variant_unref (result);
-
-    DBG ("logind session : %s", session_id);
+    uuid_generate (out);
+    uuid_unparse (out, session_id);
+    DBG ("sessionid : %s", session_id);
 
     return session_id;
 }
@@ -435,7 +413,7 @@ tlm_auth_session_open (TlmAuthSession *auth_session, GError **error)
         return FALSE;
     }
 
-    priv->session_id = _auth_session_get_logind_session_id (error);
+    priv->session_id = _auth_session_get_session_id (error);
 
     return TRUE;
 }

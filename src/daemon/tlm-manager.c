@@ -773,20 +773,22 @@ tlm_manager_start (TlmManager *manager)
     return TRUE;
 }
 
-
 static gboolean
-_session_terminated_cb (GObject *emitter, const gchar *seat_id,
+_session_terminated_cb (GObject *emitter, const gchar *session_id,
         TlmManager *manager)
 {
+    TlmSeat *seat = NULL;
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), TRUE);
-    DBG("seatid %s", seat_id);
+    DBG("session id %s", session_id);
 
-    g_hash_table_remove (manager->priv->seats, seat_id);
-    if (g_hash_table_size (manager->priv->seats) == 0) {
-        DBG ("signalling stopped");
-        g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
+    seat = TLM_SEAT(emitter);
+    if (seat) {
+        g_hash_table_remove (manager->priv->seats, tlm_seat_get_id (seat));
+        if (g_hash_table_size (manager->priv->seats) == 0) {
+            DBG ("signalling stopped");
+            g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
+        }
     }
-
     return TRUE;
 }
 
@@ -857,6 +859,24 @@ tlm_manager_get_seat (TlmManager *manager, const gchar *seat_id)
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), NULL);
 
     return g_hash_table_lookup (manager->priv->seats, seat_id);
+}
+
+TlmSeat *
+tlm_manager_get_seat_by_sessionid (TlmManager *manager, const gchar *session_id)
+{
+    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), NULL);
+    GHashTableIter iter;
+    gpointer key, value;
+    TlmSeat *seat = NULL;
+
+    g_hash_table_iter_init (&iter, manager->priv->seats);
+    while (g_hash_table_iter_next (&iter, &key, &value)) {
+        seat = (TlmSeat *) value;
+        if (g_strcmp0(tlm_seat_get_session_id (seat), session_id) == 0)
+            return seat;
+    }
+
+    return NULL;
 }
 
 void

@@ -75,6 +75,7 @@ tlm_dbus_login_adapter_new_with_connection (
 void
 tlm_dbus_login_adapter_request_completed (
         TlmDbusRequest *request,
+        TlmDbusResponse *response,
         GError *error);
 
 G_END_DECLS

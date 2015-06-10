@@ -32,7 +32,7 @@ tlm_CFLAGS = \
 tlm_LDADD = \
 	$(TLM_LIBS) \
 	$(abs_top_builddir)/src/common/libtlm-common.la \
-  $(abs_top_builddir)/src/daemon/dbus/libtlm-dbus.la \
+	$(abs_top_builddir)/src/daemon/dbus/libtlm-dbus.la \
 	$(NULL)
 
 EXTRA_DIST = \

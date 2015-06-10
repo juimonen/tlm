@@ -13,6 +13,18 @@
     <method name="sessionTerminate">
     </method>
 
+    <!--
+    getInfo:
+    @info: key-value pairs of session related info
+
+    Returns the necessary data related to session e.g. uid,
+    dbus_socket_path.
+    -->
+    <method name="getInfo">
+        <arg name="info" type="a{sv}" direction="out">
+        </arg>
+    </method>
+
     <signal name="sessionCreated">
       <arg name="sessionid" type="s" direction="out"/>
     </signal>

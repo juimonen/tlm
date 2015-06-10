@@ -71,6 +71,11 @@ tlm_manager_setup_guest_user (TlmManager *manager, const gchar *name);
 TlmSeat *
 tlm_manager_get_seat (TlmManager *manager, const gchar *seat_id);
 
+
+TlmSeat *
+tlm_manager_get_seat_by_sessionid (TlmManager *manager,
+        const gchar *session_id);
+
 void
 tlm_manager_sighup_received (TlmManager *manager);
 
