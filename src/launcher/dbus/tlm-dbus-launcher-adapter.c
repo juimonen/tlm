@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm
  *
- * Copyright (C) 2014 Intel Corporation.
+ * Copyright (C) 2015 Intel Corporation.
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
  *
@@ -69,7 +69,6 @@ _handle_launch_process (
         TlmDbusLauncherAdapter *self,
         GDBusMethodInvocation *invocation,
         const gchar *command,
-        const gchar *args,
         gpointer emitter);
 
 static gboolean
@@ -229,7 +228,6 @@ _handle_launch_process (
         TlmDbusLauncherAdapter *self,
         GDBusMethodInvocation *invocation,
         const gchar *command,
-        const gchar *args,
         gpointer emitter)
 {
     GError *error = NULL;
@@ -244,9 +242,9 @@ _handle_launch_process (
         g_error_free (error);
         return TRUE;
     }
-    DBG ("launch - command %s args %s", command, args);
+    DBG ("launch - command %s", command);
     rval = tlm_dbus_launcher_launch_process (self->priv->observer, command,
-            args, &procid, &error);
+            &procid, &error);
     if (rval) {
         tlm_dbus_launcher_complete_launch_process (self->priv->dbus_obj,
                 invocation, procid);
@@ -279,7 +277,8 @@ _handle_stop_process (
     }
     DBG ("stopping - process %u", procid);
 
-    rval = tlm_dbus_launcher_stop_process (self->priv->observer, procid, &error);
+    rval = tlm_dbus_launcher_stop_process (self->priv->observer, procid,
+             &error);
     if (rval) {
         tlm_dbus_launcher_complete_stop_process (self->priv->dbus_obj,
                 invocation);

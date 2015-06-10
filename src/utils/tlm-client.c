@@ -59,7 +59,7 @@ typedef struct {
 typedef struct {
     gchar *sessionid;
     gchar *command;
-    gchar *args;
+    pid_t pid;
 } TlmLauncher;
 
 static TlmUser *
@@ -94,7 +94,6 @@ _free_tlm_launcher (
     if (launcher) {
         g_free (launcher->sessionid);
         g_free (launcher->command);
-        g_free (launcher->args);
         g_free (launcher);
     }
 }
@@ -449,13 +448,13 @@ _handle_launch_process (
     GError *error = NULL;
     GDBusConnection *connection = NULL;
     TlmDbusLauncher *launcher_object = NULL;
-    guint appid = 0;
+    guint procid = 0;
 
     if (!launcher || !launcher->sessionid) {
         WARN("Invalid sessionid");
         return;
     }
-    DBG ("launch app within sessionid %s", launcher->sessionid);
+    DBG ("launch process within sessionid %s", launcher->sessionid);
 
     connection = _get_launcher_bus_connection (launcher->sessionid,
             error);
@@ -473,15 +472,60 @@ _handle_launch_process (
     }
 
     tlm_dbus_launcher_call_launch_process_sync (launcher_object,
-            launcher->command,
-            launcher->args ? launcher->args : "", &appid, NULL, &error);
+            launcher->command, &procid, NULL, &error);
     if (error) {
-        WARN ("launch app failed with error: %d:%s", error->code,
+        WARN ("launch process failed with error: %d:%s", error->code,
                 error->message);
         g_error_free (error);
         error = NULL;
     } else {
-        DBG ("App launched successfully with id %d", appid);
+        DBG ("Process launched successfully with id %d", procid);
+    }
+
+_finished:
+    if (error) g_error_free (error);
+    if (launcher_object) g_object_unref (launcher_object);
+    if (connection) g_object_unref (connection);
+}
+
+static void
+_handle_stop_process (
+        TlmLauncher *launcher)
+{
+    GError *error = NULL;
+    GDBusConnection *connection = NULL;
+    TlmDbusLauncher *launcher_object = NULL;
+
+    if (!launcher || !launcher->sessionid || !launcher->pid) {
+        WARN("Invalid pid");
+        return;
+    }
+    DBG ("stop process within pid %d", launcher->pid);
+
+    connection = _get_launcher_bus_connection (launcher->sessionid,
+            error);
+    if (connection == NULL) {
+        WARN("failed to get bus connection : error %s",
+            error ? error->message : "(null)");
+        goto _finished;
+    }
+
+    launcher_object = _get_launcher_object (connection, &error);
+    if (launcher_object == NULL) {
+        WARN("failed to get launcher object : error %s",
+            error ? error->message : "(null)");
+        goto _finished;
+    }
+
+    tlm_dbus_launcher_call_stop_process_sync (launcher_object,
+            launcher->pid, NULL, &error);
+    if (error) {
+        WARN ("stop process failed with error: %d:%s", error->code,
+                error->message);
+        g_error_free (error);
+        error = NULL;
+    } else {
+        DBG ("Process stopped successfully with id %d", launcher->pid);
     }
 
 _finished:
@@ -499,7 +543,8 @@ int main (int argc, char *argv[])
     gboolean is_user_login_op = FALSE, is_user_logout_op = FALSE;
     gboolean is_user_switch_op = FALSE;
     gboolean run_tlm_daemon = FALSE;
-    gboolean is_launc_app_op = FALSE;
+    gboolean is_launch_proc_op = FALSE;
+    gboolean is_stop_proc_op = FALSE;
     GOptionGroup* user_option = NULL;
     GOptionGroup* launcher_option = NULL;
     TlmLauncher *launcher = _create_tlm_launcher ();
@@ -516,8 +561,11 @@ int main (int argc, char *argv[])
         { "switch-user", 's', 0, G_OPTION_ARG_NONE, &is_user_switch_op,
                 "switch user -- username, password and seatid is mandatory",
                 NULL },
-        { "launch-app", 'a', 0, G_OPTION_ARG_NONE, &is_launc_app_op,
-                "launch app -- sessionid, and command are mandatory",
+        { "launch-proc", 'a', 0, G_OPTION_ARG_NONE, &is_launch_proc_op,
+                "launch process -- sessionid and command are mandatory",
+                NULL },
+        { "stop-proc", 'p', 0, G_OPTION_ARG_NONE, &is_stop_proc_op,
+                "stop process -- sessionid and pid are mandatory",
                 NULL },
         { "run-daemon", 'r', 0, G_OPTION_ARG_NONE, &run_tlm_daemon,
                 "run tlm daemon (by default tlm daemon is not run)",
@@ -544,8 +592,8 @@ int main (int argc, char *argv[])
                 "sessionid", "sessionid" },
         { "command", 0, 0, G_OPTION_ARG_STRING, &launcher->command,
                 "command", "command to execute" },
-        { "args", 0, 0, G_OPTION_ARG_STRING, &launcher->args,
-                "args", "args to command" },
+        { "pid", 0, 0, G_OPTION_ARG_INT, &launcher->pid,
+                "pid", "process id to stop" },
         { NULL }
     };
 
@@ -593,8 +641,10 @@ int main (int argc, char *argv[])
         _handle_user_logout (user);
     } else if (is_user_switch_op) {
         _handle_user_switch (user);
-    } else if (is_launc_app_op) {
+    } else if (is_launch_proc_op) {
         _handle_launch_process (launcher);
+    } else if (is_stop_proc_op) {
+        _handle_stop_process (launcher);
     } else {
         WARN ("No option specified");
     }
