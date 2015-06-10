@@ -773,20 +773,22 @@ tlm_manager_start (TlmManager *manager)
     return TRUE;
 }
 
-
 static gboolean
-_session_terminated_cb (GObject *emitter, const gchar *seat_id,
+_session_terminated_cb (GObject *emitter, const gchar *session_id,
         TlmManager *manager)
 {
+    TlmSeat *seat = NULL;
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), TRUE);
-    DBG("seatid %s", seat_id);
+    DBG("session id %s", session_id);
 
-    g_hash_table_remove (manager->priv->seats, seat_id);
-    if (g_hash_table_size (manager->priv->seats) == 0) {
-        DBG ("signalling stopped");
-        g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
+    seat = TLM_SEAT(emitter);
+    if (seat) {
+        g_hash_table_remove (manager->priv->seats, tlm_seat_get_id (seat));
+        if (g_hash_table_size (manager->priv->seats) == 0) {
+            DBG ("signalling stopped");
+            g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
+        }
     }
-
     return TRUE;
 }
 
