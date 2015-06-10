@@ -81,7 +81,7 @@ tlm_dbus_utils_create_response (
     if (!response) return NULL;
 
     if (sessionid) response->sessionid = g_strdup (sessionid);
-    response->sessioninfo = g_variant_ref (sessioninfo);
+    if (sessioninfo) response->sessioninfo = g_variant_ref (sessioninfo);
     return response;
 }
 

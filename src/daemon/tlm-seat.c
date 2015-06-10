@@ -257,7 +257,7 @@ _create_dbus_observer (
         const gchar *username)
 {
     gchar *address = NULL;
-    uid_t uid = 0;
+    gint uid = -1;
 
     if (!username) return FALSE;
 
