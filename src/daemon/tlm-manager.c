@@ -751,12 +751,14 @@ tlm_manager_start (TlmManager *manager)
 {
     g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), FALSE);
 
-    guint nseats = tlm_config_get_uint (manager->priv->config,
-                                        TLM_CONFIG_GENERAL,
-                                        TLM_CONFIG_GENERAL_NSEATS,
-                                        0);
-    if (nseats) {
+    if (tlm_config_has_key (manager->priv->config,
+            TLM_CONFIG_GENERAL,
+            TLM_CONFIG_GENERAL_NSEATS)) {
         guint i;
+        guint nseats = tlm_config_get_uint (manager->priv->config,
+                                            TLM_CONFIG_GENERAL,
+                                            TLM_CONFIG_GENERAL_NSEATS,
+                                            0);
         for (i = 0; i < nseats; i++) {
             gchar *id = g_strdup_printf("seat%u", i);
             DBG ("adding virtual seat '%s'", id);

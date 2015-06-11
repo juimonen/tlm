@@ -100,6 +100,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Thu Jun 11 2015 Imran Zaman <imran.zaman@intel.com>
+- Added tlm-launcher dbus APIs and tlm-seatconfig utility
+
 * Tue Dec 23 2014 Imran Zaman <imran.zaman@intel.com>
 - Added config package for modello
 
