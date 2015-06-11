@@ -297,8 +297,17 @@ _on_process_down_cb (
     g_spawn_close_pid (pid);
 
     TlmDbusLauncherObserver *self = TLM_DBUS_LAUNCHER_OBSERVER (data);
+    if (WIFEXITED(status)) {
+        DBG ("process with pid (%d) exited status %d", pid,
+               WEXITSTATUS(status));
+    } else if (WIFSIGNALED(status)) {
+        DBG ("process with pid (%d) killed by signal %d\n", pid,
+               WTERMSIG(status));
+    } else if (WIFSTOPPED(status)) {
+        DBG ("process with pid (%d) stopped by signal %d\n", pid,
+               WSTOPSIG(status));
+    }
 
-    DBG ("process with pid (%d) closed with status %d", pid, status);
     g_hash_table_remove (self->priv->launched_processes,
     		GUINT_TO_POINTER (pid));
     g_signal_emit (self, signals[SIG_PROCESS_STOPPED], 0, pid);
@@ -308,15 +317,14 @@ gboolean
 tlm_dbus_launcher_launch_process (
         TlmDbusLauncherObserver *self,
         const gchar *command,
-        const gchar *args,
         guint *procid,
         GError **error)
 {
-	gchar **split_args = NULL;
+    gchar **args = NULL;
     gchar **args_iter = NULL;
     gint i;
 
-    DBG ("start process with path %s and args %s", command, args);
+    DBG ("start process with path %s", command);
     g_return_if_fail (self && TLM_IS_DBUS_LAUNCHER_OBSERVER(self));
 
     pid_t child_pid = fork ();
@@ -332,17 +340,17 @@ tlm_dbus_launcher_launch_process (
     	return TRUE;
     }
 
-    DBG ("start new process: ");
-    split_args = tlm_utils_split_command_line (args);
-    args_iter = split_args; i = 0;
+    DBG ("start new process: cmd %s", command);
+    args = tlm_utils_split_command_line (command);
+    args_iter = args; i = 0;
     while (args_iter && *args_iter) {
         DBG ("\targv[%d]: %s", i, *args_iter);
         args_iter++; i++;
     }
-    execvp (command, split_args);
+    execvp (args[0], args);
+    WARN("exec failed: %s", strerror (errno));
     /* we reach here only in case of error */
-    g_strfreev (split_args);
-    DBG ("execl(): %s", strerror(errno));
+    g_strfreev (args);
     exit (0);
 }
 

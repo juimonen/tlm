@@ -4,7 +4,6 @@
 
     <method name="launchProcess">
       <arg name="command" type="s" direction="in"/>
-      <arg name="args" type="s" direction="in"/>
       <arg name="processid" type="u" direction="out"/>
     </method>
 

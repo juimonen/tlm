@@ -69,7 +69,6 @@ gboolean
 tlm_dbus_launcher_launch_process (
         TlmDbusLauncherObserver *self,
         const gchar *command,
-        const gchar *args,
         guint *procid,
         GError **error);
 
