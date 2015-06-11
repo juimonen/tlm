@@ -1,3 +1,9 @@
+tlm (1.1.0-0) unstable; urgency=low
+
+  * Added tlm-launcher dbus APIs and tlm-seatconfig utility
+
+ -- Imran Zaman <imran.zaman@intel.com>  Thu, 11 Jun 2015 17:56:53 +0200
+
 tlm (1.0.3-1) stable; urgency=low
 
   * Install systemd service file for Debian Jessie / Ubuntu Vivid
