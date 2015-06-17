@@ -354,14 +354,13 @@ _handle_user_logout (
     GError *error = NULL;
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
-    gchar *sessionid = NULL;
     gboolean success = FALSE;
 
     if (!user || !user->seatid) {
         WARN("Invalid user/seatid");
         return FALSE;
     }
-    DBG ("username %s seatid %s", user->username, user->seatid);
+    DBG ("logout for seatid %s", user->seatid);
 
     connection = _get_bus_connection (user->seatid, &error);
     if (connection == NULL) {
@@ -378,16 +377,15 @@ _handle_user_logout (
     }
 
     tlm_dbus_login_call_logout_user_sync (login_object, user->seatid,
-            NULL, NULL, &error);
+            "", NULL, &error);
     if (error) {
         WARN ("logout failed with error: %d:%s", error->code, error->message);
         g_error_free (error);
         error = NULL;
     } else {
-        DBG ("User logged out successfully with session id %s", sessionid);
+        DBG ("User logged out successfully with seat id %s", user->seatid);
         success = TRUE;
     }
-    g_free (sessionid);
 
 _finished:
     if (login_object) g_object_unref (login_object);

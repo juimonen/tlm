@@ -488,6 +488,8 @@ _process_request (
 
         seat = self->priv->seat;
         if (!seat && self->priv->manager) {
+            DBG ("seat id %s and session id %s", dbus_req->seat_id,
+                    dbus_req->sessionid);
             if (dbus_req->seat_id)
                 seat = tlm_manager_get_seat (self->priv->manager,
                     dbus_req->seat_id);
