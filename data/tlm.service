@@ -4,7 +4,8 @@ After=systemd-user-sessions.service systemd-logind.service
 Requires=dbus.socket
 
 [Service]
-ExecStart=/usr/bin/tlm
+ExecStart=/usr/bin/tlm -D
+Type=forking
 #StandardInput=tty
 #StandardOutput=journal
 #StandardError=journal

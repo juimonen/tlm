@@ -24,9 +24,11 @@
  * 02110-1301 USA
  */
 
+#include <stdio.h>
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include <unistd.h>
 #include <glib.h>
 #include <gio/gio.h>
 #include <glib-unix.h>
@@ -93,8 +95,11 @@ int main(int argc, char *argv[])
     GError *error = 0;
     TlmManager *manager = 0;
 
+    int notify_code = 0;
+    int notify_fd[2];
     gboolean show_version = FALSE;
     gboolean fatal_warnings = FALSE;
+    gboolean daemonize = FALSE;
     gchar *username = NULL;
 
     GOptionContext *opt_context = NULL;
@@ -105,6 +110,9 @@ int main(int argc, char *argv[])
         { "fatal-warnings", 0, 0,
           G_OPTION_ARG_NONE, &fatal_warnings,
           "Make all warnings fatal", NULL },
+        { "daemonize", 'D', 0,
+          G_OPTION_ARG_NONE, &daemonize,
+          "Launch the daemon in background", NULL},
         { "username", 'u', 0,
           G_OPTION_ARG_STRING, &username,
           "Username to use", NULL },
@@ -115,7 +123,7 @@ int main(int argc, char *argv[])
     g_type_init ();
 #endif
 
-    opt_context = g_option_context_new ("Tiny Login Manager");
+    opt_context = g_option_context_new ("");
     g_option_context_add_main_entries (opt_context, opt_entries, NULL);
     g_option_context_parse (opt_context, &argc, &argv, &error);
     g_option_context_free (opt_context);
@@ -136,6 +144,27 @@ int main(int argc, char *argv[])
         g_log_set_always_fatal (log_level);
     }
 
+    if (daemonize) {
+        if (pipe (notify_fd))
+            ERR ("Failed to create launch notify pipe: %s", strerror (errno));
+        if (fork ()) {
+            if (read (notify_fd[0], &notify_code, sizeof (notify_code)) > 0)
+                return notify_code;
+            else
+                return errno;
+        } else {
+            if (setsid () == (pid_t) -1) {
+                /* ignore error on purpose */
+            }
+            if (!freopen ("/dev/null", "r", stdin))
+                notify_code = errno;
+            if (!freopen ("/dev/null", "a", stdout))
+                notify_code = errno;
+            if (!freopen ("/dev/null", "a", stderr))
+                notify_code = errno;
+        }
+    }
+
     tlm_log_init (G_LOG_DOMAIN);
 
     main_loop = g_main_loop_new (NULL, FALSE);
@@ -143,6 +172,11 @@ int main(int argc, char *argv[])
     manager = tlm_manager_new (username);
     _setup_unix_signal_handlers (manager);
     tlm_manager_start (manager);
+
+    if (daemonize) {
+        if (write (notify_fd[1], &notify_code, sizeof (notify_code)) <= 0)
+            ERR ("Failed to notify parent process: %s", strerror (errno));
+    }
 
     g_main_loop_run (main_loop);
 
