@@ -6,3 +6,4 @@
 /etc/tlm.conf
 /usr/bin/tlm-client
 /usr/bin/tlm-launcher
+/usr/bin/tlm-seatconf
