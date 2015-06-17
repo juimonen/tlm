@@ -44,11 +44,15 @@ int main (int argc, char *argv[])
     int lockfd;
     int autologin = -1;
     int pause = -1;
+    int setupterm = -1;
     gint nseats;
     gint seatx;
     gchar *cf = NULL;
     gchar *sname = NULL;
     gchar *username = NULL;
+    gchar *session_type = NULL;
+    gchar *pam_defserv = NULL;
+    gchar *pam_serv = NULL;
     GKeyFile *kf;
     GError *error = NULL;
     GOptionContext *opts;
@@ -72,6 +76,23 @@ int main (int argc, char *argv[])
         { "pause", 'p',
           0, G_OPTION_ARG_INT, &pause,
           "pause session enable/disable",
+          NULL },
+        { "setupterm", 't',
+          0, G_OPTION_ARG_INT, &setupterm,
+          "setup terminal enable/disable",
+          NULL },
+        { "sessiontype", 'd',
+          0, G_OPTION_ARG_STRING, &session_type,
+          "session type: can be one of 'unspecified', 'tty', 'x11', 'wayland' \
+          or 'mir'",
+          NULL },
+        { "pamdefserv", 'f',
+          0, G_OPTION_ARG_STRING, &pam_defserv,
+          "pam service file for default user",
+          NULL },
+        { "pamserv", 'g',
+          0, G_OPTION_ARG_STRING, &pam_serv,
+          "pam service",
           NULL },
         { NULL }
     };
@@ -159,6 +180,30 @@ int main (int argc, char *argv[])
                                 TLM_CONFIG_GENERAL_PAUSE_SESSION,
                                 pause);
     }
+    if (setupterm >= 0) {
+        g_key_file_set_integer (kf,
+                                sname,
+                                TLM_CONFIG_GENERAL_SETUP_TERMINAL,
+                                setupterm);
+    }
+    if (pam_serv) {
+        g_key_file_set_string (kf,
+                               sname,
+                               TLM_CONFIG_GENERAL_PAM_SERVICE,
+                               pam_serv);
+    }
+    if (pam_defserv) {
+        g_key_file_set_string (kf,
+                               sname,
+                               TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE,
+                               pam_defserv);
+    }
+    if (session_type) {
+        g_key_file_set_string (kf,
+                               sname,
+                               TLM_CONFIG_GENERAL_SESSION_TYPE,
+                               session_type);
+    }
 
     g_key_file_set_integer (kf,
                             TLM_CONFIG_GENERAL,
@@ -171,6 +216,9 @@ int main (int argc, char *argv[])
 err_exit:
     g_free (sname);
     g_free (cf);
+    g_free (session_type);
+    g_free (pam_defserv);
+    g_free (pam_serv);
     g_key_file_free (kf);
     if (!lockf (lockfd, F_ULOCK, 0)) {}
     close (lockfd);

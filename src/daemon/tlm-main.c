@@ -181,6 +181,7 @@ int main(int argc, char *argv[])
     g_main_loop_run (main_loop);
 
     g_object_unref (G_OBJECT(manager));
+    g_free (username);
 
     DBG ("clean shutdown");
 
