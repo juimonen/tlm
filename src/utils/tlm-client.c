@@ -291,7 +291,7 @@ _convert_environ_to_variant (gchar **env) {
     return venv;
 }
 
-static void
+static gboolean
 _handle_user_login (
         TlmUser *user)
 {
@@ -300,10 +300,11 @@ _handle_user_login (
     TlmDbusLogin *login_object = NULL;
     GVariant *venv = NULL;
     gchar *sessionid = NULL;
+    gboolean success = FALSE;
 
     if (!user || !user->username || !user->password || !user->seatid) {
         WARN("Invalid username/password");
-        return;
+        return FALSE;
     }
     DBG ("username %s seatid %s", user->username, user->seatid);
 
@@ -335,15 +336,18 @@ _handle_user_login (
         error = NULL;
     } else {
         DBG ("User logged in successfully with session id %s", sessionid);
+        success = TRUE;
     }
     g_free (sessionid);
 
 _finished:
     if (login_object) g_object_unref (login_object);
     if (connection) g_object_unref (connection);
+
+    return success;
 }
 
-static void
+static gboolean
 _handle_user_logout (
         TlmUser *user)
 {
@@ -351,10 +355,11 @@ _handle_user_logout (
     GDBusConnection *connection = NULL;
     TlmDbusLogin *login_object = NULL;
     gchar *sessionid = NULL;
+    gboolean success = FALSE;
 
     if (!user || !user->seatid) {
         WARN("Invalid user/seatid");
-        return;
+        return FALSE;
     }
     DBG ("username %s seatid %s", user->username, user->seatid);
 
@@ -380,15 +385,18 @@ _handle_user_logout (
         error = NULL;
     } else {
         DBG ("User logged out successfully with session id %s", sessionid);
+        success = TRUE;
     }
     g_free (sessionid);
 
 _finished:
     if (login_object) g_object_unref (login_object);
     if (connection) g_object_unref (connection);
+
+    return success;
 }
 
-static void
+static gboolean
 _handle_user_switch (
         TlmUser *user)
 {
@@ -397,10 +405,11 @@ _handle_user_switch (
     TlmDbusLogin *login_object = NULL;
     GVariant *venv = NULL;
     gchar *sessionid = NULL;
+    gboolean success = FALSE;
 
     if (!user || !user->username || !user->password || !user->seatid) {
         WARN("Invalid username/password/seatid");
-        return;
+        return FALSE;
     }
     DBG ("username %s seatid %s", user->username, user->seatid);
 
@@ -433,15 +442,18 @@ _handle_user_switch (
         error = NULL;
     } else {
         DBG ("User switched in successfully with session id %s", sessionid);
+        success = TRUE;
     }
     g_free (sessionid);
 
 _finished:
     if (login_object) g_object_unref (login_object);
     if (connection) g_object_unref (connection);
+
+    return success;
 }
 
-static void
+static gboolean
 _handle_launch_process (
         TlmLauncher *launcher)
 {
@@ -449,10 +461,11 @@ _handle_launch_process (
     GDBusConnection *connection = NULL;
     TlmDbusLauncher *launcher_object = NULL;
     guint procid = 0;
+    gboolean success = FALSE;
 
     if (!launcher || !launcher->sessionid) {
         WARN("Invalid sessionid");
-        return;
+        return FALSE;
     }
     DBG ("launch process within sessionid %s", launcher->sessionid);
 
@@ -480,25 +493,29 @@ _handle_launch_process (
         error = NULL;
     } else {
         DBG ("Process launched successfully with id %d", procid);
+        success = TRUE;
     }
 
 _finished:
     if (error) g_error_free (error);
     if (launcher_object) g_object_unref (launcher_object);
     if (connection) g_object_unref (connection);
+
+    return success;
 }
 
-static void
+static gboolean
 _handle_stop_process (
         TlmLauncher *launcher)
 {
     GError *error = NULL;
     GDBusConnection *connection = NULL;
     TlmDbusLauncher *launcher_object = NULL;
+    gboolean success = FALSE;
 
     if (!launcher || !launcher->sessionid || !launcher->pid) {
         WARN("Invalid pid");
-        return;
+        return FALSE;
     }
     DBG ("stop process within pid %d", launcher->pid);
 
@@ -526,12 +543,15 @@ _handle_stop_process (
         error = NULL;
     } else {
         DBG ("Process stopped successfully with id %d", launcher->pid);
+        success = TRUE;
     }
 
 _finished:
     if (error) g_error_free (error);
     if (launcher_object) g_object_unref (launcher_object);
     if (connection) g_object_unref (connection);
+
+    return success;
 }
 
 int main (int argc, char *argv[])
@@ -636,22 +656,27 @@ int main (int argc, char *argv[])
         _setup_daemon ();
 
     if (is_user_login_op) {
-        _handle_user_login (user);
+        rval = _handle_user_login (user);
     } else if (is_user_logout_op) {
-        _handle_user_logout (user);
+        rval = _handle_user_logout (user);
     } else if (is_user_switch_op) {
-        _handle_user_switch (user);
+        rval = _handle_user_switch (user);
     } else if (is_launch_proc_op) {
-        _handle_launch_process (launcher);
+        rval = _handle_launch_process (launcher);
     } else if (is_stop_proc_op) {
-        _handle_stop_process (launcher);
+        rval = _handle_stop_process (launcher);
     } else {
         WARN ("No option specified");
+        rval = FALSE;
     }
     _free_tlm_user (user);
     _free_tlm_launcher (launcher);
 
     if (run_tlm_daemon)
         _teardown_daemon ();
-    return EXIT_SUCCESS;
+
+    if (rval)
+        return EXIT_SUCCESS;
+
+    return EXIT_FAILURE;
 }
