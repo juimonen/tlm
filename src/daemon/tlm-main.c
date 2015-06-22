@@ -95,6 +95,7 @@ int main(int argc, char *argv[])
     GError *error = 0;
     TlmManager *manager = 0;
 
+    int ec;
     int notify_code = 0;
     int notify_fd[2];
     gboolean show_version = FALSE;
@@ -148,11 +149,15 @@ int main(int argc, char *argv[])
         if (pipe (notify_fd))
             ERR ("Failed to create launch notify pipe: %s", strerror (errno));
         if (fork ()) {
-            if (read (notify_fd[0], &notify_code, sizeof (notify_code)) > 0)
+            close (notify_fd[1]);
+            ec = read (notify_fd[0], &notify_code, sizeof (notify_code));
+            close (notify_fd[0]);
+            if (ec > 0)
                 return notify_code;
             else
                 return errno;
         } else {
+            close (notify_fd[0]);
             if (setsid () == (pid_t) -1) {
                 /* ignore error on purpose */
             }
@@ -174,7 +179,9 @@ int main(int argc, char *argv[])
     tlm_manager_start (manager);
 
     if (daemonize) {
-        if (write (notify_fd[1], &notify_code, sizeof (notify_code)) <= 0)
+        ec = write (notify_fd[1], &notify_code, sizeof (notify_code));
+        close (notify_fd[1]);
+        if (ec <= 0)
             ERR ("Failed to notify parent process: %s", strerror (errno));
     }
 
