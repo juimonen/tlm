@@ -36,7 +36,7 @@
 #include <glib.h>
 
 #include "common/tlm-config-general.h"
-
+#include "common/tlm-config-seat.h"
 
 int main (int argc, char *argv[])
 {
@@ -45,6 +45,10 @@ int main (int argc, char *argv[])
     int autologin = -1;
     int pause = -1;
     int setupterm = -1;
+    int active = -1;
+    int nwatch = -1;
+    int vtnr = -1;
+    int rtimedir = -1;
     gint nseats;
     gint seatx;
     gchar *cf = NULL;
@@ -53,6 +57,8 @@ int main (int argc, char *argv[])
     gchar *session_type = NULL;
     gchar *pam_defserv = NULL;
     gchar *pam_serv = NULL;
+    gchar *watchx = NULL;
+    gchar *rtimemode = NULL;
     GKeyFile *kf;
     GError *error = NULL;
     GOptionContext *opts;
@@ -86,6 +92,10 @@ int main (int argc, char *argv[])
           "session type: can be one of 'unspecified', 'tty', 'x11', 'wayland' \
           or 'mir'",
           NULL },
+        { "active", 'e',
+          0, G_OPTION_ARG_INT, &active,
+          "seat activation enable/disable",
+          NULL },
         { "pamdefserv", 'f',
           0, G_OPTION_ARG_STRING, &pam_defserv,
           "pam service file for default user",
@@ -93,6 +103,26 @@ int main (int argc, char *argv[])
         { "pamserv", 'g',
           0, G_OPTION_ARG_STRING, &pam_serv,
           "pam service",
+          NULL },
+        { "nwatch", 'h',
+          0, G_OPTION_ARG_INT, &nwatch,
+          "number of seat-ready watch items",
+          NULL },
+        { "watchx", 'i',
+          0, G_OPTION_ARG_STRING, &watchx,
+          "seat-ready watch item",
+          NULL },
+        { "vtnr", 'j',
+          0, G_OPTION_ARG_INT, &vtnr,
+          "virtual terminal number for seat",
+          NULL },
+        { "rtimedir", 'k',
+          0, G_OPTION_ARG_INT, &rtimedir,
+          "setup XDG_RUNTIME_DIR for the user - enable/disable",
+          NULL },
+        { "rtimemode", 'm',
+          0, G_OPTION_ARG_STRING, &rtimemode,
+          "access mode for the XDG_RUNTIME_DIR",
           NULL },
         { NULL }
     };
@@ -198,13 +228,48 @@ int main (int argc, char *argv[])
                                TLM_CONFIG_GENERAL_DEFAULT_PAM_SERVICE,
                                pam_defserv);
     }
+    if (active >= 0) {
+        g_key_file_set_integer (kf,
+                                sname,
+                                TLM_CONFIG_SEAT_ACTIVE,
+                                active);
+    }
     if (session_type) {
         g_key_file_set_string (kf,
                                sname,
                                TLM_CONFIG_GENERAL_SESSION_TYPE,
                                session_type);
     }
-
+    if (nwatch >= 0) {
+        g_key_file_set_integer (kf,
+                                sname,
+                                TLM_CONFIG_SEAT_NWATCH,
+                                nwatch);
+    }
+    if (watchx) {
+        g_key_file_set_string (kf,
+                               sname,
+                               TLM_CONFIG_SEAT_WATCHX,
+                               watchx);
+    }
+    if (vtnr >= 0) {
+        g_key_file_set_integer (kf,
+                                sname,
+                                TLM_CONFIG_SEAT_VTNR,
+                                vtnr);
+    }
+    if (rtimedir >= 0) {
+        g_key_file_set_integer (kf,
+                                sname,
+                                TLM_CONFIG_GENERAL_SETUP_RUNTIME_DIR,
+                                rtimedir);
+    }
+    if (rtimemode) {
+        g_key_file_set_string (kf,
+                               sname,
+                               TLM_CONFIG_GENERAL_RUNTIME_MODE,
+                               rtimemode);
+    }
     g_key_file_set_integer (kf,
                             TLM_CONFIG_GENERAL,
                             TLM_CONFIG_GENERAL_NSEATS,
@@ -219,6 +284,8 @@ err_exit:
     g_free (session_type);
     g_free (pam_defserv);
     g_free (pam_serv);
+    g_free (watchx);
+    g_free (rtimemode);
     g_key_file_free (kf);
     if (!lockf (lockfd, F_ULOCK, 0)) {}
     close (lockfd);

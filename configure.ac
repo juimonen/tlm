@@ -92,6 +92,9 @@ AC_DEFINE_UNQUOTED(TLM_DBUS_SOCKET_PATH, ["$enable_sockets_path"],
 AC_DEFINE_UNQUOTED(TLM_DBUS_ROOT_SOCKET_ADDRESS,
          ["unix:path=$enable_sockets_path/dbus-sock"], [Address for dbus socket
          accessed by root only])
+AC_SUBST(TLM_DBUS_SOCKET_PATH, "$enable_sockets_path")
+AC_SUBST(TLM_DBUS_ROOT_SOCKET_ADDRESS,
+    "unix:path=$enable_sockets_path/dbus-sock")
 
 # Define runtime dir prefix
 AC_ARG_ENABLE(runtimedir-prefix,
