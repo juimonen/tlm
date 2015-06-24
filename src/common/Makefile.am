@@ -41,3 +41,4 @@ libtlm_common_la_LIBADD = \
 	-lpam \
 	$(NULL)
 
+CLEANFILES = *.gcno *.gcda
