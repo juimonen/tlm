@@ -43,8 +43,14 @@ AC_SUBST(LIBTLM_NFC_CFLAGS)
 AC_SUBST(LIBTLM_NFC_LIBS)
 AM_CONDITIONAL(HAVE_LIBTLM_NFC, [test x$have_libtlm_nfc = xyes])
 
-AC_CHECK_HEADERS([security/pam_appl.h],,[AC_MSG_ERROR("pam-devel is required")])
-AC_CHECK_HEADERS([security/pam_misc.h],,[AC_MSG_ERROR("pam-misc is required")])
+AC_ARG_ENABLE(utils-only, [ --enable-utils-only builds only utils and no other parts of tlm],
+                     [enable_utils_only=$enable_utils_only], [enable_utils_only="no"])
+
+if test "x$enable_utils_only" = "xno" ; then
+    AC_CHECK_HEADERS([security/pam_appl.h],,[AC_MSG_ERROR("pam-devel is required")])
+    AC_CHECK_HEADERS([security/pam_misc.h],,[AC_MSG_ERROR("pam-misc is required")])
+fi
+AM_CONDITIONAL(ENABLE_UTILS_ONLY, [test x$enable_utils_only = xyes])
 
 TLM_CFLAGS="$GLIB_CFLAGS $GIO_CFLAGS $GMODULE_CFLAGS $UUID_CFLAGS -D_POSIX_C_SOURCE=\"200809L\" -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -Wall -Werror"
 TLM_LIBS="$GLIB_LIBS $GIO_LIBS $GMODULE_LIBS $UUID_LIBS"
@@ -134,6 +140,7 @@ src/daemon/tlm.pc
 src/launcher/Makefile
 src/launcher/dbus/Makefile
 src/sessiond/Makefile
+src/client/Makefile
 src/utils/Makefile
 src/plugins/Makefile
 src/plugins/default/Makefile
@@ -156,4 +163,5 @@ echo "Building tests         : "$enable_tests
 echo "Enabled Gumd           : "$enable_gum $have_libgum
 echo "Enabled NFC            : "$have_libtlm_nfc
 echo "Enabled examples       : "$enable_examples
+echo "Enabled utils only     : "$enable_utils_only
 echo ""

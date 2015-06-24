@@ -5,6 +5,7 @@ AM_DISTCHECK_CONFIGURE_FLAGS = \
     --enable-distcheck \
     --enable-debug
 
+if !ENABLE_UTILS_ONLY
 SUBDIRS= src data docs
 
 if ENABLE_GTK_DOC
@@ -20,6 +21,10 @@ endif
 if ENABLE_TESTS
 AM_DISTCHECK_CONFIGURE_FLAGS += --enable-tests
 SUBDIRS += tests
+endif
+
+else
+SUBDIRS= src
 endif
 
 EXTRA_DIST = dists tools autogen.sh
