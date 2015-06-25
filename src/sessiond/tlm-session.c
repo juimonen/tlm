@@ -751,6 +751,16 @@ _exec_user_session (
         WARN ("failed to reset SIGPIPE: %s", strerror (errno));
     if (signal (SIGHUP, SIG_DFL) == SIG_ERR)
         WARN ("failed to reset SIGHUP: %s", strerror (errno));
+    sigset_t unmask;
+
+    if (sigemptyset (&unmask) ||
+        sigaddset (&unmask, SIGTERM) ||
+        sigaddset (&unmask, SIGINT) ||
+        sigaddset (&unmask, SIGPIPE) ||
+        sigaddset (&unmask, SIGHUP))
+        WARN ("failed to set up signal mask");
+    if (sigprocmask (SIG_UNBLOCK, &unmask, NULL))
+        WARN ("failed to unblock signals: %s", strerror (errno));
 
     DBG ("executing: ");
     args_iter = args; i = 0;
