@@ -743,8 +743,14 @@ _exec_user_session (
         }
     }
 
+    if (signal (SIGTERM, SIG_DFL) == SIG_ERR)
+        WARN ("failed to reset SIGTERM: %s", strerror (errno));
     if (signal (SIGINT, SIG_DFL) == SIG_ERR)
-        WARN ("failed reset SIGINT: %s", strerror(errno));
+        WARN ("failed to reset SIGINT: %s", strerror (errno));
+    if (signal (SIGPIPE, SIG_DFL) == SIG_ERR)
+        WARN ("failed to reset SIGPIPE: %s", strerror (errno));
+    if (signal (SIGHUP, SIG_DFL) == SIG_ERR)
+        WARN ("failed to reset SIGHUP: %s", strerror (errno));
 
     DBG ("executing: ");
     args_iter = args; i = 0;
