@@ -35,32 +35,16 @@
 
 #include "common/tlm-log.h"
 #include "common/tlm-utils.h"
-#include "tlm-dbus-launcher-observer.h"
-
-typedef struct {
-  GPid pid;
-  guint watcher;
-} ChildInfo;
+#include "tlm-process-manager.h"
 
 typedef struct {
   GMainLoop *loop;
   FILE *fp;
   guint socket_watcher;
-  GHashTable *childs; /* { pid_t:ChildInfo* } */
+  TlmProcessManager *proc_manager;
 } TlmLauncher;
 
 static void _tlm_launcher_process (TlmLauncher *l);
-
-static void
-_child_info_free (gpointer data)
-{
-  ChildInfo *info = (ChildInfo *)data;
-  if (info) {
-    g_spawn_close_pid (info->pid);
-    g_source_remove (info->watcher);
-    g_slice_free (ChildInfo, info);
-  }
-}
 
 static void
 _tlm_launcher_init (TlmLauncher *l)
@@ -69,8 +53,7 @@ _tlm_launcher_init (TlmLauncher *l)
   l->loop = g_main_loop_new (NULL, FALSE);
   l->fp = NULL;
   l->socket_watcher = 0;
-  l->childs = g_hash_table_new_full (g_direct_hash, g_direct_equal,
-                                     NULL, _child_info_free);
+  l->proc_manager = 0;
 }
 
 static void
@@ -83,29 +66,12 @@ _tlm_launcher_deinit (TlmLauncher *l)
     l->fp = NULL;
   }
 
-  g_hash_table_unref (l->childs);
-  l->childs = 0;
-
   if (l->socket_watcher) {
     g_source_remove (l->socket_watcher);
     l->socket_watcher = 0;
   }
-}
-
-static void
-_on_child_down_cb (GPid pid, gint status, gpointer userdata)
-{
-  TlmLauncher *l = (TlmLauncher *)userdata;
-
-  DBG("Child dead: %d", pid);
-  g_spawn_close_pid (pid);
-
-  g_hash_table_remove (l->childs, GINT_TO_POINTER (pid));
-
-  if (g_hash_table_size (l->childs) == 0) {
-    DBG("All childs dead, going down...");
-    kill (getpid(), SIGINT);
-  }
+  if (l->proc_manager)
+      g_object_unref (l->proc_manager);
 }
 
 static gboolean
@@ -158,24 +124,12 @@ static void _tlm_launcher_process (TlmLauncher *l)
     cmd = g_strstrip (cmd + 2);
     switch (control) {
       case 'M':
+        tlm_process_manager_launch_process (l->proc_manager, cmd, FALSE, NULL,
+                NULL);
+        break;
       case 'L':
-        argv = tlm_utils_split_command_line (cmd);
-        if ((child_pid = fork()) < 0) {
-          WARN("fork() failed: %s", strerror (errno));
-        } else if (child_pid == 0) {
-            /* child process */
-            INFO("Launching command : %s, pid: %d, ppid: %d\n",
-                argv[0], getpid (), getppid ());
-            execvp(argv[0], argv);
-            WARN("exec failed: %s", strerror (errno));
-        } else if (control == 'M') {
-          ChildInfo *info = g_slice_new0 (ChildInfo);
-          info->pid = child_pid;
-          info->watcher = g_child_watch_add (child_pid,
-              (GChildWatchFunc)_on_child_down_cb, l);
-          g_hash_table_insert (l->childs,
-              GINT_TO_POINTER(child_pid), info);
-        }
+        tlm_process_manager_launch_process (l->proc_manager, cmd, TRUE, NULL,
+                NULL);
         break;
       case 'W': {
         gchar **sockets = g_strsplit(cmd, ",", -1);
@@ -214,7 +168,7 @@ int main (int argc, char *argv[])
   TlmLauncher launcher;
   gchar *address = NULL;
   TlmConfig *config = NULL;
-  TlmDbusLauncherObserver *dbus_observer = NULL;
+  TlmProcessManager *proc_manager = NULL;
   const gchar *runtime_dir = NULL;
   gchar *sessionid = NULL;
 
@@ -269,7 +223,7 @@ int main (int argc, char *argv[])
               getpid());
 
   config = tlm_config_new ();
-  dbus_observer = tlm_dbus_launcher_observer_new (config, address, getuid());
+  launcher.proc_manager = tlm_process_manager_new (config, address, getuid());
   DBG ("Tlm launcher pid:%d, dbus addr: %s, sessionid: %s, runtimedir: %s\n",
           getpid(), address, sessionid, runtime_dir);
   g_free (sessionid);
@@ -279,7 +233,6 @@ int main (int argc, char *argv[])
 
   g_main_loop_run (launcher.loop);
 
-  g_object_unref (dbus_observer);
   g_object_unref (config);
   _tlm_launcher_deinit (&launcher);
 
