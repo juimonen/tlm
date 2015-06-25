@@ -321,7 +321,7 @@ _on_process_down_cb (
     g_signal_emit (self, signals[SIG_PROCESS_STOPPED], 0, pid);
 
     if (is_leader) {
-        DBG ("leader gone down.. bring down all the other processes")
+        DBG ("leader gone down.. bring down all the other processes");
         _stop_all_processes_blocking (self);
     }
 
