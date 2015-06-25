@@ -98,6 +98,7 @@ _on_child_down_cb (GPid pid, gint status, gpointer userdata)
   TlmLauncher *l = (TlmLauncher *)userdata;
 
   DBG("Child dead: %d", pid);
+  g_spawn_close_pid (pid);
 
   g_hash_table_remove (l->childs, GINT_TO_POINTER (pid));
 
