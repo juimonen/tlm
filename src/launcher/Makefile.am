@@ -5,8 +5,8 @@ SUBDIRS = dbus
 bin_PROGRAMS = tlm-launcher
 
 tlm_launcher_SOURCES = \
-	tlm-dbus-launcher-observer.c \
-	tlm-dbus-launcher-observer.h \
+	tlm-process-manager.c \
+	tlm-process-manager.h \
 	tlm-launcher.c
 
 tlm_launcher_CFLAGS = \

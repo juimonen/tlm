@@ -45,7 +45,7 @@ static GParamSpec *properties[N_PROPERTIES];
 struct _TlmDbusLauncherAdapterPrivate
 {
     GDBusConnection *connection;
-    TlmDbusLauncherObserver *observer;
+    TlmProcessManager *observer;
     TlmDbusLauncher *dbus_obj;
 };
 
@@ -243,8 +243,8 @@ _handle_launch_process (
         return TRUE;
     }
     DBG ("launch - command %s", command);
-    rval = tlm_dbus_launcher_launch_process (self->priv->observer, command,
-            &procid, &error);
+    rval = tlm_process_manager_launch_process (self->priv->observer, command,
+            FALSE, &procid, &error);
     if (rval) {
         tlm_dbus_launcher_complete_launch_process (self->priv->dbus_obj,
                 invocation, procid);
@@ -277,7 +277,7 @@ _handle_stop_process (
     }
     DBG ("stopping - process %u", procid);
 
-    rval = tlm_dbus_launcher_stop_process (self->priv->observer, procid,
+    rval = tlm_process_manager_stop_process (self->priv->observer, procid,
              &error);
     if (rval) {
         tlm_dbus_launcher_complete_stop_process (self->priv->dbus_obj,
@@ -306,14 +306,14 @@ _handle_list_processes (
 
 TlmDbusLauncherAdapter *
 tlm_dbus_launcher_adapter_new_with_connection (
-		TlmDbusLauncherObserver *observer,
+        TlmProcessManager *proc_manager,
         GDBusConnection *bus_connection)
 {
     GError *err = NULL;
     TlmDbusLauncherAdapter *adapter = TLM_DBUS_LAUNCHER_ADAPTER (g_object_new (
             TLM_TYPE_LAUNCHER_ADAPTER, "connection", bus_connection, NULL));
 
-    adapter->priv->observer = g_object_ref (observer);
+    adapter->priv->observer = g_object_ref (proc_manager);
     if (!g_dbus_interface_skeleton_export (
             G_DBUS_INTERFACE_SKELETON(adapter->priv->dbus_obj),
             adapter->priv->connection, TLM_LAUNCHER_OBJECTPATH, &err)) {

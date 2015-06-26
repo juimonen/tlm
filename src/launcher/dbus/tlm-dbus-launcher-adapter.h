@@ -30,7 +30,7 @@
 #include <glib.h>
 #include "common/dbus/tlm-dbus-launcher-gen.h"
 #include "common/dbus/tlm-dbus-utils.h"
-#include "launcher/tlm-dbus-launcher-observer.h"
+#include "launcher/tlm-process-manager.h"
 
 G_BEGIN_DECLS
 
@@ -71,7 +71,7 @@ GType tlm_dbus_launcher_adapter_get_type (void) G_GNUC_CONST;
 
 TlmDbusLauncherAdapter *
 tlm_dbus_launcher_adapter_new_with_connection (
-		TlmDbusLauncherObserver *observer,
+        TlmProcessManager *proc_manager,
         GDBusConnection *connection);
 
 G_END_DECLS
