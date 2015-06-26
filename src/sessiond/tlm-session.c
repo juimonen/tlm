@@ -751,8 +751,8 @@ _exec_user_session (
         WARN ("failed to reset SIGPIPE: %s", strerror (errno));
     if (signal (SIGHUP, SIG_DFL) == SIG_ERR)
         WARN ("failed to reset SIGHUP: %s", strerror (errno));
-    sigset_t unmask;
 
+    sigset_t unmask;
     if (sigemptyset (&unmask) ||
         sigaddset (&unmask, SIGTERM) ||
         sigaddset (&unmask, SIGINT) ||

@@ -361,6 +361,25 @@ tlm_process_manager_launch_process (
     	return TRUE;
     }
 
+    if (signal (SIGTERM, SIG_DFL) == SIG_ERR)
+        WARN ("failed to reset SIGTERM: %s", strerror (errno));
+    if (signal (SIGINT, SIG_DFL) == SIG_ERR)
+        WARN ("failed to reset SIGINT: %s", strerror (errno));
+    if (signal (SIGPIPE, SIG_DFL) == SIG_ERR)
+        WARN ("failed to reset SIGPIPE: %s", strerror (errno));
+    if (signal (SIGHUP, SIG_DFL) == SIG_ERR)
+        WARN ("failed to reset SIGHUP: %s", strerror (errno));
+
+    sigset_t unmask;
+    if (sigemptyset (&unmask) ||
+        sigaddset (&unmask, SIGTERM) ||
+        sigaddset (&unmask, SIGINT) ||
+        sigaddset (&unmask, SIGPIPE) ||
+        sigaddset (&unmask, SIGHUP))
+        WARN ("failed to set up signal mask");
+    if (sigprocmask (SIG_UNBLOCK, &unmask, NULL))
+        WARN ("failed to unblock signals: %s", strerror (errno));
+
     DBG ("start new process: cmd %s", command);
     args = tlm_utils_split_command_line (command);
     args_iter = args; i = 0;
