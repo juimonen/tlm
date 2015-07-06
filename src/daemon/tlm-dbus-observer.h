@@ -76,6 +76,12 @@ tlm_dbus_observer_new (
         uid_t uid,
         DbusObserverEnableFlags enable_flags);
 
+void
+tlm_dbus_observer_session_terminated (
+        TlmDbusObserver *self,
+        const gchar *sessionid,
+        TlmSeat *seat);
+
 G_END_DECLS
 
 #endif /* _TLM_DBUS_OBSERVER_H */

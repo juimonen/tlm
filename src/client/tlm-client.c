@@ -45,8 +45,7 @@
 #include "common/dbus/tlm-dbus-utils.h"
 
 static GPid daemon_pid = 0;
-
-//static GMainLoop *main_loop = NULL;
+static GMainLoop *main_loop = NULL;
 
 typedef struct {
     gchar *username;
@@ -55,6 +54,11 @@ typedef struct {
     gchar **environment;
 } TlmUser;
 
+typedef struct {
+    GDBusConnection *connection;
+    TlmDbusLogin *login_object;
+    TlmUser *user;
+} TlmLoginManager;
 
 typedef struct {
     gchar *sessionid;
@@ -96,6 +100,58 @@ _free_tlm_launcher (
         g_free (launcher->command);
         g_free (launcher);
     }
+}
+
+static void
+_on_connection_closed (
+        GDBusConnection *connection,
+        gboolean remote_peer_vanished,
+        GError *error,
+        gpointer user_data)
+{
+    DBG ("connection closed by peer");
+    if (main_loop) g_main_loop_quit (main_loop);
+}
+
+static TlmLoginManager *
+_create_tlm_login_manager (TlmUser* user)
+{
+    TlmLoginManager* login_mgr = g_malloc0 (sizeof (TlmLoginManager));
+    login_mgr->user = user;
+    return login_mgr;
+}
+
+static void
+_free_tlm_login_manager (
+        TlmLoginManager *login_mgr)
+{
+    if (login_mgr) {
+        if (login_mgr->login_object) g_object_unref (login_mgr->login_object);
+
+        if (login_mgr->connection) {
+            g_signal_handlers_disconnect_by_func (login_mgr->connection,
+                    _on_connection_closed, login_mgr);
+            g_object_unref (login_mgr->connection);
+        }
+        _free_tlm_user (login_mgr->user);
+        g_free (login_mgr);
+    }
+}
+static gboolean
+_on_sigterm_cb (gpointer data)
+{
+    TlmLoginManager *login_mgr = (TlmLoginManager *)data;
+    DBG ("received SIGTERM");
+    tlm_dbus_login_call_logout_user_sync (login_mgr->login_object,
+            login_mgr->user->seatid, "", NULL, NULL);
+    if (main_loop) g_main_loop_quit (main_loop);
+    return FALSE;
+}
+
+static void
+_setup_unix_signal_handlers (TlmLoginManager *login_mgr)
+{
+    g_unix_signal_add (SIGTERM, _on_sigterm_cb, (gpointer) login_mgr);
 }
 
 static gboolean
@@ -293,14 +349,13 @@ _convert_environ_to_variant (gchar **env) {
 
 static gboolean
 _handle_user_login (
-        TlmUser *user)
+        TlmLoginManager *login_mgr)
 {
     GError *error = NULL;
-    GDBusConnection *connection = NULL;
-    TlmDbusLogin *login_object = NULL;
     GVariant *venv = NULL;
     gchar *sessionid = NULL;
     gboolean success = FALSE;
+    TlmUser *user = login_mgr->user;
 
     if (!user || !user->username || !user->password || !user->seatid) {
         WARN("Invalid username/password");
@@ -308,15 +363,17 @@ _handle_user_login (
     }
     DBG ("username %s seatid %s", user->username, user->seatid);
 
-    connection = _get_bus_connection (user->seatid, &error);
-    if (connection == NULL) {
+    login_mgr->connection = _get_bus_connection (user->seatid, &error);
+    if (login_mgr->connection == NULL) {
         WARN("failed to get bus connection : error %s",
             error ? error->message : "(null)");
         goto _finished;
     }
+    g_signal_connect (login_mgr->connection, "closed",
+            G_CALLBACK(_on_connection_closed), login_mgr);
 
-    login_object = _get_login_object (connection, &error);
-    if (login_object == NULL) {
+    login_mgr->login_object = _get_login_object (login_mgr->connection, &error);
+    if (login_mgr->login_object == NULL) {
         WARN("failed to get login object : error %s",
             error ? error->message : "(null)");
         goto _finished;
@@ -328,7 +385,7 @@ _handle_user_login (
         goto _finished;
     }
 
-    tlm_dbus_login_call_login_user_sync (login_object, user->seatid,
+    tlm_dbus_login_call_login_user_sync (login_mgr->login_object, user->seatid,
             user->username, user->password, venv, &sessionid, NULL, &error);
     if (error) {
         WARN ("login failed with error: %d:%s", error->code, error->message);
@@ -341,20 +398,16 @@ _handle_user_login (
     g_free (sessionid);
 
 _finished:
-    if (login_object) g_object_unref (login_object);
-    if (connection) g_object_unref (connection);
-
     return success;
 }
 
 static gboolean
 _handle_user_logout (
-        TlmUser *user)
+        TlmLoginManager *login_mgr)
 {
     GError *error = NULL;
-    GDBusConnection *connection = NULL;
-    TlmDbusLogin *login_object = NULL;
     gboolean success = FALSE;
+    TlmUser *user = login_mgr->user;
 
     if (!user || !user->seatid) {
         WARN("Invalid user/seatid");
@@ -362,21 +415,21 @@ _handle_user_logout (
     }
     DBG ("logout for seatid %s", user->seatid);
 
-    connection = _get_bus_connection (user->seatid, &error);
-    if (connection == NULL) {
+    login_mgr->connection = _get_bus_connection (user->seatid, &error);
+    if (login_mgr->connection == NULL) {
         WARN("failed to get bus connection : error %s",
             error ? error->message : "(null)");
         goto _finished;
     }
 
-    login_object = _get_login_object (connection, &error);
-    if (login_object == NULL) {
+    login_mgr->login_object = _get_login_object (login_mgr->connection, &error);
+    if (login_mgr->login_object == NULL) {
         WARN("failed to get login object : error %s",
             error ? error->message : "(null)");
         goto _finished;
     }
 
-    tlm_dbus_login_call_logout_user_sync (login_object, user->seatid,
+    tlm_dbus_login_call_logout_user_sync (login_mgr->login_object, user->seatid,
             "", NULL, &error);
     if (error) {
         WARN ("logout failed with error: %d:%s", error->code, error->message);
@@ -388,22 +441,18 @@ _handle_user_logout (
     }
 
 _finished:
-    if (login_object) g_object_unref (login_object);
-    if (connection) g_object_unref (connection);
-
     return success;
 }
 
 static gboolean
 _handle_user_switch (
-        TlmUser *user)
+        TlmLoginManager *login_mgr)
 {
     GError *error = NULL;
-    GDBusConnection *connection = NULL;
-    TlmDbusLogin *login_object = NULL;
     GVariant *venv = NULL;
     gchar *sessionid = NULL;
     gboolean success = FALSE;
+    TlmUser *user = login_mgr->user;
 
     if (!user || !user->username || !user->password || !user->seatid) {
         WARN("Invalid username/password/seatid");
@@ -411,15 +460,15 @@ _handle_user_switch (
     }
     DBG ("username %s seatid %s", user->username, user->seatid);
 
-    connection = _get_bus_connection (user->seatid, &error);
-    if (connection == NULL) {
+    login_mgr->connection = _get_bus_connection (user->seatid, &error);
+    if (login_mgr->connection == NULL) {
         WARN("failed to get bus connection : error %s",
             error ? error->message : "(null)");
         goto _finished;
     }
 
-    login_object = _get_login_object (connection, &error);
-    if (login_object == NULL) {
+    login_mgr->login_object = _get_login_object (login_mgr->connection, &error);
+    if (login_mgr->login_object == NULL) {
         WARN("failed to get login object : error %s",
             error ? error->message : "(null)");
         goto _finished;
@@ -431,7 +480,7 @@ _handle_user_switch (
         goto _finished;
     }
 
-    tlm_dbus_login_call_switch_user_sync (login_object, user->seatid,
+    tlm_dbus_login_call_switch_user_sync (login_mgr->login_object, user->seatid,
             user->username, user->password, venv, &sessionid, NULL, &error);
     if (error) {
         WARN ("switch user failed with error: %d:%s", error->code,
@@ -445,9 +494,6 @@ _handle_user_switch (
     g_free (sessionid);
 
 _finished:
-    if (login_object) g_object_unref (login_object);
-    if (connection) g_object_unref (connection);
-
     return success;
 }
 
@@ -560,11 +606,13 @@ int main (int argc, char *argv[])
 
     gboolean is_user_login_op = FALSE, is_user_logout_op = FALSE;
     gboolean is_user_switch_op = FALSE;
+    gboolean keep_alive = FALSE;
     gboolean run_tlm_daemon = FALSE;
     gboolean is_launch_proc_op = FALSE;
     gboolean is_stop_proc_op = FALSE;
     GOptionGroup* user_option = NULL;
     GOptionGroup* launcher_option = NULL;
+    TlmLoginManager *login_mgr = NULL;
     TlmLauncher *launcher = _create_tlm_launcher ();
     TlmUser *user = _create_tlm_user ();
 
@@ -587,6 +635,9 @@ int main (int argc, char *argv[])
                 NULL },
         { "run-daemon", 'r', 0, G_OPTION_ARG_NONE, &run_tlm_daemon,
                 "run tlm daemon (by default tlm daemon is not run)",
+                NULL },
+        { "keep-alive", 'k', 0, G_OPTION_ARG_NONE, &keep_alive,
+                "keep tlm-client running until session is alive",
                 NULL },
         { NULL }
     };
@@ -653,12 +704,14 @@ int main (int argc, char *argv[])
     if (run_tlm_daemon)
         _setup_daemon ();
 
+    login_mgr = _create_tlm_login_manager (user);
+    user = NULL;
     if (is_user_login_op) {
-        rval = _handle_user_login (user);
+        rval = _handle_user_login (login_mgr);
     } else if (is_user_logout_op) {
-        rval = _handle_user_logout (user);
+        rval = _handle_user_logout (login_mgr);
     } else if (is_user_switch_op) {
-        rval = _handle_user_switch (user);
+        rval = _handle_user_switch (login_mgr);
     } else if (is_launch_proc_op) {
         rval = _handle_launch_process (launcher);
     } else if (is_stop_proc_op) {
@@ -667,14 +720,20 @@ int main (int argc, char *argv[])
         WARN ("No option specified");
         rval = FALSE;
     }
-    _free_tlm_user (user);
     _free_tlm_launcher (launcher);
+
+    if (rval && keep_alive) {
+        main_loop = g_main_loop_new (NULL, FALSE);
+        _setup_unix_signal_handlers (login_mgr);
+        g_main_loop_run (main_loop);
+        g_main_loop_unref (main_loop);
+        main_loop = NULL;
+    }
+
+    _free_tlm_login_manager (login_mgr);
 
     if (run_tlm_daemon)
         _teardown_daemon ();
 
-    if (rval)
-        return EXIT_SUCCESS;
-
-    return EXIT_FAILURE;
+    return rval ? EXIT_SUCCESS : EXIT_FAILURE;
 }

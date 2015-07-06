@@ -358,7 +358,7 @@ _handle_dbus_new_connection (
 	g_return_if_fail (self && TLM_IS_DBUS_OBSERVER(self) && dbus_connection);
 
 	login_object = tlm_dbus_login_adapter_new_with_connection (dbus_connection);
-	tlm_dbus_server_p2p_add_adaptor_object (
+	tlm_dbus_server_p2p_add_dbus_adaptor (
 			TLM_DBUS_SERVER_P2P (self->priv->dbus_server),
 			dbus_connection, G_OBJECT(login_object));
 }
@@ -588,6 +588,7 @@ _handle_seat_session_created (
     /* Login/switch request should only be completed on session created
      * signal from seat */
     if (!self->priv->active_request ||
+        G_OBJECT (self->priv->active_request->seat) != seat ||
         !self->priv->active_request->dbus_request ||
         (self->priv->active_request->dbus_request->type !=
                 TLM_DBUS_REQUEST_TYPE_LOGIN_USER &&
@@ -602,13 +603,44 @@ _handle_seat_session_created (
     _process_next_request_in_idle (self);
 }
 
+void
+_remove_adaptor_object_by_sessionid (
+        TlmDbusServerP2P *server,
+        const gchar *sessionid)
+{
+    GHashTableIter iter;
+    gpointer key;
+    GObject *value = NULL;
+    TlmDbusLoginAdapter *adaptor = NULL;
+
+    if (!sessionid || strlen (sessionid) <= 0)
+        return;
+
+    g_hash_table_iter_init (&iter, tlm_dbus_server_p2p_get_dbus_adaptors
+            (server));
+    while (g_hash_table_iter_next (&iter,
+            (gpointer)&key,
+            (gpointer)&value)) {
+        adaptor = TLM_DBUS_LOGIN_ADAPTER (value);
+        if (adaptor && g_strcmp0 (sessionid,
+                tlm_dbus_login_adapter_get_sessionid (adaptor)) == 0) {
+            DBG("session terminated - remove adaptor object by sessid %s",
+                    sessionid);
+            tlm_dbus_server_p2p_remove_dbus_adaptor (server,
+                    tlm_dbus_login_adapter_get_connection (adaptor),
+                    G_OBJECT(adaptor));
+            break;
+        }
+    }
+}
+
 static gboolean
 _handle_seat_session_terminated (
         TlmDbusObserver *self,
         const gchar *sessionid,
         GObject *seat)
 {
-    DBG ("self %p seat %p", self, seat);
+    DBG ("self %p seat %p sessionid %s", self, seat, sessionid);
 
     g_return_val_if_fail (self && TLM_IS_DBUS_OBSERVER(self), FALSE);
     g_return_val_if_fail (seat && TLM_IS_SEAT(seat), FALSE);
@@ -616,10 +648,15 @@ _handle_seat_session_terminated (
     /* Logout request should only be completed on session terminated signal
      * from seat */
     if (!self->priv->active_request ||
+        G_OBJECT (self->priv->active_request->seat) != seat ||
         !self->priv->active_request->dbus_request ||
         self->priv->active_request->dbus_request->type !=
-                TLM_DBUS_REQUEST_TYPE_LOGOUT_USER)
+                TLM_DBUS_REQUEST_TYPE_LOGOUT_USER) {
+        /* Check if there is any dbus connection still alive and close it */
+        _remove_adaptor_object_by_sessionid (
+                TLM_DBUS_SERVER_P2P (self->priv->dbus_server), sessionid);
         return FALSE;
+    }
 
     _disconnect_dbus_adapter (self, TLM_DBUS_LOGIN_ADAPTER (
             self->priv->active_request->dbus_request->dbus_adapter));
@@ -646,6 +683,7 @@ _handle_seat_session_info (
     g_return_if_fail (seat && TLM_IS_SEAT(seat));
 
     if (!self->priv->active_request ||
+        G_OBJECT (self->priv->active_request->seat) != seat ||
         !self->priv->active_request->dbus_request ||
         self->priv->active_request->dbus_request->type !=
                 TLM_DBUS_REQUEST_TYPE_GET_SESSION_INFO)
@@ -670,7 +708,8 @@ _handle_seat_session_error (
     g_return_if_fail (self && TLM_IS_DBUS_OBSERVER(self));
     g_return_if_fail (seat && TLM_IS_SEAT(seat));
 
-    if (!self->priv->active_request)
+    if (!self->priv->active_request ||
+        G_OBJECT (self->priv->active_request->seat) != seat)
         return;
 
     error = TLM_GET_ERROR_FOR_ID (error_code, "Dbus request failed");
@@ -896,4 +935,13 @@ tlm_dbus_observer_new (
             "client-removed", G_CALLBACK(_handle_dbus_client_removed),
             dbus_observer);
     return dbus_observer;
+}
+
+void
+tlm_dbus_observer_session_terminated (
+        TlmDbusObserver *self,
+        const gchar *sessionid,
+        TlmSeat *seat)
+{
+    _handle_seat_session_terminated (self, sessionid, G_OBJECT(seat));
 }

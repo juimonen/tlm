@@ -260,7 +260,7 @@ _handle_dbus_server_new_connection (
 
 	launcher_object = tlm_dbus_launcher_adapter_new_with_connection (self,
 	        dbus_connection);
-	tlm_dbus_server_p2p_add_adaptor_object (
+	tlm_dbus_server_p2p_add_dbus_adaptor (
 			TLM_DBUS_SERVER_P2P (self->priv->dbus_server),
 			dbus_connection, G_OBJECT(launcher_object));
 }

@@ -66,10 +66,20 @@ GType
 tlm_dbus_server_p2p_get_type();
 
 void
-tlm_dbus_server_p2p_add_adaptor_object (
+tlm_dbus_server_p2p_add_dbus_adaptor (
         TlmDbusServerP2P *server,
         GDBusConnection *connection,
         GObject *adaptor_object);
+
+void
+tlm_dbus_server_p2p_remove_dbus_adaptor (
+        TlmDbusServerP2P *server,
+        GDBusConnection *connection,
+        GObject *adaptor_object);
+
+GHashTable *
+tlm_dbus_server_p2p_get_dbus_adaptors (
+        TlmDbusServerP2P *server);
 
 TlmDbusServerP2P *
 tlm_dbus_server_p2p_new (

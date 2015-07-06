@@ -72,6 +72,14 @@ TlmDbusLoginAdapter *
 tlm_dbus_login_adapter_new_with_connection (
         GDBusConnection *connection);
 
+GDBusConnection *
+tlm_dbus_login_adapter_get_connection (
+        TlmDbusLoginAdapter *self);
+
+const gchar *
+tlm_dbus_login_adapter_get_sessionid (
+        TlmDbusLoginAdapter *self);
+
 void
 tlm_dbus_login_adapter_request_completed (
         TlmDbusRequest *request,
