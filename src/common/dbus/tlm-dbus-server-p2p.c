@@ -278,6 +278,19 @@ tlm_dbus_server_p2p_init (
 }
 
 static void
+_remove_dbus_adaptor (
+        TlmDbusServerP2P *server,
+        GDBusConnection *connection,
+        gpointer adaptor_object)
+{
+    if  (adaptor_object) {
+        _clear_adaptor_object_watchers (connection, adaptor_object, server);
+        g_signal_emit (server, signals[SIG_CLIENT_REMOVED], 0, adaptor_object);
+        g_hash_table_remove (server->priv->adaptor_objects, connection);
+    }
+}
+
+static void
 _on_connection_closed (
         GDBusConnection *connection,
         gboolean remote_peer_vanished,
@@ -285,17 +298,12 @@ _on_connection_closed (
         gpointer user_data)
 {
     TlmDbusServerP2P *server = TLM_DBUS_SERVER_P2P (user_data);
+    DBG("p2p dbus connection(%p) closed (peer vanished : %d)"
+            " with error: %s", connection, remote_peer_vanished,
+            error ? error->message : "NONE");
     gpointer adaptor_object = g_hash_table_lookup (
             server->priv->adaptor_objects, connection);
-    if  (adaptor_object) {
-        _clear_adaptor_object_watchers (connection, adaptor_object, user_data);
-        DBG("p2p dbus connection(%p) closed (peer vanished : %d)"
-                " with error: %s", connection, remote_peer_vanished,
-                error ? error->message : "NONE");
-
-        g_signal_emit (server, signals[SIG_CLIENT_REMOVED], 0, adaptor_object);
-        g_hash_table_remove (server->priv->adaptor_objects, connection);
-    }
+    _remove_dbus_adaptor (server, connection, adaptor_object);
 }
 
 static gboolean
@@ -428,15 +436,36 @@ _tlm_dbus_server_p2p_interface_init (
 }
 
 void
-tlm_dbus_server_p2p_add_adaptor_object (
+tlm_dbus_server_p2p_add_dbus_adaptor (
         TlmDbusServerP2P *server,
         GDBusConnection *connection,
         GObject *adaptor_object)
 {
     DBG("export interfaces on connection %p", connection);
+    g_return_if_fail (TLM_IS_DBUS_SERVER_P2P (server));
 
     _add_adaptor_object_watchers (connection, adaptor_object, server);
     g_signal_emit (server, signals[SIG_CLIENT_ADDED], 0, adaptor_object);
+}
+
+void
+tlm_dbus_server_p2p_remove_dbus_adaptor (
+        TlmDbusServerP2P *server,
+        GDBusConnection *connection,
+        GObject *adaptor_object)
+{
+    DBG("session terminated - remove adaptor object %p", adaptor_object);
+    g_return_if_fail (TLM_IS_DBUS_SERVER_P2P (server));
+
+    _remove_dbus_adaptor (server, connection, adaptor_object);
+}
+
+GHashTable *
+tlm_dbus_server_p2p_get_dbus_adaptors (
+        TlmDbusServerP2P *server)
+{
+    g_return_if_fail (TLM_IS_DBUS_SERVER_P2P (server));
+    return server->priv->adaptor_objects;
 }
 
 TlmDbusServerP2P *

@@ -100,7 +100,7 @@ _on_child_down_cb (
 
     TlmSessionRemote *session = TLM_SESSION_REMOTE (data);
 
-    DBG ("Sessiond(%p) with pid (%d) closed with status %d", session, pid,
+    DBG ("sessiond(%p) with pid (%d) closed with status %d", session, pid,
             status);
 
     session->priv->is_sessiond_up = FALSE;

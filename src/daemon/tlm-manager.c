@@ -481,6 +481,29 @@ _prepare_user_logout_cb (TlmSeat *seat, const gchar *user_name, gpointer user_da
     }
 }
 
+static gboolean
+_session_terminated_cb (GObject *emitter, const gchar *session_id,
+        TlmManager *manager)
+{
+    TlmSeat *seat = NULL;
+    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), TRUE);
+    DBG("session id %s", session_id);
+
+    seat = TLM_SEAT(emitter);
+    if (seat) {
+        tlm_dbus_observer_session_terminated (manager->priv->dbus_observer,
+                session_id, seat);
+        if (!manager->priv->is_started) {
+            g_hash_table_remove (manager->priv->seats, tlm_seat_get_id (seat));
+            if (g_hash_table_size (manager->priv->seats) == 0) {
+                DBG ("signalling stopped");
+                g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
+            }
+        }
+    }
+    return TRUE;
+}
+
 static void
 _create_seat (TlmManager *manager,
               const gchar *seat_id, const gchar *seat_path)
@@ -499,6 +522,10 @@ _create_seat (TlmManager *manager,
     g_signal_connect (seat,
                       "prepare-user-logout",
                       G_CALLBACK (_prepare_user_logout_cb),
+                      manager);
+    g_signal_connect_after (seat,
+                      "session-terminated",
+                      G_CALLBACK (_session_terminated_cb),
                       manager);
     g_hash_table_insert (priv->seats, g_strdup (seat_id), seat);
     g_signal_emit (manager, signals[SIG_SEAT_ADDED], 0, seat, NULL);
@@ -775,25 +802,6 @@ tlm_manager_start (TlmManager *manager)
     return TRUE;
 }
 
-static gboolean
-_session_terminated_cb (GObject *emitter, const gchar *session_id,
-        TlmManager *manager)
-{
-    TlmSeat *seat = NULL;
-    g_return_val_if_fail (manager && TLM_IS_MANAGER (manager), TRUE);
-    DBG("session id %s", session_id);
-
-    seat = TLM_SEAT(emitter);
-    if (seat) {
-        g_hash_table_remove (manager->priv->seats, tlm_seat_get_id (seat));
-        if (g_hash_table_size (manager->priv->seats) == 0) {
-            DBG ("signalling stopped");
-            g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
-        }
-    }
-    return TRUE;
-}
-
 gboolean
 tlm_manager_stop (TlmManager *manager)
 {
@@ -805,13 +813,11 @@ tlm_manager_stop (TlmManager *manager)
     gpointer key, value;
     gboolean delayed = FALSE;
 
+    manager->priv->is_started = FALSE;
+
     g_hash_table_iter_init (&iter, manager->priv->seats);
     while (g_hash_table_iter_next (&iter, &key, &value)) {
         DBG ("terminate seat '%s'", (const gchar *) key);
-        g_signal_connect_after ((TlmSeat *) value,
-                                  "session-terminated",
-                                  G_CALLBACK (_session_terminated_cb),
-                                  manager);
         if (!tlm_seat_terminate_session ((TlmSeat *) value)) {
             g_hash_table_remove (manager->priv->seats, key);
             g_hash_table_iter_init (&iter, manager->priv->seats);
@@ -821,8 +827,6 @@ tlm_manager_stop (TlmManager *manager)
     }
     if (!delayed)
         g_signal_emit (manager, signals[SIG_MANAGER_STOPPED], 0);
-
-    manager->priv->is_started = FALSE;
 
     return TRUE;
 }

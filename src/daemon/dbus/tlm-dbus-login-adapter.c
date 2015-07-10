@@ -46,6 +46,7 @@ struct _TlmDbusLoginAdapterPrivate
 {
     GDBusConnection *connection;
     TlmDbusLogin *dbus_obj;
+    gchar *sessionid;
 };
 
 G_DEFINE_TYPE (TlmDbusLoginAdapter, tlm_dbus_login_adapter, G_TYPE_OBJECT)
@@ -166,7 +167,8 @@ static void
 _finalize (
         GObject *object)
 {
-
+    TlmDbusLoginAdapter *self = TLM_DBUS_LOGIN_ADAPTER (object);
+    g_free (self->priv->sessionid);
     G_OBJECT_CLASS (tlm_dbus_login_adapter_parent_class)->finalize (
             object);
 }
@@ -257,6 +259,7 @@ tlm_dbus_login_adapter_init (TlmDbusLoginAdapter *self)
 
     self->priv->connection = 0;
     self->priv->dbus_obj = tlm_dbus_login_skeleton_new ();
+    self->priv->sessionid = 0;
 }
 
 static gboolean
@@ -400,9 +403,37 @@ tlm_dbus_login_adapter_new_with_connection (
     g_signal_connect_swapped (adapter->priv->dbus_obj,
         "handle-switch-user", G_CALLBACK(_handle_switch_user), adapter);
     g_signal_connect_swapped (adapter->priv->dbus_obj,
-        "handle-get-session-info", G_CALLBACK(_handle_get_session_info), adapter);
+        "handle-get-session-info", G_CALLBACK(_handle_get_session_info),
+        adapter);
 
     return adapter;
+}
+
+GDBusConnection *
+tlm_dbus_login_adapter_get_connection (
+        TlmDbusLoginAdapter *self)
+{
+    g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self),
+            NULL);
+    return self->priv->connection;
+}
+
+static void
+_set_sessionid (
+        TlmDbusLoginAdapter *self,
+        const gchar *sessionid)
+{
+    g_return_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self));
+    g_free (self->priv->sessionid);
+    self->priv->sessionid = g_strdup (sessionid);
+}
+
+const gchar *
+tlm_dbus_login_adapter_get_sessionid (
+        TlmDbusLoginAdapter *self)
+{
+    g_return_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self));
+    return self->priv->sessionid;
 }
 
 void
@@ -423,6 +454,7 @@ tlm_dbus_login_adapter_request_completed (
 
     switch (request->type) {
     case TLM_DBUS_REQUEST_TYPE_LOGIN_USER:
+        _set_sessionid (adapter, response->sessionid);
         tlm_dbus_login_complete_login_user (adapter->priv->dbus_obj,
                 request->invocation, response->sessionid);
         break;
