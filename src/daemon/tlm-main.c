@@ -32,6 +32,10 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <glib-unix.h>
+#include <pwd.h>
+#include <grp.h>
+#include <sys/prctl.h>
+#include <sys/capability.h>
 
 #if HAVE_CONFIG_H
 #include "config.h"
@@ -90,6 +94,75 @@ _setup_unix_signal_handlers (TlmManager *manager)
     g_unix_signal_add (SIGHUP, _on_sighup_cb, (gpointer) manager);
 }
 
+int drop_privileges (const gchar* user)
+{
+    struct passwd *p;
+    cap_t caps = NULL;
+    uint64_t i, j = 0;
+    /*
+    uint64_t cap_flag = (1ULL << CAP_CHOWN) |
+                        (1ULL << CAP_DAC_OVERRIDE) |
+                        (1ULL << CAP_FOWNER) |
+                        (1ULL << CAP_KILL) |
+                        (1ULL << CAP_SETUID) |
+                        (1ULL << CAP_SETPCAP) |
+                        (1ULL << CAP_SYS_TTY_CONFIG) |
+                        (1ULL << CAP_SETFCAP) |
+                        (1ULL << CAP_SETGID);
+    */
+    unsigned long last_cap = (unsigned long)CAP_LAST_CAP;
+    cap_value_t bits[last_cap + 1];
+
+    p = getpwnam(user);
+    if (!p) return -1;
+
+    /* sets gids for the calling process */
+    if (setresgid(p->pw_gid, p->pw_gid, p->pw_gid) < 0 ||
+        setgroups(0, NULL) < 0) {
+        DBG ("setresgid failed with error %s", strerror(errno));
+        return -1;
+    }
+
+    /* sets uids for the calling process */
+    if (prctl(PR_SET_KEEPCAPS, 1) < 0 ||
+        setresuid(p->pw_uid, p->pw_uid, p->pw_uid) < 0 ||
+        prctl(PR_SET_KEEPCAPS, 0) < 0) {
+        DBG ("setresuid failed with error %s", strerror(errno));
+        return -1;
+    }
+
+    for (i = 0; i <= last_cap; i++) {
+        if (prctl(PR_CAPBSET_READ, i) > 0) {
+        //if (cap_flag & (1ULL << i)) {
+            bits[j++] = i;
+            DBG ("cap %ld is included in bounding set and total is %ld",
+                    (unsigned long)i, (unsigned long)j);
+        }
+    }
+    if (!j) return 0;
+
+    /* Set cap for effective flag as well, as systemd does not seem to set it
+     * other than for permitted and inheritable flags*/
+    caps = cap_init();
+    if (!caps) return -1;
+
+    if (cap_set_flag(caps, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
+        cap_set_flag(caps, CAP_PERMITTED, j, bits, CAP_SET) < 0) {
+        DBG ("cap_set_flag failed with error %s", strerror(errno));
+        cap_free (caps);
+        return -1;
+    }
+
+    if (cap_set_proc(caps) < 0) {
+        DBG ("cap_set_proc failed with error %s", strerror(errno));
+        cap_free (caps);
+        return -1;
+    }
+    cap_free (caps);
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     GError *error = 0;
@@ -102,6 +175,7 @@ int main(int argc, char *argv[])
     gboolean fatal_warnings = FALSE;
     gboolean daemonize = FALSE;
     gchar *username = NULL;
+    const gchar *tlm_user = "tlm";
 
     GOptionContext *opt_context = NULL;
     GOptionEntry opt_entries[] = {
@@ -124,6 +198,15 @@ int main(int argc, char *argv[])
     g_type_init ();
 #endif
 
+    tlm_log_init (G_LOG_DOMAIN);
+    tlm_log_init ("TLM_COMMON");
+
+    if(drop_privileges (tlm_user)) {
+        ERR ("Unable to drop priviliges correctly");
+        tlm_log_close (NULL);
+        return -1;
+    }
+
     opt_context = g_option_context_new ("");
     g_option_context_add_main_entries (opt_context, opt_entries, NULL);
     g_option_context_parse (opt_context, &argc, &argv, &error);
@@ -131,11 +214,13 @@ int main(int argc, char *argv[])
     if (error) {
         ERR ("Error parsing options: %s", error->message);
         g_error_free (error);
+        tlm_log_close (NULL);
         return -1;
     }
 
     if (show_version) {
         INFO("Version: "PACKAGE_VERSION"\n");
+        tlm_log_close (NULL);
         return 0;
     }
 
@@ -160,6 +245,7 @@ int main(int argc, char *argv[])
             close (notify_fd[0]);
             if (setsid () == (pid_t) -1) {
                 /* ignore error on purpose */
+                DBG ("setsid FAILED");
             }
             if (!freopen ("/dev/null", "r", stdin))
                 notify_code = errno;
@@ -167,10 +253,10 @@ int main(int argc, char *argv[])
                 notify_code = errno;
             if (!freopen ("/dev/null", "a", stderr))
                 notify_code = errno;
+            if (!notify_code)
+                DBG ("freopen FAILED: %s", strerror (notify_code));
         }
     }
-
-    tlm_log_init (G_LOG_DOMAIN);
 
     main_loop = g_main_loop_new (NULL, FALSE);
 

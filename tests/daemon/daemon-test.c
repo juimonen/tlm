@@ -35,6 +35,7 @@
 #include <glib-unix.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <pwd.h>
 
 #include "common/dbus/tlm-dbus.h"
 #include "common/tlm-log.h"
@@ -95,30 +96,11 @@ _teardown_daemon (void)
 }
 
 GDBusConnection *
-_get_root_socket_bus_connection (
+_get_tlm_socket_bus_connection (
         GError **error)
 {
     gchar address[128];
-    g_snprintf (address, 127, TLM_DBUS_ROOT_SOCKET_ADDRESS);
-    return g_dbus_connection_new_for_address_sync (address,
-            G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
-}
-
-GDBusConnection *
-_get_bus_connection (
-        const gchar *seat_id,
-        GError **error)
-{
-    uid_t ui_user_id = getuid ();
-
-    if (ui_user_id == 0) {
-        return _get_root_socket_bus_connection (error);
-    }
-
-    /* get dbus connection for specific user only */
-    gchar address[128];
-    g_snprintf (address, 127, "unix:path=%s/%s-%d", TLM_DBUS_SOCKET_PATH,
-            seat_id, ui_user_id);
+    g_snprintf (address, 127, TLM_DBUS_SOCKET_ADDRESS);
     return g_dbus_connection_new_for_address_sync (address,
             G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
 }
@@ -239,13 +221,14 @@ START_TEST (test_login_user)
     GVariant *venv = NULL;
     GVariant *vseat = NULL;
     gchar *seat = NULL;
+    gchar *sessionid = NULL;
 
     vseat = _get_property ("Seat");
     fail_if (vseat == NULL);
     g_variant_get (vseat, "(so)", &seat, NULL);
     g_variant_unref (vseat);
 
-    connection = _get_bus_connection (seat, &error);
+    connection = _get_tlm_socket_bus_connection (&error);
     fail_if (connection == NULL, "failed to get bus connection : %s",
             error ? error->message : "(null)");
     g_free (seat);
@@ -263,8 +246,9 @@ START_TEST (test_login_user)
     g_hash_table_unref (environ);
 
     fail_if (tlm_dbus_login_call_login_user_sync (login_object,
-            "seat0", "test01234567", "test1", venv, NULL, &error) == TRUE);
-
+            "seat0", "test01234567", "test1", venv, &sessionid, NULL,
+            &error) == TRUE);
+    g_free (sessionid);
     if (error) {
         g_error_free (error);
         error = NULL;

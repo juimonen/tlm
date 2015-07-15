@@ -210,7 +210,8 @@ int main (int argc, char *argv[])
   const gchar *runtime_dir = NULL;
   gchar *sessionid = NULL;
 
-  tlm_log_init("TLM_LAUNCHER");
+  tlm_log_init ("TLM_LAUNCHER");
+  tlm_log_init ("TLM_COMMON");
 
   while ((c = getopt_long (argc, argv, "f:s:h", opts, &i)) != -1) {
     switch(c) {

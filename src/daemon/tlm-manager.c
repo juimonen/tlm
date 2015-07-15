@@ -440,7 +440,7 @@ tlm_manager_init (TlmManager *manager)
     /* delete tlm runtime directory */
     tlm_utils_delete_dir (TLM_DBUS_SOCKET_PATH);
     priv->dbus_observer = TLM_DBUS_OBSERVER (tlm_dbus_observer_new (manager,
-            NULL, TLM_DBUS_ROOT_SOCKET_ADDRESS, getuid (),
+            NULL, TLM_DBUS_SOCKET_ADDRESS, getuid (),
             DBUS_OBSERVER_ENABLE_ALL));
 }
 

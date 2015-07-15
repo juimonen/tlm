@@ -35,6 +35,7 @@
 #include <glib-unix.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <pwd.h>
 
 #include "common/dbus/tlm-dbus.h"
 #include "common/tlm-log.h"
@@ -52,6 +53,7 @@ typedef struct {
     gchar *password;
     gchar *seatid;
     gchar **environment;
+    gboolean use_seat_dbus;
 } TlmUser;
 
 typedef struct {
@@ -204,30 +206,35 @@ _teardown_daemon ()
 }
 
 GDBusConnection *
-_get_root_socket_bus_connection (
+_get_tlm_socket_bus_connection (
         GError **error)
 {
     gchar address[128];
-    g_snprintf (address, 127, TLM_DBUS_ROOT_SOCKET_ADDRESS);
+    g_snprintf (address, 127, TLM_DBUS_SOCKET_ADDRESS);
+    DBG ("address to connect = %s", address);
     return g_dbus_connection_new_for_address_sync (address,
             G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
 }
 
 GDBusConnection *
 _get_bus_connection (
-        const gchar *seat_id,
+        TlmUser *user,
         GError **error)
 {
-    uid_t user_id = getuid ();
+    uid_t ui_user_id = getuid ();
 
-    if (user_id == 0) {
-        return _get_root_socket_bus_connection (error);
+    if (!user->use_seat_dbus) {
+        if (getpwnam ("tlm"))
+            return _get_tlm_socket_bus_connection (error);
+        WARN ("tlm user not defined");
+        return NULL;
     }
 
     /* get dbus connection for specific user only */
     gchar address[128];
     g_snprintf (address, 127, "unix:path=%s/%s-%d", TLM_DBUS_SOCKET_PATH,
-            seat_id, user_id);
+            user->seatid, ui_user_id);
+    DBG ("address to connect = %s", address);
     return g_dbus_connection_new_for_address_sync (address,
             G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT, NULL, NULL, error);
 }
@@ -275,7 +282,7 @@ _get_launcher_bus_connection (
     GVariant *sessioninfo = NULL;
     gchar *address = NULL;
 
-    connection = _get_root_socket_bus_connection (&error);
+    connection = _get_tlm_socket_bus_connection (&error);
     if (connection == NULL) {
         WARN("failed to get bus connection : error %s",
                 error ? error->message : "(null)");
@@ -363,7 +370,7 @@ _handle_user_login (
     }
     DBG ("username %s seatid %s", user->username, user->seatid);
 
-    login_mgr->connection = _get_bus_connection (user->seatid, &error);
+    login_mgr->connection = _get_bus_connection (user, &error);
     if (login_mgr->connection == NULL) {
         WARN("failed to get bus connection : error %s",
             error ? error->message : "(null)");
@@ -415,7 +422,7 @@ _handle_user_logout (
     }
     DBG ("logout for seatid %s", user->seatid);
 
-    login_mgr->connection = _get_bus_connection (user->seatid, &error);
+    login_mgr->connection = _get_bus_connection (user, &error);
     if (login_mgr->connection == NULL) {
         WARN("failed to get bus connection : error %s",
             error ? error->message : "(null)");
@@ -460,7 +467,7 @@ _handle_user_switch (
     }
     DBG ("username %s seatid %s", user->username, user->seatid);
 
-    login_mgr->connection = _get_bus_connection (user->seatid, &error);
+    login_mgr->connection = _get_bus_connection (user, &error);
     if (login_mgr->connection == NULL) {
         WARN("failed to get bus connection : error %s",
             error ? error->message : "(null)");
@@ -652,6 +659,9 @@ int main (int argc, char *argv[])
                  "user seat", "seat0" },
         { "env", 0, 0, G_OPTION_ARG_STRING_ARRAY, &user->environment,
                 "user environment", "a 1 b 2" },
+        { "use-seat-dbus", 0, 0, G_OPTION_ARG_INT, &user->use_seat_dbus,
+                "user seat dbus", "use seat socket as dbus interface"
+                        "instead of privileged tlm dbus interface"},
         { NULL }
     };
 

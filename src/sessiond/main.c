@@ -133,6 +133,7 @@ int main (int argc, char **argv)
     _install_sighandlers (main_loop);
 
     tlm_log_init(G_LOG_DOMAIN);
+    tlm_log_init ("TLM_COMMON");
 
     DBG ("Entering main event loop");
 

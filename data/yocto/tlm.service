@@ -1,0 +1,12 @@
+[Unit]
+Description=Tiny Login Manager
+After=systemd-user-sessions.service systemd-logind.service
+Requires=dbus.socket
+
+[Service]
+ExecStart=/usr/bin/tlm -D
+Type=forking
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_KILL CAP_SETGID CAP_SETUID CAP_SETPCAP CAP_SYS_TTY_CONFIG CAP_SETFCAP
+
+[Install]
+WantedBy=multi-user.target

@@ -37,6 +37,10 @@ PKG_CHECK_MODULES([UUID], [uuid])
 AC_SUBST(UUID_CFLAGS)
 AC_SUBST(UUID_LIBS)
 
+# Check for libcap
+AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
+AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not found])])
+
 # Check for libtlm-nfc
 PKG_CHECK_MODULES([LIBTLM_NFC], [libtlm-nfc], [have_libtlm_nfc=yes], [have_libtlm_nfc=no])
 AC_SUBST(LIBTLM_NFC_CFLAGS)
@@ -90,16 +94,16 @@ fi
 # Define socket path
 AC_ARG_ENABLE(sockets-path,
           [  --enable-sockets-path=path  enable dbus sockets path at location'
-           "path" instead of default "/var/run/tlm"],
+           "path" instead of default "/var/tlm"],
           [enable_sockets_path=$enableval],
-          [enable_sockets_path="/var/run/tlm"])
+          [enable_sockets_path="/var/tlm"])
 AC_DEFINE_UNQUOTED(TLM_DBUS_SOCKET_PATH, ["$enable_sockets_path"],
          [Path for dbus sockets])
-AC_DEFINE_UNQUOTED(TLM_DBUS_ROOT_SOCKET_ADDRESS,
+AC_DEFINE_UNQUOTED(TLM_DBUS_SOCKET_ADDRESS,
          ["unix:path=$enable_sockets_path/dbus-sock"], [Address for dbus socket
          accessed by root only])
 AC_SUBST(TLM_DBUS_SOCKET_PATH, "$enable_sockets_path")
-AC_SUBST(TLM_DBUS_ROOT_SOCKET_ADDRESS,
+AC_SUBST(TLM_DBUS_SOCKET_ADDRESS,
     "unix:path=$enable_sockets_path/dbus-sock")
 
 # Define runtime dir prefix
