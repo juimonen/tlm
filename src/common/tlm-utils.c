@@ -165,21 +165,26 @@ tlm_utils_delete_dir (
     return TRUE;
 }
 
-static gchar *
+static void
 _get_tty_id (
+        gchar *tty_id,
         const gchar *tty_name)
 {
-    gchar *id = NULL;
-    const gchar *tmp = tty_name;
+    /* for "/dev/pts/X" id should be "/X",
+     * for "/dev/ttyX" id should be "ttyX
+     * for X displays id should be ":X.N"
+     * or other max 4-char unique id
+     */
+    if (strncmp (tty_name, "pts/", 4) == 0)
+        tty_name += 3;
 
-    while (tmp) {
-        if (isdigit (*tmp)) {
-            id = g_strdup (tmp);
-            break;
-        }
-        tmp++;
-    }
-    return id;
+    guint len = strlen (tty_name);
+    gint offs = (gint) len - 4;
+
+    if (offs > 0)
+        memcpy (tty_id, tty_name + offs, 4);
+    else
+        memcpy (tty_id, tty_name, len);
 }
 
 static gchar *
@@ -255,7 +260,7 @@ tlm_utils_log_utmp_entry (const gchar *username)
     struct utmp *ut_tmp = NULL;
     gchar *hostname = NULL, *hostaddress = NULL;
     const gchar *tty_name = NULL;
-    gchar *tty_no_dev_name = NULL, *tty_id = NULL;
+    gchar *tty_no_dev_name = NULL
 
     DBG ("Log session entry to utmp/wtmp");
 
@@ -263,10 +268,9 @@ tlm_utils_log_utmp_entry (const gchar *username)
     hostaddress = _get_host_address (hostname);
     tty_name = ttyname (0);
     if (tty_name) {
-        tty_no_dev_name = g_strdup (strncmp(tty_name, "/dev/", 5) == 0 ?
-            tty_name + 5 : tty_name);
+        tty_no_dev_name = g_strdup (
+            (strncmp (tty_name, "/dev/", 5) == 0) ? tty_name + 5 : tty_name);
     }
-    tty_id = _get_tty_id (tty_no_dev_name);
     pid = getpid ();
     utmpname (_PATH_UTMP);
 
@@ -286,8 +290,8 @@ tlm_utils_log_utmp_entry (const gchar *username)
 
     ut_ent.ut_type = USER_PROCESS;
     ut_ent.ut_pid = pid;
-    if (tty_id)
-        strncpy (ut_ent.ut_id, tty_id, sizeof (ut_ent.ut_id));
+    if (tty_no_dev_name)
+        _get_tty_id (ut_ent.ut_id, tty_no_dev_name);
     if (username)
         strncpy (ut_ent.ut_user, username, sizeof (ut_ent.ut_user));
     if (tty_no_dev_name)
@@ -314,7 +318,6 @@ tlm_utils_log_utmp_entry (const gchar *username)
     g_free (hostaddress);
     g_free (hostname);
     g_free (tty_no_dev_name);
-    g_free (tty_id);
 }
 
 static gchar **
