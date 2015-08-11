@@ -345,7 +345,7 @@ tlm_process_manager_launch_process (
     gint i;
 
     DBG ("start process with path %s", command);
-    g_return_if_fail (self && TLM_IS_PROCESS_MANAGER(self));
+    g_return_val_if_fail (self && TLM_IS_PROCESS_MANAGER(self), FALSE);
 
     pid_t child_pid = fork ();
     if (child_pid) {
@@ -401,7 +401,7 @@ tlm_process_manager_stop_process (
         GError **error)
 {
     DBG ("stop process with id %d", procid);
-    g_return_if_fail (self && TLM_IS_PROCESS_MANAGER(self));
+    g_return_val_if_fail (self && TLM_IS_PROCESS_MANAGER(self), FALSE);
     struct ProcessObject *obj = g_hash_table_lookup (
             self->priv->launched_processes, GUINT_TO_POINTER (procid));
 
@@ -420,9 +420,9 @@ gboolean
 tlm_process_manager_list_processes (
         TlmProcessManager *self)
 {
-    g_return_if_fail (self && TLM_IS_PROCESS_MANAGER(self));
+    g_return_val_if_fail (self && TLM_IS_PROCESS_MANAGER(self), FALSE);
 
-    //TODO
+    return FALSE;
 }
 
 static void
