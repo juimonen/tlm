@@ -260,7 +260,7 @@ tlm_utils_log_utmp_entry (const gchar *username)
     struct utmp *ut_tmp = NULL;
     gchar *hostname = NULL, *hostaddress = NULL;
     const gchar *tty_name = NULL;
-    gchar *tty_no_dev_name = NULL
+    gchar *tty_no_dev_name = NULL;
 
     DBG ("Log session entry to utmp/wtmp");
 
