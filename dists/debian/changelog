@@ -1,3 +1,9 @@
+tlm (1.2.1) unstable; urgency=low
+
+  * Fixed a bug where tlm-launcher child processes are not terminated properly
+
+ -- Jussi Laako <jussi.laako@linux.intel.com>  Tue, 01 Sep 2015 16:35:00 +0300
+
 tlm (1.2.0-0) unstable; urgency=low
 
   * Fixed bugs where child process becomes zombie
