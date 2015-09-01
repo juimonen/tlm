@@ -6,6 +6,7 @@
  * Copyright (C) 2015 Intel Corporation.
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
+ *          Jussi Laako <jussi.laako@linux.intel.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -52,9 +53,9 @@ G_DEFINE_TYPE (TlmProcessManager, tlm_process_manager, G_TYPE_OBJECT);
 
 struct ProcessObject
 {
-	pid_t pid;
-	gchar *path;
-	gchar *args;
+    pid_t pid;
+    gchar *path;
+    gchar *args;
     int last_sig;
     guint timer_id;
     guint watch_id;
@@ -131,8 +132,8 @@ _stop_process_timeout (gpointer user_data)
         case SIGTERM:
             DBG ("process %u didn't respond to SIGTERM, sending SIGKILL",
                  obj->pid);
-            if (kill (obj->pid, SIGKILL))
-                WARN ("kill(%u, SIGKILL): %s", obj->pid, strerror(errno));
+            if (killpg (obj->pid, SIGKILL))
+                WARN ("killpg(%u, SIGKILL): %s", obj->pid, strerror(errno));
             obj->last_sig = SIGKILL;
             return G_SOURCE_CONTINUE;
         case SIGKILL:
@@ -148,20 +149,19 @@ _stop_process_timeout (gpointer user_data)
 
 static void
 _stop_process (
-		pid_t pid,
 		struct ProcessObject *obj,
         TlmProcessManager *self)
 {
-    DBG ("Stop process with pid %d", pid);
+    DBG ("Stop process with pid %d", obj->pid);
 
-    if (kill (pid, 0) != 0) {
+    if (kill (obj->pid, 0) != 0) {
         DBG ("no launcher process is running");
         obj->timer_id = 0;
         return;
     }
 
-    if (kill (pid, SIGTERM) < 0)
-        WARN ("kill(%u, SIGTERM): %s", pid, strerror(errno));
+    if (killpg (obj->pid, SIGTERM) < 0)
+        WARN ("killpg(%u, SIGTERM): %s", obj->pid, strerror(errno));
     obj->last_sig = SIGTERM;
     obj->timer_id = g_timeout_add_seconds (
             tlm_config_get_uint (self->priv->config, TLM_CONFIG_GENERAL,
@@ -171,12 +171,11 @@ _stop_process (
 
 static void
 _stop_process_blocking (
-        pid_t pid,
         gpointer proc_obj,
         TlmProcessManager *self)
 {
 	struct ProcessObject *obj = proc_obj;
-	_stop_process (pid, obj, self);
+	_stop_process (obj, self);
 	while (obj->timer_id != 0)
 	      g_main_context_iteration(NULL, TRUE);
 }
@@ -193,7 +192,7 @@ _stop_all_processes_blocking (
         while (g_hash_table_iter_next (&iter,
                 (gpointer)&key,
                 (gpointer)&value)) {
-            _stop_process_blocking (key, value, self);
+            _stop_process_blocking (value, self);
         }
         g_hash_table_unref (self->priv->launched_processes);
         self->priv->launched_processes = NULL;
@@ -328,7 +327,7 @@ _on_process_down_cb (
     if (!self->priv->launched_processes ||
         g_hash_table_size (self->priv->launched_processes) == 0) {
         DBG("All childs dead, going down...");
-        kill (getpid(), SIGINT);
+        kill (0, SIGINT);
     }
 }
 
@@ -349,9 +348,10 @@ tlm_process_manager_launch_process (
 
     pid_t child_pid = fork ();
     if (child_pid) {
-    	DBG ("setup watch for the new process with pid %u", child_pid);
+        DBG ("setup watch for the new process with pid %u", child_pid);
     	struct ProcessObject *obj = g_malloc0 (sizeof (struct ProcessObject));
     	obj->pid = child_pid;
+        setpgid(child_pid, 0);
         obj->is_leader = is_leader;
     	g_hash_table_insert (self->priv->launched_processes,
     			GUINT_TO_POINTER (child_pid), obj);
@@ -406,7 +406,7 @@ tlm_process_manager_stop_process (
             self->priv->launched_processes, GUINT_TO_POINTER (procid));
 
     if (obj) {
-        _stop_process (procid, obj, self);
+        _stop_process (obj, self);
     } else {
         if (error)
             *error = TLM_GET_ERROR_FOR_ID (TLM_ERROR_INVALID_INPUT,
