@@ -3,9 +3,10 @@
 /*
  * This file is part of tlm (Tiny Login Manager)
  *
- * Copyright (C) 2013-2014 Intel Corporation.
+ * Copyright (C) 2013-2015 Intel Corporation.
  *
  * Contact: Amarnath Valluri <amarnath.valluri@linux.intel.com>
+ *          Jussi Laako <jussi.laako@linux.intel.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,7 +31,9 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/types.h>
+#include <sys/prctl.h>
 #include <glib.h>
 
 #include "common/tlm-log.h"
@@ -39,12 +42,57 @@
 
 typedef struct {
   GMainLoop *loop;
+  guint sig_source_id[2];
   FILE *fp;
   guint socket_watcher;
   TlmProcessManager *proc_manager;
 } TlmLauncher;
 
 static void _tlm_launcher_process (TlmLauncher *l);
+
+static gboolean
+_handle_quit_signal (gpointer user_data)
+{
+    TlmLauncher *l = (TlmLauncher *) user_data;
+
+    g_return_val_if_fail (l != NULL, G_SOURCE_CONTINUE);
+    DBG ("Received quit signal");
+    if (l->proc_manager) {
+        g_object_unref (l->proc_manager);
+        l->proc_manager = NULL;
+    }
+    if (l->loop)
+        g_main_loop_quit (l->loop);
+
+    return G_SOURCE_CONTINUE;
+}
+
+static void
+_install_sighandlers (TlmLauncher *l)
+{
+    GSource *source = NULL;
+    GMainContext *ctx = g_main_loop_get_context (l->loop);
+
+    if (signal (SIGINT, SIG_IGN) == SIG_ERR)
+        WARN ("failed to ignore SIGINT: %s", strerror(errno));
+
+    source = g_unix_signal_source_new (SIGTERM);
+    g_source_set_callback (source,
+                           _handle_quit_signal,
+                           l,
+                           NULL);
+    l->sig_source_id[0] = g_source_attach (source, ctx);
+
+    source = g_unix_signal_source_new (SIGHUP);
+    g_source_set_callback (source,
+                           _handle_quit_signal,
+                           l,
+                           NULL);
+    l->sig_source_id[1] = g_source_attach (source, ctx);
+
+    if (prctl(PR_SET_PDEATHSIG, SIGHUP))
+        WARN ("failed to set parent death signal");
+}
 
 static void
 _tlm_launcher_init (TlmLauncher *l)
@@ -54,6 +102,7 @@ _tlm_launcher_init (TlmLauncher *l)
   l->fp = NULL;
   l->socket_watcher = 0;
   l->proc_manager = 0;
+  _install_sighandlers (l);
 }
 
 static void
@@ -62,16 +111,19 @@ _tlm_launcher_deinit (TlmLauncher *l)
   if (!l) return;
 
   if (l->fp) {
-    fclose (l->fp);
-    l->fp = NULL;
+      fclose (l->fp);
+      l->fp = NULL;
   }
 
   if (l->socket_watcher) {
-    g_source_remove (l->socket_watcher);
-    l->socket_watcher = 0;
+      g_source_remove (l->socket_watcher);
+      l->socket_watcher = 0;
   }
   if (l->proc_manager)
       g_object_unref (l->proc_manager);
+
+  g_source_remove (l->sig_source_id[1]);
+  g_source_remove (l->sig_source_id[0]);
 }
 
 static gboolean
