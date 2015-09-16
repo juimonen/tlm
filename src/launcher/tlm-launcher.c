@@ -70,25 +70,11 @@ _handle_quit_signal (gpointer user_data)
 static void
 _install_sighandlers (TlmLauncher *l)
 {
-    GSource *source = NULL;
-    GMainContext *ctx = g_main_loop_get_context (l->loop);
-
     if (signal (SIGINT, SIG_IGN) == SIG_ERR)
         WARN ("failed to ignore SIGINT: %s", strerror(errno));
 
-    source = g_unix_signal_source_new (SIGTERM);
-    g_source_set_callback (source,
-                           _handle_quit_signal,
-                           l,
-                           NULL);
-    l->sig_source_id[0] = g_source_attach (source, ctx);
-
-    source = g_unix_signal_source_new (SIGHUP);
-    g_source_set_callback (source,
-                           _handle_quit_signal,
-                           l,
-                           NULL);
-    l->sig_source_id[1] = g_source_attach (source, ctx);
+    l->sig_source_id[0] = g_unix_signal_add (SIGTERM, _handle_quit_signal, l);
+    l->sig_source_id[1] = g_unix_signal_add (SIGHUP, _handle_quit_signal, l);
 
     if (prctl(PR_SET_PDEATHSIG, SIGHUP))
         WARN ("failed to set parent death signal");
