@@ -29,6 +29,7 @@
 #include <string.h>
 #include <signal.h>
 #include <glib.h>
+#include <glib-unix.h>
 
 #include "tlm-auth-plugin-default.h"
 #include "tlm-log.h"
@@ -61,6 +62,7 @@ struct _TlmAuthPluginDefault
     GObject parent;
     /* priv */
     GHashTable *config;
+    guint src_id;
 };
 
 enum {
@@ -91,28 +93,45 @@ _plugin_finalize (GObject *self)
 
     if (plugin->config) g_hash_table_unref (plugin->config);
 
+    g_source_remove (plugin->src_id);
     g_weak_ref_clear (&__self);
 
     G_OBJECT_CLASS (tlm_auth_plugin_default_parent_class)->finalize(self);
 }
 
-static void
-_on_signal_cb (int sig_no)
+static gboolean
+_on_signal_cb (gpointer user_data)
 {
-    DBG("Signal '%d'", sig_no);
+    (void) user_data;
+
+    DBG("Re-login signal received");
     TlmAuthPluginDefault *self = g_weak_ref_get (&__self);
+    if (!self) return G_SOURCE_REMOVE;
 
-    if (!self) return ;
+    const gchar *seat = (const gchar *)
+        g_hash_table_lookup (self->config, "seat");
+    const gchar *service = (const gchar *)
+        g_hash_table_lookup (self->config, "service");
+    const gchar *user = (const gchar *)
+        g_hash_table_lookup (self->config, "user");
+    const gchar *password = (const gchar *)
+        g_hash_table_lookup (self->config, "password");
 
+    if (!seat || !service) {
+        WARN ("Empty default auth plugin configuration!");
+        return G_SOURCE_CONTINUE;
+    }
     /* re-login guest on seat0 */
     if (!tlm_auth_plugin_start_authentication (
                 TLM_AUTH_PLUGIN(self),
-                "seat0",
-                "tlm-login",
-                NULL,
-                NULL)) {
+                seat,
+                service,
+                user,
+                password)) {
         WARN ("Failed to create session");
     }
+
+    return G_SOURCE_CONTINUE;
 }
 
 static void
@@ -169,14 +188,9 @@ tlm_auth_plugin_default_class_init (TlmAuthPluginDefaultClass *kls)
 static void
 tlm_auth_plugin_default_init (TlmAuthPluginDefault *self)
 {
-    struct sigaction sa = { 0 };
-
     g_weak_ref_init (&__self, self);
 
-    sa.sa_handler = _on_signal_cb;
-    if (sigaction(SIGUSR1, &sa, NULL) != 0) {
-        WARN ("assert(sigaction()) : %s", strerror(errno));
-    }
+    self->src_id = g_unix_signal_add (SIGUSR1, _on_signal_cb, self);
 
     tlm_log_init("TLM_AUTH_PLUGIN");
 }

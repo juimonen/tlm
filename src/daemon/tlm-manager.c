@@ -381,10 +381,10 @@ _load_auth_plugins (TlmManager *self)
                 continue;
             }
 
-            DBG ("loading auth plugin '%s'", plugin_file_name);
- 
             plugin_name = g_strdup (plugin_file_name + 14); // truncate prefix
             plugin_name[strlen(plugin_name) - 3] = '\0' ; // truncate suffix
+            DBG ("loading auth plugin '%s' from '%s'",
+                 plugin_name, plugin_file_name);
 
             plugin_config = tlm_config_get_group (self->priv->config,
                                                   plugin_name);
