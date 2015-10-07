@@ -432,7 +432,7 @@ const gchar *
 tlm_dbus_login_adapter_get_sessionid (
         TlmDbusLoginAdapter *self)
 {
-    g_return_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self));
+    g_return_val_if_fail (self && TLM_IS_DBUS_LOGIN_ADAPTER(self), NULL);
     return self->priv->sessionid;
 }
 
