@@ -1,3 +1,10 @@
+tlm (1.2.2) stable; urgency=low
+
+  * Fix signal handling issues
+  * Fix issues found by Coverity
+
+ -- Jussi Laako <jussi.laako@linux.intel.com>  Wed, 07 Oct 2015 15:16:00 +0300
+
 tlm (1.2.1) unstable; urgency=low
 
   * Fixed a bug where tlm-launcher child processes are not terminated properly

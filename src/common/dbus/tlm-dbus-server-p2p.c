@@ -3,7 +3,7 @@
 /*
  * This file is part of tlm
  *
- * Copyright (C) 2014-15 Intel Corporation.
+ * Copyright (C) 2014-2015 Intel Corporation.
  *
  * Contact: Imran Zaman <imran.zaman@intel.com>
  *
@@ -464,7 +464,7 @@ GHashTable *
 tlm_dbus_server_p2p_get_dbus_adaptors (
         TlmDbusServerP2P *server)
 {
-    g_return_if_fail (TLM_IS_DBUS_SERVER_P2P (server));
+    g_return_val_if_fail (TLM_IS_DBUS_SERVER_P2P (server), NULL);
     return server->priv->adaptor_objects;
 }
 
