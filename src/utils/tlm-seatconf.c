@@ -247,10 +247,14 @@ int main (int argc, char *argv[])
                                 nwatch);
     }
     if (watchx) {
+        gchar *kname = g_strdup_printf ("%s%d",
+                                        TLM_CONFIG_SEAT_WATCHX,
+                                        nwatch - 1);
         g_key_file_set_string (kf,
                                sname,
-                               TLM_CONFIG_SEAT_WATCHX,
+                               kname,
                                watchx);
+        g_free (kname);
     }
     if (vtnr >= 0) {
         g_key_file_set_integer (kf,
